@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20210316"
+#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20210317"
 #define  LIB_IWMUTIL_COPYLIGHT "Copyright (C)2008-2021 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -107,6 +107,7 @@ VOID     icalloc_mapPrint2();
 /////////////////////////////////////////////////////////////////////////////////////////
 VOID     P(CONST MBS *format,...);
 VOID     PR(MBS *pM,INT repeat);
+VOID     PZ(UINT rgb,MBS *format,...);
 
 #define  PC(pM)                                  putchar(*pM)
 #define  PP(pM)                                  P("[%p] ",pM)

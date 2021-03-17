@@ -473,6 +473,28 @@ PR(
 		P(pM);
 	}
 }
+//---------------
+// 色文字を表示
+//---------------
+/* (例)
+	UINT defaultColor = iConsole_getBgcolor(); // 元の色を保存
+	PZ(15, "カラー文字：%s\n", "白"); //=> "カラー文字：白\n"
+	PZ(defaultColor, NULL); // 元の色に戻す
+*/
+// v2021-03-17
+VOID
+PZ(
+	UINT rgb, // iConsole_setTextColor() 参照
+	MBS *format,
+	...
+)
+{
+	iConsole_setTextColor(rgb);
+	va_list va;
+	va_start(va, format);
+		vfprintf(stdout, format, va);
+	va_end(va);
+}
 //-----------------------
 // EscapeSequenceへ変換
 //-----------------------
