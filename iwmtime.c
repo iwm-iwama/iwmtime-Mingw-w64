@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20210316"
+#define   IWM_VERSION         "iwmtime_20210317"
 #define   IWM_COPYRIGHT       "Copyright (C)2021 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil.h"
@@ -13,13 +13,19 @@ VOID print_help();
 //  4 = Maroon   5 = Purple   6 = Olive    7 = Silver
 //  8 = Gray     9 = Blue    10 = Lime    11 = Aqua
 // 12 = Red     13 = Fuchsia 14 = Yellow  15 = White
-#define   ColorTitle          (15 + ( 9 * 16))
-#define   ColorHeaderFooter   ( 7 + ( 0 * 16))
-#define   ColorBgText1        (15 + (12 * 16))
-#define   ColorExp1           (13 + ( 0 * 16))
-#define   ColorExp2           (14 + ( 0 * 16))
-#define   ColorExp3           (11 + ( 0 * 16))
-#define   ColorText1          (15 + ( 0 * 16))
+
+// タイトル
+#define   COLOR01             (15 + ( 9 * 16))
+// 入力例／注
+#define   COLOR11             (15 + (12 * 16))
+#define   COLOR12             (13 + ( 0 * 16))
+#define   COLOR13             (12 + ( 0 * 16))
+// 引数
+#define   COLOR21             (14 + ( 0 * 16))
+#define   COLOR22             (11 + ( 0 * 16))
+// 説明
+#define   COLOR91             (15 + ( 0 * 16))
+#define   COLOR92             ( 7 + ( 0 * 16))
 
 MBS  *$program     = "";
 MBS  **$args       = {0};
@@ -60,22 +66,18 @@ main()
 
 	MBS s1[32] = "";
 
-	P ("\e[0;97m");
+	PZ(COLOR91, NULL);
 	LN();
-	P ("  Program  %s", cmd);
-	NL();
+	P ("  Program  %s\n", cmd);
 	sprintf(s1, "%d", ((iEndMem - iBgnMem) / 1024));
-	P ("  Memory   %s KB (Including System Usage)", ims_addTokenNStr(s1));
-	NL();
+	P ("  Memory   %s KB (Including System Usage)\n", ims_addTokenNStr(s1));
 	sprintf(s1, "%.4f", dPassedSec);
-	P ("  Exec     %s SEC", ims_addTokenNStr(s1));
-	NL();
+	P ("  Exec     %s SEC\n", ims_addTokenNStr(s1));
 	LN();
-	P ("\e[0;98m");
+	PZ($colorDefault, NULL);
 
-	/// icalloc_mapPrint();
-	ifree_all();
-	/// icalloc_mapPrint();
+	// Debug
+	/// icalloc_mapPrint(); ifree_all(); icalloc_mapPrint();
 
 	// 最終処理
 	imain_end();
@@ -85,41 +87,23 @@ VOID
 print_version()
 {
 	LN();
-	P (" %s", IWM_COPYRIGHT);
-	NL();
-	P ("   Ver.%s+%s", IWM_VERSION, LIB_IWMUTIL_VERSION);
-	NL();
+	P (" %s\n", IWM_COPYRIGHT);
+	P ("   Ver.%s+%s\n", IWM_VERSION, LIB_IWMUTIL_VERSION);
+	LN();
 }
 
 VOID
 print_help()
 {
-	iConsole_setTextColor(ColorHeaderFooter);
+	PZ(COLOR92, NULL);
 		print_version();
+	PZ(COLOR01, " コマンドの実行時間を計測 \n\n");
+	PZ(COLOR11, " %s [コマンド] [引数] ... \n\n", $program);
+	PZ(COLOR12, " (例１)\n");
+	PZ(COLOR91, "   > %s notepad\n\n", $program);
+	PZ(COLOR12, " (例２)\n");
+	PZ(COLOR91, "   > %s dir \"..\" /b\n\n", $program);
+	PZ(COLOR92, NULL);
 		LN();
-	iConsole_setTextColor(ColorTitle);
-		P (" コマンドの実行時間を計測 ");
-	iConsole_setTextColor($colorDefault);
-		NL();
-		NL();
-	iConsole_setTextColor(ColorBgText1);
-		P (" %s [コマンド] [引数] ... ", $program);
-	iConsole_setTextColor($colorDefault);
-		NL();
-		NL();
-	iConsole_setTextColor(ColorExp1);
-		P2(" (例１)");
-	iConsole_setTextColor(ColorText1);
-		P ("   > %s notepad", $program);
-	iConsole_setTextColor(ColorExp1);
-		NL();
-		NL();
-		P2(" (例２)");
-	iConsole_setTextColor(ColorText1);
-		P ("   > %s dir \"..\" /b", $program);
-	iConsole_setTextColor(ColorHeaderFooter);
-		NL();
-		NL();
-		LN();
-	iConsole_setTextColor($colorDefault);
+	PZ($colorDefault, NULL);
 }
