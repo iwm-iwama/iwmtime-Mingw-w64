@@ -65,6 +65,17 @@
 */
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
+	大域変数
+---------------------------------------------------------------------------------------*/
+/////////////////////////////////////////////////////////////////////////////////////////
+MBS    *$IWM_Cmd          = "";  // コマンド名を格納
+MBS    **$IWM_CmdOption   = {0}; // ARGVを格納
+UINT   $IWM_CmdOptionSize = 0;   // ARGCを格納
+HANDLE $IWM_StdoutHandle  = 0;   // 画面制御用ハンドル
+UINT   $IWM_ColorDefault  = 0;   // コンソール色
+UINT   $IWM_ExecSecBgn    = 0;   // 実行開始時間
+/////////////////////////////////////////////////////////////////////////////////////////
+/*---------------------------------------------------------------------------------------
 	実行開始時間
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -75,19 +86,23 @@
 		経過時間は 0 に戻ります。
 */
 /* (例)
-	UINT TmBgn = iExecSec_init(); // 実行開始時間
+	iExecSec_init(); //=> $IWM_ExecSecBgn // 実行開始時間
 	Sleep(2000);
-	P("-- %.6fsec\n\n", iExecSec_next(TmBgn));
+	P("-- %.6fsec\n\n", iExecSec_next());
 	Sleep(1000);
-	P("-- %.6fsec\n\n", iExecSec_next(TmBgn));
+	P("-- %.6fsec\n\n", iExecSec_next());
 */
-// v2015-10-24
+// v2021-03-19
 UINT
 iExecSec(
-	CONST UINT microSec // 0のときInit
+	CONST UINT microSec // 0のとき Init
 )
 {
 	UINT microSec2 = GetTickCount();
+	if(!microSec)
+	{
+		$IWM_ExecSecBgn = microSec2;
+	}
 	return (microSec2 < microSec ? 0 : (microSec2 - microSec)); // Err = 0
 }
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -357,7 +372,8 @@ icalloc_mapPrint1()
 	{
 		return;
 	}
-	UINT _getConsoleColor = iConsole_getBgcolor(); // 現在値を保存
+	iConsole_getColor();
+
 	iConsole_setTextColor(9 + (0 * 16));
 	P2("-1 ----------- 8 ------------ 16 ------------ 24 ------------ 32--------");
 	CONST UINT _rowsCnt = 32;
@@ -381,8 +397,8 @@ icalloc_mapPrint1()
 		}
 		P(" %7u", u2);
 		uRowsCnt += _rowsCnt;
-		// 背景色コントロール
-		iConsole_setTextColor(_getConsoleColor);
+
+		iConsole_setTextColor(-1);
 		NL();
 	}
 }
@@ -390,7 +406,8 @@ icalloc_mapPrint1()
 VOID
 icalloc_mapPrint2()
 {
-	UINT _getConsoleColor = iConsole_getBgcolor(); // 現在値を保存
+	iConsole_getColor();
+
 	iConsole_setTextColor(9 + (0 * 16));
 	P2("------- id ---- pointer -- array --- byte ------------------------------");
 	$struct_icallocMap *map = 0;
@@ -413,8 +430,7 @@ icalloc_mapPrint2()
 				(map->size),
 				(map->ptr)
 			);
-			// 背景色コントロール
-			iConsole_setTextColor(_getConsoleColor);
+			iConsole_setTextColor(-1);
 			NL();
 		}
 		++u1;
@@ -425,7 +441,7 @@ icalloc_mapPrint2()
 		uUsedCnt,
 		uUsedSize
 	);
-	iConsole_setTextColor(_getConsoleColor);
+	iConsole_setTextColor(-1);
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -477,19 +493,23 @@ PR(
 // 色文字を表示
 //---------------
 /* (例)
-	UINT defaultColor = iConsole_getBgcolor(); // 元の色を保存
+	iConsole_getColor(); //=> $IWM_ColorDefault // 元の色を保存
 	PZ(15, "カラー文字：%s\n", "白"); //=> "カラー文字：白\n"
-	PZ(defaultColor, NULL); // 元の色に戻す
+	PZ(-1, NULL); // 元の色に戻す
 */
-// v2021-03-17
+// v2021-03-19
 VOID
 PZ(
-	UINT rgb, // iConsole_setTextColor() 参照
+	INT rgb, // iConsole_setTextColor() 参照
 	MBS *format,
 	...
 )
 {
-	iConsole_setTextColor(rgb);
+	if(rgb < 0)
+	{
+		rgb = $IWM_ColorDefault;
+	}
+	SetConsoleTextAttribute($IWM_StdoutHandle, rgb);
 	va_list va;
 	va_start(va, format);
 		vfprintf(stdout, format, va);
@@ -2686,42 +2706,46 @@ MBS
 // コマンド名を取得
 //-------------------
 /* (例)
-	MBS *p1 = iCmdline_getCmd(); // "a.exe 123 abc ..."
-	P82(p1); //=> "a.exe"
+	iCLI_getCmd(); //=> $IWM_Cmd
+	// "a.exe 123 abc ..."
+	P82($IWM_Cmd); //=> "a.exe"
 */
-// v2016-08-12
+// v2021-03-19
 MBS
-*iCmdline_getCmd()
+*iCLI_getCmd()
 {
 	MBS *pBgn = GetCommandLineA();
 	MBS *pEnd = pBgn;
 	for(; *pEnd && *pEnd != ' '; pEnd++);
-	return ims_pclone(pBgn, pEnd);
+	$IWM_Cmd = ims_pclone(pBgn, pEnd);
+	return $IWM_Cmd;
 }
 //--------------------------------
 // 引数を取得（コマンド名は除去）
 //--------------------------------
 /* (例)
-	// コマンド名／引数
-	MBS  **$program = iCmdline_getCmd();
-	MBS  **$args    = iCmdline_getArgs();
-	UINT $argsSize  = iary_size($args);
+	// "a.exe 123 abc"
+	iCLI_getCmdOpt();
+		//=> $IWM_CmdOption     => ["123", "abc"]
+		//=> $IWM_CmdOptionSize => 2
 */
-// v2020-05-30
+// v2021-03-19
 MBS
-**iCmdline_getArgs()
+**iCLI_getCmdOpt()
 {
 	MBS *pBgn = ijs_trim(GetCommandLineA());
 	for(; *pBgn && *pBgn != ' '; pBgn++); // コマンド部分をスルー
 	if(*pBgn)
 	{
 		// quote = [""]['']のみ対象
-		return ija_split(pBgn, " ", "\"\"\'\'", TRUE);
+		$IWM_CmdOption = ija_split(pBgn, " ", "\"\"\'\'", TRUE);
 	}
 	else
 	{
-		return ima_null();
+		$IWM_CmdOption = ima_null();
 	}
+	$IWM_CmdOptionSize = iary_size($IWM_CmdOption);
+	return $IWM_CmdOption;
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -2754,7 +2778,7 @@ WCS
 // 配列サイズを取得
 //-------------------
 /* (例)
-	MBS **ary = iCmdline_getArgs(); // {"123", "45", "abc", NULL}
+	MBS **ary = iCLI_getCmdOpt(); // {"123", "45", "abc", NULL}
 	INT i1 = iary_size(ary); //=> 3
 */
 // v2016-01-19
@@ -2787,7 +2811,7 @@ iwary_size(
 // 配列の合計長を取得
 //---------------------
 /* (例)
-	MBS **ary = iCmdline_getArgs();  // {"123", "岩間", NULL}
+	MBS **ary = iCLI_getCmdOpt();  // {"123", "岩間", NULL}
 	INT i1 = iary_Mlen(ary); //=> 7
 	INT i2 = iary_Jlen(ary); //=> 5
 */
@@ -2823,7 +2847,7 @@ iary_Jlen(
 // 配列をqsort
 //--------------
 /* (例)
-	MBS **ary = iCmdline_getArgs();
+	MBS **ary = iCLI_getCmdOpt();
 	// 元データ
 	P8();
 	iary_print(ary);
@@ -2890,7 +2914,7 @@ iary_sort(
 // 配列を文字列に変換
 //---------------------
 /* (例)
-	MBS **ary = iCmdline_getArgs();
+	MBS **ary = iCLI_getCmdOpt();
 	MBS *p1 = iary_join(ary, "\t");
 	P82(p1);
 */
@@ -3118,7 +3142,7 @@ MBS
 // 配列のクローン作成
 //---------------------
 /* (例)
-	MBS **ary1 = iCmdline_getArgs();
+	MBS **ary1 = iCLI_getCmdOpt();
 	MBS **ary2 = iary_clone(ary1);
 	P83(iary_size(ary1));
 		iary_print(ary1);
@@ -4203,9 +4227,9 @@ imk_dir(
 // 現在の文字・画面の表示色を得る
 //---------------------------------
 /* (注)
-	背景色を設定する場合、
-	画面バッファ不足になると表示に不具合が発生する。
-	バグではない。
+	画面色を設定する場合、
+	バッファ不足になると表示に不具合が発生する（バグではない）。
+	都度 cls すれば治る。
 */
 /* (例)
 	// [文字色]+([背景色]*16)
@@ -4213,25 +4237,32 @@ imk_dir(
 	//  4 = Maroon   5 = Purple   6 = Olive    7 = Silver
 	//  8 = Gray     9 = Blue    10 = Lime    11 = Aqua
 	// 12 = Red     13 = Fuchsia 14 = Yellow  15 = White
-	UINT _getConsoleColor = iConsole_getBgcolor(); // 現在値を保存
-	iConsole_setTextColor(9 + (15 * 16));
-	iConsole_setTextColor(_getConsoleColor); // 初期化
+	iConsole_getColor();
+		//=> $IWM_ColorDefault // 現在色を保存
+		//=> $IWM_StdoutHandle // 画面ハンドルを保存
+	iConsole_setTextColor(9 + (15 * 16)); // 変更
+	iConsole_setTextColor(-1); // 元の色に戻す
 */
-// v2012-07-20
+// v2021-03-19
 UINT
-iConsole_getBgcolor()
+iConsole_getColor()
 {
-	HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+	$IWM_StdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_SCREEN_BUFFER_INFO info;
-	GetConsoleScreenBufferInfo(handle, &info);
-	return info.wAttributes;
+	GetConsoleScreenBufferInfo($IWM_StdoutHandle, &info);
+	$IWM_ColorDefault = info.wAttributes;
+	return $IWM_ColorDefault;
 }
-// v2012-07-20
+// v2021-03-19
 VOID
 iConsole_setTextColor(
-	UINT rgb // 表示色
+	INT rgb // 表示色
 )
 {
+	if(rgb < 0)
+	{
+		rgb = $IWM_ColorDefault;
+	}
 	HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
 	SetConsoleTextAttribute(handle, rgb);
 }
@@ -5752,7 +5783,7 @@ iConsole_progress(
 {
 	INT i1 = 0;
 	INT cnt = 0, ln = 0;
-	INT textcolor_org = iConsole_getBgcolor(); // 現在のテキスト色を保存
+	UINT textcolor_org = iConsole_getColor(); // 現在のテキスト色を保存
 	DOUBLE d1 = 0.0, d2 = 0.0;
 	DOUBLE dWidth = (partWidth * 10);
 	d1 = d2 = (allCnt / dWidth); // Float計算でも十分速い

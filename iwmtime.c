@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20210317"
+#define   IWM_VERSION         "iwmtime_20210319"
 #define   IWM_COPYRIGHT       "Copyright (C)2021 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil.h"
@@ -27,23 +27,17 @@ VOID print_help();
 #define   COLOR91             (15 + ( 0 * 16))
 #define   COLOR92             ( 7 + ( 0 * 16))
 
-MBS  *$program     = "";
-MBS  **$args       = {0};
-UINT $argsSize     = 0;
-UINT $colorDefault = 0;
-UINT $execMS       = 0;
-
 MEMORYSTATUSEX $msex = { sizeof(MEMORYSTATUSEX) };
 
 INT
 main()
 {
-	$program      = iCmdline_getCmd();
-	$args         = iCmdline_getArgs();
-	$argsSize     = iary_size($args);
-	$colorDefault = iConsole_getBgcolor();
+	// lib_iwmutil 初期化
+	iCLI_getCmd();       //=> $IWM_Cmd
+	iCLI_getCmdOpt();    //=> $IWM_CmdOption, $IWM_CmdOptionSize
+	iConsole_getColor(); //=> $IWM_ColorDefault, $IWM_StdoutHandle
 
-	MBS *cmd = iary_join($args, " ");
+	MBS *cmd = iary_join($IWM_CmdOption, " ");
 
 	if(! imi_len(cmd))
 	{
@@ -56,11 +50,11 @@ main()
 
 	GlobalMemoryStatusEx(&$msex);
 	iBgnMem = $msex.ullAvailPhys;
-	$execMS = iExecSec_init();
+	iExecSec_init(); //=> $IWM_ExecSecBgn
 
 	system(cmd);
 
-	DOUBLE dPassedSec = iExecSec_next($execMS);
+	DOUBLE dPassedSec = iExecSec_next();
 	GlobalMemoryStatusEx(&$msex);
 	iEndMem = $msex.ullAvailPhys;
 
@@ -74,7 +68,7 @@ main()
 	sprintf(s1, "%.4f", dPassedSec);
 	P ("  Exec     %s SEC\n", ims_addTokenNStr(s1));
 	LN();
-	PZ($colorDefault, NULL);
+	PZ(-1, NULL);
 
 	// Debug
 	/// icalloc_mapPrint(); ifree_all(); icalloc_mapPrint();
@@ -98,12 +92,12 @@ print_help()
 	PZ(COLOR92, NULL);
 		print_version();
 	PZ(COLOR01, " コマンドの実行時間を計測 \n\n");
-	PZ(COLOR11, " %s [コマンド] [引数] ... \n\n", $program);
+	PZ(COLOR11, " %s [コマンド] [引数] ... \n\n", $IWM_Cmd);
 	PZ(COLOR12, " (例１)\n");
-	PZ(COLOR91, "   > %s notepad\n\n", $program);
+	PZ(COLOR91, "   > %s notepad\n\n", $IWM_Cmd);
 	PZ(COLOR12, " (例２)\n");
-	PZ(COLOR91, "   > %s dir \"..\" /b\n\n", $program);
+	PZ(COLOR91, "   > %s dir \"..\" /b\n\n", $IWM_Cmd);
 	PZ(COLOR92, NULL);
 		LN();
-	PZ($colorDefault, NULL);
+	PZ(-1, NULL);
 }
