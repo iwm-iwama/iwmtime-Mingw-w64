@@ -33,11 +33,11 @@ INT
 main()
 {
 	// lib_iwmutil 初期化
-	iCLI_getCmd();       //=> $IWM_Cmd
-	iCLI_getCmdOpt();    //=> $IWM_CmdOption, $IWM_CmdOptionSize
+	iCLI_getCMD();       //=> $IWM_CMD
+	iCLI_getARGS();      //=> $IWM_ARGV, $IWM_ARGC
 	iConsole_getColor(); //=> $IWM_ColorDefault, $IWM_StdoutHandle
 
-	MBS *cmd = iary_join($IWM_CmdOption, " ");
+	MBS *cmd = iary_join($IWM_ARGV, " ");
 
 	if(! imi_len(cmd))
 	{
@@ -92,11 +92,11 @@ print_help()
 	PZ(COLOR92, NULL);
 		print_version();
 	PZ(COLOR01, " コマンドの実行時間を計測 \n\n");
-	PZ(COLOR11, " %s [コマンド] [引数] ... \n\n", $IWM_Cmd);
+	PZ(COLOR11, " %s [コマンド] [引数] ... \n\n", $IWM_CMD);
 	PZ(COLOR12, " (例１)\n");
-	PZ(COLOR91, "   > %s notepad\n\n", $IWM_Cmd);
+	PZ(COLOR91, "   > %s notepad\n\n", $IWM_CMD);
 	PZ(COLOR12, " (例２)\n");
-	PZ(COLOR91, "   > %s dir \"..\" /b\n\n", $IWM_Cmd);
+	PZ(COLOR91, "   > %s dir \"..\" /b\n\n", $IWM_CMD);
 	PZ(COLOR92, NULL);
 		LN();
 	PZ(-1, NULL);

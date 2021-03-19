@@ -68,12 +68,12 @@
 	大域変数
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-MBS    *$IWM_Cmd          = "";  // コマンド名を格納
-MBS    **$IWM_CmdOption   = {0}; // ARGVを格納
-UINT   $IWM_CmdOptionSize = 0;   // ARGCを格納
-HANDLE $IWM_StdoutHandle  = 0;   // 画面制御用ハンドル
-UINT   $IWM_ColorDefault  = 0;   // コンソール色
-UINT   $IWM_ExecSecBgn    = 0;   // 実行開始時間
+MBS      *$IWM_CMD         = "";  // コマンド名を格納
+MBS      **$IWM_ARGV       = {0}; // ARGVを格納
+UINT     $IWM_ARGC         = 0;   // ARGCを格納
+HANDLE   $IWM_StdoutHandle = 0;   // 画面制御用ハンドル
+UINT     $IWM_ColorDefault = 0;   // コンソール色
+UINT     $IWM_ExecSecBgn   = 0;   // 実行開始時間
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
 	実行開始時間
@@ -823,7 +823,7 @@ iwi_len(
 	MBS *p1 = "ABあいう";
 	P82(imp_forwardN(p1, 4)); //=> "いう"
 */
-// v2020-05-30
+// v2021-03-20
 MBS
 *imp_forwardN(
 	MBS *pM,   // 開始位置
@@ -835,14 +835,11 @@ MBS
 		return 0;
 	}
 	UINT uCnt = imi_len(pM);
-	if(uCnt < sizeM)
-	{
-		return (pM + uCnt);
-	}
-	else
-	{
-		return (pM + sizeM);
-	}
+
+	return (uCnt < sizeM ?
+		(pM + uCnt) :
+		(pM + sizeM)
+	);
 }
 /* (例)
 	MBS *p1 = "ABあいう";
@@ -2706,46 +2703,41 @@ MBS
 // コマンド名を取得
 //-------------------
 /* (例)
-	iCLI_getCmd(); //=> $IWM_Cmd
+	iCLI_getCMD(); //=> $IWM_CMD
 	// "a.exe 123 abc ..."
-	P82($IWM_Cmd); //=> "a.exe"
+	P82($IWM_CMD); //=> "a.exe"
 */
 // v2021-03-19
 MBS
-*iCLI_getCmd()
+*iCLI_getCMD()
 {
 	MBS *pBgn = GetCommandLineA();
 	MBS *pEnd = pBgn;
 	for(; *pEnd && *pEnd != ' '; pEnd++);
-	$IWM_Cmd = ims_pclone(pBgn, pEnd);
-	return $IWM_Cmd;
+	$IWM_CMD = ims_pclone(pBgn, pEnd);
+	return $IWM_CMD;
 }
 //--------------------------------
 // 引数を取得（コマンド名は除去）
 //--------------------------------
 /* (例)
 	// "a.exe 123 abc"
-	iCLI_getCmdOpt();
-		//=> $IWM_CmdOption     => ["123", "abc"]
-		//=> $IWM_CmdOptionSize => 2
+	iCLI_getARGS();
+		//=> $IWM_ARGV => ["123", "abc"]
+		//=> $IWM_ARGC => 2
 */
-// v2021-03-19
+// v2021-03-20
 MBS
-**iCLI_getCmdOpt()
+**iCLI_getARGS()
 {
 	MBS *pBgn = ijs_trim(GetCommandLineA());
 	for(; *pBgn && *pBgn != ' '; pBgn++); // コマンド部分をスルー
-	if(*pBgn)
-	{
-		// quote = [""]['']のみ対象
-		$IWM_CmdOption = ija_split(pBgn, " ", "\"\"\'\'", TRUE);
-	}
-	else
-	{
-		$IWM_CmdOption = ima_null();
-	}
-	$IWM_CmdOptionSize = iary_size($IWM_CmdOption);
-	return $IWM_CmdOption;
+	$IWM_ARGV = (*pBgn ?
+		ija_split(pBgn, " ", "\"\"\'\'", TRUE) : // quote = [""]['']のみ対象
+		ima_null()
+	);
+	$IWM_ARGC = iary_size($IWM_ARGV);
+	return $IWM_ARGV;
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -2778,8 +2770,8 @@ WCS
 // 配列サイズを取得
 //-------------------
 /* (例)
-	MBS **ary = iCLI_getCmdOpt(); // {"123", "45", "abc", NULL}
-	INT i1 = iary_size(ary); //=> 3
+	MBS **ary = iCLI_getARGS(); // {"123", "45", "abc", NULL}
+	INT i1 = iary_size(ary);    //=> 3
 */
 // v2016-01-19
 UINT
@@ -2811,9 +2803,9 @@ iwary_size(
 // 配列の合計長を取得
 //---------------------
 /* (例)
-	MBS **ary = iCLI_getCmdOpt();  // {"123", "岩間", NULL}
-	INT i1 = iary_Mlen(ary); //=> 7
-	INT i2 = iary_Jlen(ary); //=> 5
+	MBS **ary = iCLI_getARGS(); // {"123", "岩間", NULL}
+	INT i1 = iary_Mlen(ary);    //=> 7
+	INT i2 = iary_Jlen(ary);    //=> 5
 */
 // v2016-01-19
 UINT
@@ -2847,7 +2839,7 @@ iary_Jlen(
 // 配列をqsort
 //--------------
 /* (例)
-	MBS **ary = iCLI_getCmdOpt();
+	MBS **ary = iCLI_getARGS();
 	// 元データ
 	P8();
 	iary_print(ary);
@@ -2914,7 +2906,7 @@ iary_sort(
 // 配列を文字列に変換
 //---------------------
 /* (例)
-	MBS **ary = iCLI_getCmdOpt();
+	MBS **ary = iCLI_getARGS();
 	MBS *p1 = iary_join(ary, "\t");
 	P82(p1);
 */
@@ -3142,7 +3134,7 @@ MBS
 // 配列のクローン作成
 //---------------------
 /* (例)
-	MBS **ary1 = iCLI_getCmdOpt();
+	MBS **ary1 = iCLI_getARGS();
 	MBS **ary2 = iary_clone(ary1);
 	P83(iary_size(ary1));
 		iary_print(ary1);
