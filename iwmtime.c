@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20210319"
+#define   IWM_VERSION         "iwmtime_20210320"
 #define   IWM_COPYRIGHT       "Copyright (C)2021 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil.h"
