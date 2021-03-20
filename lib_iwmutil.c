@@ -592,16 +592,16 @@ MBS
 /* (例)
 	// NULへ出力（何も出力しない）
 	FILE *oFp = fopen(NULL_DEVICE, "wb");
-		MBS *p1 = ims_sprintf(oFp, "%s-%s", "ABC", "123"); //=> "ABC-123"
+		MBS *p1 = ims_fprintf(oFp, "%s-%s", "ABC", "123"); //=> "ABC-123"
 			P82(p1);
 		ifree(p1);
 	fclose(oFp);
 	// 画面に出力
-	P82(ims_sprintf(stdout, "%s-%s", "ABC", "123")); //=> "ABC-123"
+	P82(ims_fprintf(stdout, "%s-%s", "ABC", "123")); //=> "ABC-123"
 */
-// v2016-02-11
+// v2021-03-21
 MBS
-*ims_sprintf(
+*ims_fprintf(
 	FILE *oFp,
 	MBS *format,
 	...
@@ -5747,76 +5747,6 @@ idate_nowToCjd(
 	ifree(ai);
 	return idate_ymdhnsToCjd(y, m, d, h, n, s);
 }
-/////////////////////////////////////////////////////////////////////////////////////////
-/*---------------------------------------------------------------------------------------
-	Sample
----------------------------------------------------------------------------------------*/
-/////////////////////////////////////////////////////////////////////////////////////////
-//-----------------------
-// 処理分だけ矢を進める
-//-----------------------
-/* (例)
-	// 表示色
-	//  0 = Black     1 = Navy      2 = Green     3 = Teal
-	//  4 = Maroon    5 = Purple    6 = Olive     7 = Silver
-	//  8 = Gray      9 = Blue     10 = Lime     11 = Aqua
-	// 12 = Red      13 = Fuchsia  14 = Yellow   15 = White
-	system("cls");
-	iConsole_progress(100, 7, 50);
-*/
-// v2012-07-20
-/*
-VOID
-iConsole_progress(
-	INT allCnt,    // 総数
-	INT partWidth, // 10%毎の幅
-	INT wait_ms    // 待機ms
-)
-{
-	INT i1 = 0;
-	INT cnt = 0, ln = 0;
-	UINT textcolor_org = iConsole_getColor(); // 現在のテキスト色を保存
-	DOUBLE d1 = 0.0, d2 = 0.0;
-	DOUBLE dWidth = (partWidth * 10);
-	d1 = d2 = (allCnt / dWidth); // Float計算でも十分速い
-	MBS *arw = "\b=>"; // 演出
-	// 総数
-	iConsole_setTextColor(14); // 色は好みで!
-	P("[AllCount=%d]\n\n", allCnt);
-	// %表示
-	iConsole_setTextColor(10); // 色は好みで!
-	for(i1 = 0; i1 < 100; i1 += 10)
-	{
-		P("%2d", i1);
-		P1(" ", partWidth - 2, NULL);
-	}
-	P("%d(%%)\n", i1);
-	// 目盛
-	iConsole_setTextColor(10); // 色は好みで!
-	P("-");
-	for(i1 = 0; i1 < 10; i1++)
-	{
-		P("+");
-		P1("-", partWidth - 1, NULL);
-	}
-	P("+-\n");
-	// 進行状況
-	iConsole_setTextColor(11); // 色は好みで!
-	P(" =");
-	for(ln = cnt = 0; allCnt > ln; ln++)
-	{
-		// (実処理を記述)
-		Sleep(wait_ms); // 必要に応じてsleep
-		for(; d1 <= (ln + 1); d1 += d2, cnt++)
-		{
-			P(arw); // 矢を進める
-		}
-	}
-	P1(arw, (dWidth - cnt), NULL); // 端数分、矢を進める
-	P9(2);
-	iConsole_setTextColor(textcolor_org); // 元のテキスト色に戻す
-}
-*/
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
 	Geography
