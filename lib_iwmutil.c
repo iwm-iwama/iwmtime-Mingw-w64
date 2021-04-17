@@ -587,34 +587,28 @@ MBS
 	return rtn;
 }
 //--------------------
-// fprintf()の拡張版
+// sprintf()の拡張版
 //--------------------
 /* (例)
-	// NULへ出力（何も出力しない）
-	FILE *oFp = fopen(NULL_DEVICE, "wb");
-		MBS *p1 = ims_fprintf(oFp, "%s-%s", "ABC", "123"); //=> "ABC-123"
-			P82(p1);
-		ifree(p1);
-	fclose(oFp);
-	// 画面に出力
-	P82(ims_fprintf(stdout, "%s-%s", "ABC", "123")); //=> "ABC-123"
+	MBS *p1 = ims_sprintf("%s-%s%05d", "ABC", "123", 456); //=> "ABC-12300456"
+		P82(p1);
+	ifree(p1);
 */
-// v2021-03-21
+// v2021-04-13
 MBS
-*ims_fprintf(
-	FILE *oFp,
+*ims_sprintf(
 	MBS *format,
 	...
 )
 {
-	va_list va;
-	va_start(va, format);
-		// 長さを求めるだけ
-		UINT len = vfprintf(oFp, format, va);
-		// フォーマット
-		MBS *rtn = icalloc_MBS(len);
-		vsprintf(rtn, format, va);
-	va_end(va);
+	FILE *oFp = fopen(NULL_DEVICE, "wb");
+		va_list va;
+		va_start(va, format);
+			UINT len = vfprintf(oFp, format, va);
+			MBS *rtn = icalloc_MBS(len);
+			vsprintf(rtn, format, va);
+		va_end(va);
+	fclose(oFp);
 	return rtn;
 }
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -836,10 +830,7 @@ MBS
 	}
 	UINT uCnt = imi_len(pM);
 
-	return (uCnt < sizeM ?
-		(pM + uCnt) :
-		(pM + sizeM)
-	);
+	return (uCnt < sizeM ? (pM + uCnt) : (pM + sizeM));
 }
 /* (例)
 	MBS *p1 = "ABあいう";
@@ -1652,7 +1643,7 @@ icmpOperator_extractHead(
 	}
 	if(bNot)
 	{
-		rtn += (rtn>0 ? -3 : 3);
+		rtn += (rtn > 0 ? -3 : 3);
 	}
 	return rtn;
 }
@@ -4056,7 +4047,7 @@ iFchk_Bfile(
 		++u1;
 	}
 	fclose(Fp);
-	return (0<cnt ? TRUE : FALSE);
+	return (0 < cnt ? TRUE : FALSE);
 }
 //---------------------
 // ファイル名等を抽出
@@ -4970,9 +4961,7 @@ INT
 	*/
 	DOUBLE cjd1 = idate_ymdhnsToCjd(i_y1, i_m1, i_d1, i_h1, i_n1, i_s1);
 	DOUBLE cjd2 = idate_ymdhnsToCjd(i_y2, i_m2, i_d2, i_h2, i_n2, i_s2);
-	/*
-		cjd2>cjd1 に入替
-	*/
+	
 	if(cjd1 > cjd2)
 	{
 		*(rtn + 0) = -1; // sign(-)
@@ -5191,7 +5180,7 @@ idate_diff_checker(
 	ifree(s1);
 	ifree(ai);
 */
-// v2020-08-08
+// v2021-04-17
 MBS
 *idate_format_diff(
 	MBS *format, //
@@ -5209,7 +5198,7 @@ MBS
 	{
 		return "";
 	}
-	MBS *rtn = icalloc_MBS(imi_len(format) + (8 * iji_searchCnt(format, "%")));
+	MBS *rtn = icalloc_MBS(imi_len(format) + (32 * iji_searchCnt(format, "%")));
 	MBS *pEnd = rtn;
 	MBS s1[32] = "";
 	// Ymdhns で使用

@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20210321"
+#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20210417"
 #define  LIB_IWMUTIL_COPYLIGHT "Copyright (C)2008-2021 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -144,7 +144,7 @@ VOID     PZ(INT rgb,MBS *format,...);
 #define  P84(num)                                P80();P4(num)
 
 MBS      *ims_conv_escape(MBS *pM);
-MBS      *ims_fprintf(FILE *oFp,MBS *format,...);
+MBS      *ims_sprintf(MBS *format,...);
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
