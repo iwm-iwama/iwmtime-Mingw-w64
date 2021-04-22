@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20210320"
+#define   IWM_VERSION         "iwmtime_20210421"
 #define   IWM_COPYRIGHT       "Copyright (C)2021 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil.h"
@@ -37,9 +37,7 @@ main()
 	iCLI_getARGS();      //=> $IWM_ARGV, $IWM_ARGC
 	iConsole_getColor(); //=> $IWM_ColorDefault, $IWM_StdoutHandle
 
-	MBS *cmd = iary_join($IWM_ARGV, " ");
-
-	if(! imi_len(cmd))
+	if(! $IWM_ARGC)
 	{
 		print_help();
 		imain_end();
@@ -52,13 +50,14 @@ main()
 	iBgnMem = $msex.ullAvailPhys;
 	iExecSec_init(); //=> $IWM_ExecSecBgn
 
+	MBS *cmd = iary_join($IWM_ARGV, " ");
 	system(cmd);
 
 	DOUBLE dPassedSec = iExecSec_next();
 	GlobalMemoryStatusEx(&$msex);
 	iEndMem = $msex.ullAvailPhys;
 
-	MBS s1[32] = "";
+	MBS s1[64] = "";
 
 	PZ(COLOR91, NULL);
 	LN();

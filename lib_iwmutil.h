@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20210417"
+#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20210422"
 #define  LIB_IWMUTIL_COPYLIGHT "Copyright (C)2008-2021 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -39,8 +39,6 @@
 
 #define  IDATE_FORMAT_STD                        "%G%y-%m-%d %h:%n:%s"
 #define  IDATE_FORMAT_DIFF                       "%g%y-%m-%d %h:%n:%s"
-
-#define  ceil8(n)                                (UINT)(((n>>3)<<3)+8)
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -108,7 +106,7 @@ VOID     icalloc_mapSweep();
 
 VOID     icalloc_mapPrint1();
 VOID     icalloc_mapPrint2();
-#define  icalloc_mapPrint()                      P8();icalloc_mapPrint1();icalloc_mapPrint2()
+#define  icalloc_mapPrint()                      PL();NL();icalloc_mapPrint1();icalloc_mapPrint2()
 
 #define  ierr_end(msg)                           P("Err: %s\n",msg);imain_end()
 
@@ -122,26 +120,22 @@ VOID     PR(MBS *pM,INT repeat);
 VOID     PZ(INT rgb,MBS *format,...);
 
 #define  PC(pM)                                  putchar(*pM)
+#define  PL()                                    P("L%u\t",__LINE__)
 #define  PP(pM)                                  P("[%p] ",pM)
 #define  PX(pM)                                  P("|%#hx|",*pM)
 #define  NL()                                    putchar('\n')
 #define  LN()                                    PR("-",72);NL()
 
-#define  P80()                                   P("L%4u: ",__LINE__)
-
 #define  P2(pM)                                  P("%s\n",pM)
 #define  P3(num)                                 P("%I64d\n",(INT64)num)
 #define  P4(num)                                 P("%.8f\n",(DOUBLE)num)
-#define  P8()                                    P80();NL()
 #define  P9(repeat)                              PR("\n",repeat)
 
-#define  P82(pM)                                 P80();P2(pM)
-#define  P823(pM,num)                            P80();P("%s%I64d\n",pM,(INT64)num)
-
-#define  P83(num)                                P80();P3(num)
-#define  P832(num,pM)                            P80();P("[%I64d] %s\n",(INT64)num,pM)
-
-#define  P84(num)                                P80();P4(num)
+#define  PL2(pM)                                 PL();P2(pM)
+#define  PL23(pM,num)                            PL();P("%s%I64d\n",pM,(INT64)num)
+#define  PL3(num)                                PL();P3(num)
+#define  PL32(num,pM)                            PL();P("[%I64d] %s\n",(INT64)num,pM)
+#define  PL4(num)                                PL();P4(num)
 
 MBS      *ims_conv_escape(MBS *pM);
 MBS      *ims_sprintf(MBS *format,...);
@@ -189,25 +183,17 @@ MBS      *imp_forwardN(MBS *pM,UINT sizeM);
 MBS      *ijp_forwardN(MBS *pM,UINT sizeJ);
 U8N      *iup_forwardN(U8N *pU,UINT sizeU);
 
-MBS      *imp_sod(MBS *pM);
 #define  imp_eod(pM)                             (MBS*)(pM+imi_len(pM))
-WCS      *iwp_sod(WCS *pW);
 #define  iwp_eod(pW)                             (WCS*)(pW+iwi_len(pW))
 
 MBS      *ims_upper(MBS *pM);
 MBS      *ims_lower(MBS *pM);
 
-UINT     iji_plen(MBS *pBgn,MBS *pEnd);
-
-MBS      *imp_cpy(MBS *to,MBS *from);
-WCS      *iwp_cpy(WCS *to,WCS *from);
-#define  ijp_cpy(to,from)                        (MBS*)imp_pcpy(to,from,CharNextA(from))
-
-MBS      *imp_pcpy(MBS *to,MBS *from1,MBS *from2);
-#define  imp_ncpy(to,from,size)                  (MBS*)imp_pcpy(to,from,from+size)
-#define  ijp_ncpy(to,from,sizeJ)                 (MBS*)imp_pcpy(to,from,ijp_forwardN(from,sizeJ))
-
 UINT     imi_cpy(MBS *to,MBS *from);
+UINT     imi_pcpy(MBS *to,MBS *from1,MBS *from2);
+
+UINT     iwi_cpy(WCS *to,WCS *from);
+UINT     iwi_pcpy(WCS *to,WCS *from1,WCS *from2);
 
 MBS      *ims_clone(MBS *from);
 WCS      *iws_clone(WCS *from);
@@ -217,7 +203,7 @@ MBS      *ims_pclone(MBS *from1,MBS *from2);
 
 MBS      *ims_cat_pclone(MBS *to,MBS *from1,MBS *from2);
 
-MBS      *ims_ncat_clone(MBS *pM,...);
+MBS      *ims_cats(MBS *pM,...);
 
 MBS      *ijs_sub_clone(MBS *pM,INT start,INT sizeJ);
 #define  ijs_sub_cloneL(pM,sizeJ)                (MBS*)ijs_sub_clone(pM,0,sizeJ)
@@ -271,10 +257,6 @@ MBS      *ijp_searchLA(MBS *pM,MBS *search,BOOL icase);
 #define  ijp_searchL(pM,search)                  (MBS*)ijp_searchLA(pM,search,FALSE)
 #define  ijp_searchLi(pM,search)                 (MBS*)ijp_searchLA(pM,search,TRUE)
 
-MBS      *ijp_searchRA(MBS *pM,MBS *search,BOOL icase);
-#define  ijp_searchR(pM,search)                  (MBS*)ijp_searchRA(pM,search,FALSE)
-#define  ijp_searchRi(pM,search)                 (MBS*)ijp_searchRA(pM,search,TRUE)
-
 INT      icmpOperator_extractHead(MBS *pM);
 MBS      *icmpOperator_toHeadA(INT operator);
 BOOL     icmpOperator_chk_INT(INT i1,INT i2,INT operator);
@@ -301,8 +283,6 @@ MBS      *ijs_trimR(MBS *pM);
 MBS      *ijs_chomp(MBS *pM);
 
 MBS      *ijs_replace(MBS *from,MBS *before,MBS *after);
-
-MBS      *ijs_simplify(MBS *pM,MBS *search);
 
 BOOL     imb_shiftL(MBS *pM,UINT byte);
 BOOL     imb_shiftR(MBS *pM,UINT byte);
