@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20210421"
+#define   IWM_VERSION         "iwmtime_20210603"
 #define   IWM_COPYRIGHT       "Copyright (C)2021 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil.h"
@@ -27,8 +27,6 @@ VOID print_help();
 #define   COLOR91             (15 + ( 0 * 16))
 #define   COLOR92             ( 7 + ( 0 * 16))
 
-MEMORYSTATUSEX $msex = { sizeof(MEMORYSTATUSEX) };
-
 INT
 main()
 {
@@ -37,25 +35,36 @@ main()
 	iCLI_getARGS();      //=> $IWM_ARGV, $IWM_ARGC
 	iConsole_getColor(); //=> $IWM_ColorDefault, $IWM_StdoutHandle
 
-	if(! $IWM_ARGC)
+	// -h | -help
+	if(! $IWM_ARGC || imb_cmpp($IWM_ARGV[0], "-h") || imb_cmpp($IWM_ARGV[0], "-help"))
 	{
 		print_help();
 		imain_end();
 	}
 
+	// -v | -version
+	if(imb_cmpp($IWM_ARGV[0], "-v") || imb_cmpp($IWM_ARGV[0], "-version"))
+	{
+		print_version();
+		imain_end();
+	}
+
+	MEMORYSTATUSEX msex = { sizeof(MEMORYSTATUSEX) };
+
 	UINT iBgnMem = 0;
 	UINT iEndMem = 0;
 
-	GlobalMemoryStatusEx(&$msex);
-	iBgnMem = $msex.ullAvailPhys;
+	GlobalMemoryStatusEx(&msex);
+	iBgnMem = msex.ullAvailPhys;
 	iExecSec_init(); //=> $IWM_ExecSecBgn
 
 	MBS *cmd = iary_join($IWM_ARGV, " ");
+
 	system(cmd);
 
 	DOUBLE dPassedSec = iExecSec_next();
-	GlobalMemoryStatusEx(&$msex);
-	iEndMem = $msex.ullAvailPhys;
+	GlobalMemoryStatusEx(&msex);
+	iEndMem = msex.ullAvailPhys;
 
 	MBS s1[64] = "";
 
@@ -65,7 +74,7 @@ main()
 	sprintf(s1, "%d", ((iEndMem - iBgnMem) / 1024));
 	P ("  Memory   %s KB (Including System Usage)\n", ims_addTokenNStr(s1));
 	sprintf(s1, "%.4f", dPassedSec);
-	P ("  Exec     %s SEC\n", ims_addTokenNStr(s1));
+	P ("  Exec     %s sec\n", ims_addTokenNStr(s1));
 	LN();
 	PZ(-1, NULL);
 
@@ -79,17 +88,18 @@ main()
 VOID
 print_version()
 {
+	PZ(COLOR92, NULL);
 	LN();
 	P (" %s\n", IWM_COPYRIGHT);
 	P ("   Ver.%s+%s\n", IWM_VERSION, LIB_IWMUTIL_VERSION);
 	LN();
+	PZ(-1, NULL);
 }
 
 VOID
 print_help()
 {
-	PZ(COLOR92, NULL);
-		print_version();
+	print_version();
 	PZ(COLOR01, " コマンドの実行時間を計測 \n\n");
 	PZ(COLOR11, " %s [コマンド] [引数] ... \n\n", $IWM_CMD);
 	PZ(COLOR12, " (例１)\n");
@@ -97,6 +107,6 @@ print_help()
 	PZ(COLOR12, " (例２)\n");
 	PZ(COLOR91, "   > %s dir \"..\" /b\n\n", $IWM_CMD);
 	PZ(COLOR92, NULL);
-		LN();
+	LN();
 	PZ(-1, NULL);
 }
