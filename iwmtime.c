@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20210603"
+#define   IWM_VERSION         "iwmtime_20210721"
 #define   IWM_COPYRIGHT       "Copyright (C)2021 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil.h"
@@ -20,7 +20,7 @@ VOID print_help();
 #define   COLOR11             (15 + (12 * 16))
 #define   COLOR12             (13 + ( 0 * 16))
 #define   COLOR13             (12 + ( 0 * 16))
-// 引数
+// オプション
 #define   COLOR21             (14 + ( 0 * 16))
 #define   COLOR22             (11 + ( 0 * 16))
 // 説明
@@ -49,32 +49,54 @@ main()
 		imain_end();
 	}
 
-	MEMORYSTATUSEX msex = { sizeof(MEMORYSTATUSEX) };
-
-	UINT iBgnMem = 0;
-	UINT iEndMem = 0;
-
-	GlobalMemoryStatusEx(&msex);
-	iBgnMem = msex.ullAvailPhys;
-	iExecSec_init(); //=> $IWM_ExecSecBgn
+	// -q | -quiet
+	UINT iOptionQuiet = (
+		imb_cmpp($IWM_ARGV[0], "-q") || imb_cmpp($IWM_ARGV[0], "-quiet") ?
+		imi_len($IWM_ARGV[0]) + 1 :
+		0
+	);
 
 	MBS *cmd = iary_join($IWM_ARGV, " ");
 
-	system(cmd);
+	MEMORYSTATUSEX memex = { sizeof(MEMORYSTATUSEX) };
+	DWORDLONG iBgnEmpMem = 0;
+	DWORDLONG iEndEmpMem = 0;
 
+	GlobalMemoryStatusEx(&memex);
+	iBgnEmpMem = memex.ullAvailPhys;
+
+	// 計測開始
+	iExecSec_init(); //=> $IWM_ExecSecBgn
+
+	if(iOptionQuiet)
+	{
+		system(ims_cats((cmd + iOptionQuiet), " > ", NULL_DEVICE, NULL));
+		PZ(COLOR21, NULL);
+		P2("[Quiet Mode]");
+	}
+	else
+	{
+		system(cmd);
+	}
+
+	// 計測終了
 	DOUBLE dPassedSec = iExecSec_next();
-	GlobalMemoryStatusEx(&msex);
-	iEndMem = msex.ullAvailPhys;
 
-	MBS s1[64] = "";
+	GlobalMemoryStatusEx(&memex);
+	iEndEmpMem = memex.ullAvailPhys;
 
 	PZ(COLOR91, NULL);
 	LN();
-	P ("  Program  %s\n", cmd);
-	sprintf(s1, "%d", ((iEndMem - iBgnMem) / 1024));
-	P ("  Memory   %s KB (Including System Usage)\n", ims_addTokenNStr(s1));
-	sprintf(s1, "%.4f", dPassedSec);
-	P ("  Exec     %s sec\n", ims_addTokenNStr(s1));
+	// Program
+	P ("  Program  %s\n", (cmd + iOptionQuiet));
+	// Memory
+	P("  Memory   %s KB (%s KB => %s KB)\n",
+		ims_addTokenNStr(ims_sprintf("%d", ((iEndEmpMem - iBgnEmpMem) / 1024))),
+		ims_addTokenNStr(ims_sprintf("%d", (iBgnEmpMem / 1024))),
+		ims_addTokenNStr(ims_sprintf("%d", (iEndEmpMem / 1024)))
+	);
+	// Exec
+	P("  Exec     %s sec\n", ims_addTokenNStr(ims_sprintf("%.4f", dPassedSec)));
 	LN();
 	PZ(-1, NULL);
 
@@ -90,8 +112,8 @@ print_version()
 {
 	PZ(COLOR92, NULL);
 	LN();
-	P (" %s\n", IWM_COPYRIGHT);
-	P ("   Ver.%s+%s\n", IWM_VERSION, LIB_IWMUTIL_VERSION);
+	P(" %s\n", IWM_COPYRIGHT);
+	P("   Ver.%s+%s\n", IWM_VERSION, LIB_IWMUTIL_VERSION);
 	LN();
 	PZ(-1, NULL);
 }
@@ -101,11 +123,14 @@ print_help()
 {
 	print_version();
 	PZ(COLOR01, " コマンドの実行時間を計測 \n\n");
-	PZ(COLOR11, " %s [コマンド] [引数] ... \n\n", $IWM_CMD);
+	PZ(COLOR11, " %s [コマンド] [オプション] [引数] ... \n\n", $IWM_CMD);
 	PZ(COLOR12, " (例１)\n");
 	PZ(COLOR91, "   > %s notepad\n\n", $IWM_CMD);
 	PZ(COLOR12, " (例２)\n");
 	PZ(COLOR91, "   > %s dir \"..\" /b\n\n", $IWM_CMD);
+	PZ(COLOR21, " [オプション]\n");
+	PZ(COLOR22, "   -quiet | -q\n");
+	PZ(COLOR91, "       結果を表\示しない\n\n");
 	PZ(COLOR92, NULL);
 	LN();
 	PZ(-1, NULL);

@@ -319,7 +319,6 @@ icalloc_free(
 				memset(map->ptr, 0, map->size);
 				map->ptr = NULL;
 				memset(map, 0, __sizeof_icallocMap);
-				map = NULL;
 				return;
 			}
 			else
@@ -327,7 +326,6 @@ icalloc_free(
 				memset(map->ptr, 0, map->size);
 				map->ptr = NULL;
 				memset(map, 0, __sizeof_icallocMap);
-				map = NULL;
 				++__icallocMapFreeCnt;
 				return;
 			}
@@ -2669,7 +2667,8 @@ MBS
 {
 	MBS *pBgn = ijs_trim(GetCommandLineA());
 	for(; *pBgn && *pBgn != ' '; pBgn++); // コマンド部分をスルー
-	$IWM_ARGV = (*pBgn ?
+	$IWM_ARGV = (
+		*pBgn ?
 		ija_split(pBgn, " ", "\"\"\'\'", TRUE) : // quote = [""]['']のみ対象
 		ima_null()
 	);
