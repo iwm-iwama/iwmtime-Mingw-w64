@@ -478,7 +478,7 @@ icalloc_mapPrint2()
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
-	printf()系
+	Print関係
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
 //-----------
@@ -547,6 +547,25 @@ PZ(
 	va_start(va, format);
 		vfprintf(stdout, format, va);
 	va_end(va);
+}
+//--------------
+// Quick Print
+//--------------
+/* (例)
+	MBS *pM = "高速画面出力\n";
+	QP(pM);
+*/
+// v2021-09-19
+VOID
+QP(
+	MBS *pM // 文字列
+)
+{
+	DWORD cbWriten;
+	HANDLE hCon = CreateFile("CONOUT$", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+	WriteConsole(hCon, pM, imi_len(pM), &cbWriten, NULL);
+	SetConsoleActiveScreenBuffer(hCon);
+	CloseHandle(hCon);
 }
 //-----------------------
 // EscapeSequenceへ変換
@@ -2409,10 +2428,10 @@ inum_atof(
 //  Coded by Takuji Nishimura and Makoto Matsumoto.
 //-----------------------------------------------------------------------------------------
 /*
-	http: //www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/CODES/mt19937ar.c
+	http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/CODES/mt19937ar.c
 	上記コードを元に以下の関数についてカスタマイズを行った。
 	MT関連の最新情報（派生版のSFMT、TinyMTなど）については下記を参照のこと
-		http: //www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/mt.html
+		http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/mt.html
 */
 /* サンプル
 INT
