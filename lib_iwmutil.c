@@ -552,20 +552,42 @@ PZ(
 // Quick Print
 //--------------
 /* (ó·)
-	MBS *pM = "çÇë¨âÊñ èoóÕ\n";
-	QP(pM);
+	INT iMax = 100;
+	MBS *rtn = icalloc_MBS(10 * iMax);
+	INT iPos = 0;
+	INT iCnt = 0;
+
+	for(INT _i1 = 1; _i1 <= iMax; _i1++)
+	{
+		iPos += sprintf((rtn + iPos), "%d\n", _i1);
+
+		++iCnt;
+		if(iCnt == 30)
+		{
+			iCnt = 0;
+
+			QP(rtn, iPos);
+			iPos = 0;
+
+			Sleep(1000);
+		}
+	}
+	QP(rtn, iPos);
 */
 // v2021-09-19
 VOID
 QP(
-	MBS *pM // ï∂éöóÒ
+	MBS *pM,   // ï∂éöóÒ
+	UINT sizeM // ï∂éöí∑
 )
 {
+	// Buffer Ç™Ç†ÇÍÇŒêÊÇ…èoóÕ
+	fflush(stdout);
+
+	// "\n" ÇÕ "\r\n" Ç…é©ìÆïœä∑Ç≥ÇÍÇ»Ç¢Ç™ñ‚ëËÇ»Ç¢
 	DWORD cbWriten;
-	HANDLE hCon = CreateFile("CONOUT$", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-	WriteConsole(hCon, pM, imi_len(pM), &cbWriten, NULL);
-	SetConsoleActiveScreenBuffer(hCon);
-	CloseHandle(hCon);
+	HANDLE hCon = GetStdHandle(STD_OUTPUT_HANDLE);
+	WriteFile(hCon, pM, sizeM, &cbWriten, NULL);
 }
 //-----------------------
 // EscapeSequenceÇ÷ïœä∑

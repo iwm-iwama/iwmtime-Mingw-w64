@@ -118,7 +118,7 @@ VOID     icalloc_mapPrint2();
 VOID     P(CONST MBS *format,...);
 VOID     PR(MBS *pM,INT repeat);
 VOID     PZ(INT rgb,MBS *format,...);
-VOID     QP(MBS *pM);
+VOID     QP(MBS *pM,UINT sizeM);
 
 #define  PC(pM)                                  putchar(*pM)
 #define  PL()                                    P("L%u\t",__LINE__)
