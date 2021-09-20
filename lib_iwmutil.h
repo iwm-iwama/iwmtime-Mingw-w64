@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20210919"
+#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20210920"
 #define  LIB_IWMUTIL_COPYLIGHT "Copyright (C)2008-2021 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -281,6 +281,7 @@ MBS      *ijs_cutAry(MBS *pM,MBS **aryLs,MBS **aryRs);
 MBS      *ijs_trim(MBS *pM);
 MBS      *ijs_trimL(MBS *pM);
 MBS      *ijs_trimR(MBS *pM);
+
 MBS      *ijs_chomp(MBS *pM);
 
 MBS      *ijs_replace(MBS *from,MBS *before,MBS *after);
@@ -309,7 +310,6 @@ VOID     MT_freeAry();
 
 INT      MT_irand_INT(INT posMin,INT posMax);
 DOUBLE   MT_irandDBL(INT posMin,INT posMax,UINT decRound);
-MBS      *MT_irand_words(UINT size,BOOL ext);
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -418,25 +418,6 @@ FILETIME iFinfo_ymdhnsToFtime(INT wYear,INT wMonth,INT wDay,INT wHour,INT wMinut
 	File/Dirˆ—
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-typedef struct
-{
-	UINT size;
-	MBS *ptr;
-}
-$struct_ifreadBuf;
-
-FILE     *ifopen(MBS *Fn,MBS *mode);
-#define  ifclose(Fp)                             fclose(Fp)
-
-MBS      *ifreadLine(FILE *iFp,BOOL rmCrlf);
-
-$struct_ifreadBuf *ifreadBuf_alloc(INT64 fsize);
-UINT     ifreadBuf(FILE *Fp,$struct_ifreadBuf *Buf);
-VOID     ifreadBuf_free($struct_ifreadBuf *Buf);
-#define  ifreadBuf_getPtr(Buf)                   (MBS*)(Buf->ptr)
-
-#define  ifwrite(Fp,ptr,size)                    (UINT)fwrite(ptr,size,1,Fp)
-
 BOOL     iFchk_existPathA(MBS *path);
 
 UINT     iFchk_typePathA(MBS *path);
@@ -451,9 +432,6 @@ MBS      *iFget_extPathname(MBS *path,UINT option);
 MBS      *iFget_AdirA(MBS *path);
 MBS      *iFget_RdirA(MBS *path);
 
-#define  irm_file(path)                          (BOOL)DeleteFile(path)
-#define  irm_dir(path)                           (BOOL)RemoveDirectory(path)
-
 BOOL     imk_dir(MBS *path);
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -465,17 +443,6 @@ UINT     iConsole_getColor();
 VOID     iConsole_setTextColor(INT rgb);
 #define  iConsole_setColor(textcolor,bgcolor)    (VOID)iConsole_setTextColor(textcolor+(bgcolor*16))
 #define  iConsole_setTitle(pM)                   (VOID)SetConsoleTitleA(pM)
-
-/////////////////////////////////////////////////////////////////////////////////////////
-/*---------------------------------------------------------------------------------------
-	Clipboard
----------------------------------------------------------------------------------------*/
-/////////////////////////////////////////////////////////////////////////////////////////
-BOOL     iClipboard_erase();
-BOOL     iClipboard_setText(MBS *pM);
-MBS      *iClipboard_getText();
-BOOL     iClipboard_addText(MBS *pM);
-MBS      *iClipboard_getDropFn(UINT option);
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -632,15 +599,13 @@ INT      *idate_diff(INT i_y1,INT i_m1,INT i_d1,INT i_h1,INT i_n1,INT i_s1,INT i
 	\t
 */
 MBS      *idate_format_diff(MBS *format,INT i_sign,INT i_y,INT i_m,INT i_d,INT i_h,INT i_n,INT i_s,INT i_days);
-#define  idate_format_ymdhns(format,i_y,i_m,i_d,i_h,i_n,i_s) \
-                                                 idate_format_diff(format,0,i_y,i_m,i_d,i_h,i_n,i_s,0)
+#define  idate_format_ymdhns(format,i_y,i_m,i_d,i_h,i_n,i_s)    (MBS*)idate_format_diff(format,0,i_y,i_m,i_d,i_h,i_n,i_s,0)
 
 MBS      *idate_format_iAryToA(MBS *format,INT *ymdhns);
 MBS      *idate_format_cjdToA(MBS *format,DOUBLE cjd);
 
 MBS      *idate_replace_format_ymdhns(MBS *pM,MBS *quote1,MBS *quote2,MBS *add_quote,CONST INT i_y,CONST INT i_m,CONST INT i_d,CONST INT i_h,CONST INT i_n,CONST INT i_s);
-#define  idate_format_nowToYmdhns(i_y,i_m,i_d,i_h,i_n,i_s) \
-                                                 (MBS*)idate_replace_format_ymdhns("[]","[","]","",i_y,i_m,i_d,i_h,i_n,i_s)
+#define  idate_format_nowToYmdhns(i_y,i_m,i_d,i_h,i_n,i_s)      (MBS*)idate_replace_format_ymdhns("[]","[","]","",i_y,i_m,i_d,i_h,i_n,i_s)
 
 INT      *idate_now_to_iAryYmdhns(BOOL area);
 #define  idate_now_to_iAryYmdhns_localtime()     (INT*)idate_now_to_iAryYmdhns(TRUE)

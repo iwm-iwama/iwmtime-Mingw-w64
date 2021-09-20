@@ -585,9 +585,9 @@ QP(
 	fflush(stdout);
 
 	// "\n" は "\r\n" に自動変換されないが問題ない
-	DWORD cbWriten;
+	DWORD wfWriten;
 	HANDLE hCon = GetStdHandle(STD_OUTPUT_HANDLE);
-	WriteFile(hCon, pM, sizeM, &cbWriten, NULL);
+	WriteFile(hCon, pM, sizeM, &wfWriten, NULL);
 }
 //-----------------------
 // EscapeSequenceへ変換
@@ -1929,7 +1929,6 @@ MBS
 // NULL(行末)で区切って配列化
 //-----------------------------
 /* (例)
-	INT i1 = 0;
 	MBS **ary = ija_token_eod("ABC");
 	iary_print(ary); //=> [ABC]
 */
@@ -2455,7 +2454,7 @@ inum_atof(
 	MT関連の最新情報（派生版のSFMT、TinyMTなど）については下記を参照のこと
 		http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/mt.html
 */
-/* サンプル
+/* (例)
 INT
 main()
 {
@@ -2638,37 +2637,6 @@ MT_irandDBL(
 		--decRound;
 	}
 	return (DOUBLE)MT_irand_INT(posMin, (posMax - 1)) + (DOUBLE)MT_irand_INT(0, i1) / i1;
-}
-//---------------
-// 乱文字を発生
-//---------------
-/* (例)
-	MT_initByAry(FALSE); // 初期化
-	INT i1 = 0;
-	for(i1 = 8; i1 <= 128; i1 *= 2)
-	{
-		PL32(i1, MT_irand_words(i1, FALSE));
-		PL32(i1, MT_irand_words(i1, TRUE));
-	}
-	MT_freeAry(); // 解放
-*/
-// v2015-12-30
-MBS
-*MT_irand_words(
-	UINT size, // 文字列長
-	BOOL ext   // FALSEのとき英数字のみ／TRUEのとき"!#$%&@"を含む
-)
-{
-	MBS *rtn = icalloc_MBS(size);
-	MBS *w = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&@"; // FALSE = 61／TRUE = 67
-	UINT uMax = (ext ? 67 : 61);
-	UINT u1 = 0;
-	while(u1 < size)
-	{
-		*(rtn + u1) = *(w + MT_irand_INT(0, uMax));
-		++u1;
-	}
-	return rtn;
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -2917,7 +2885,7 @@ MBS
 //---------------------------
 /*
 	// 有効配列マッピング
-	//  (例)TRUE
+	//  (例) TRUE
 	//    {"aaa", "AAA", "BBB", "", "bbb"}
 	//    { 1   ,  -1  ,  -1  ,  0,  1   } // Flg
 	MBS *args[] = {"aaa", "AAA", "BBB", "", "bbb", NULL};
@@ -3163,7 +3131,8 @@ iary_print(
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
 /*
-	typedef struct _WIN32_FIND_DATAA {
+	typedef struct _WIN32_FIND_DATAA
+	{
 		DWORD dwFileAttributes;
 		FILETIME ftCreationTime;   // ctime
 		FILETIME ftLastAccessTime; // mtime
@@ -3171,12 +3140,18 @@ iary_print(
 		DWORD nFileSizeHigh;
 		DWORD nFileSizeLow;
 		MBS cFileName[MAX_PATH];
-	} WIN32_FIND_DATAA, *PWIN32_FIND_DATAA, *LPWIN32_FIND_DATAA;
-	typedef struct _FILETIME {
+	}
+	WIN32_FIND_DATAA, *PWIN32_FIND_DATAA, *LPWIN32_FIND_DATAA;
+
+	typedef struct _FILETIME
+	{
 		DWORD dwLowDateTime;
 		DWORD dwHighDateTime;
-	} FILETIME;
-	typedef struct _SYSTEMTIME {
+	}
+	FILETIME;
+
+	typedef struct _SYSTEMTIME
+	{
 		INT wYear;
 		INT wMonth;
 		INT wDayOfWeek;
@@ -3185,7 +3160,8 @@ iary_print(
 		INT wMinute;
 		INT wSecond;
 		INT wMilliseconds;
-	} SYSTEMTIME;
+	}
+	SYSTEMTIME;
 */
 //-------------------
 // ファイル情報取得
@@ -3363,7 +3339,6 @@ iFinfo_initA(
 	// FI->cftime
 	// FI->mftime
 	// FI->aftime
-	// (例)"c:\"
 	if((FI->iEnd) <= 3)
 	{
 		(FI->cjdCtime) = (FI->cjdMtime) = (FI->cjdAtime) = 2444240.0; // 1980-01-01
@@ -3378,6 +3353,7 @@ iFinfo_initA(
 		FileTimeToLocalFileTime(&F->ftLastAccessTime, &ft);
 			(FI->cjdAtime) = iFinfo_ftimeToCjd(ft);
 	}
+
 	return TRUE;
 }
 // v2021-04-19
@@ -3444,7 +3420,6 @@ iFinfo_initW(
 	// FI->cftime
 	// FI->mftime
 	// FI->aftime
-	// (例)"c:\"
 	if((FI->iEnd) <= 3)
 	{
 		(FI->cjdCtime) = (FI->cjdMtime) = (FI->cjdAtime) = 2444240.0; // 1980-01-01
@@ -3760,196 +3735,6 @@ iFinfo_ymdhnsToFtime(
 	File/Dir処理
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-/*
-//-------------------
-// FileCopyサンプル
-//-------------------
-MBS *iFn = "infile.dat";
-MBS *oFn = "outfile.dat";
-$struct_iFinfoA *FI = iFinfo_allocA();
-	if(iFinfo_init2M(FI, iFn))
-	{
-		FILE *iFp = ifopen(iFn, "r");
-		FILE *oFp = ifopen(oFn, "w");
-			$struct_ifreadBuf *Buf = ifreadBuf_alloc(FI->iFsize);
-				UINT bufSize = 0;
-				while((bufSize = ifreadBuf(iFp, Buf)))
-				{
-					PL3(ifwrite(oFp, Buf->ptr, bufSize));
-				}
-			ifreadBuf_free(Buf);
-		ifclose(oFp);
-		ifclose(iFp);
-	}
-iFinfo_freeA(FI);
-*/
-// v2021-04-19
-FILE
-*ifopen(
-	MBS *Fn,  //
-	MBS *mode // fopen()と同じ／常に"b"モードに開く
-)
-{
-	MBS mode2[4] = "";
-		imi_pcpy(mode2, mode, mode + 3);
-	INT c = 0, chk = 0;
-	// (例)"r", "r+"のとき"b"を付与する
-	UINT u1 = 1;
-	while((c = mode2[u1]))
-	{
-		if(c == 'b')
-		{
-			++chk;
-		}
-		++u1;
-	}
-	if(!chk)
-	{
-		strcat(mode2, "b");
-	}
-	FILE *Fp = fopen(Fn, mode2);
-	if(!Fp)
-	{
-		P("'%s' <= ", Fn);
-		ierr_end("Can't open a file!");
-	}
-	return Fp;
-}
-/*
-	//--------------------------
-	// TSVから実データのみ出力
-	//--------------------------
-	MBS *iFn = "sample.tsv";
-	if(iFchk_Tfile(iFn))
-	{
-		FILE *iFp = ifopen(iFn, "r");
-			MBS *rtn = 0;
-			MBS **aryX2 = 0;
-			UINT u1 = 0;
-			while((rtn = ifreadLine(iFp, TRUE)))
-			{
-				aryX2 = ija_token(rtn, "\t");
-				if(**aryX2)
-				{
-					u1 = 0;
-					while(*(aryX2 + u1))
-					{
-						PL2(*(aryX2 + u1));
-						++u1;
-					}
-					NL();
-				}
-				ifree(aryX2);
-				ifree(rtn);
-			}
-		ifclose(iFp);
-	}
-	else
-	{
-		P2("Not a Text File!!");
-	}
-*/
-//v2015-05-15
-MBS
-*ifreadLine(
-	FILE *iFp,
-	BOOL rmCrlf // TRUE=行末の"\r\n"を"\0"に変換
-)
-{
-	CONST UINT _buf = 128; // 128Byte="76Byte以下"と"256Byte超"の両方に対応
-	UINT uBuf = _buf;
-	MBS *rtn = icalloc_MBS(uBuf);
-	UINT u1 = 0;
-	INT c1 = 0;
-	while(TRUE)
-	{
-		if(u1 < uBuf)
-		{
-			c1 = getc(iFp);
-			if(c1 == EOF)
-			{
-				break;
-			}
-			*(rtn + u1) = c1;
-			if(*(rtn + u1) == '\n')
-			{
-				if(rmCrlf)
-				{
-					*(rtn + u1) = 0;
-					if(*(rtn + u1 - 1) == '\r')
-					{
-						*(rtn + u1 - 1) = 0;
-					}
-				}
-				break;
-			}
-			++u1;
-		}
-		else
-		{
-			uBuf += _buf;
-			rtn = irealloc_MBS(rtn, uBuf);
-		}
-	}
-	return (c1 == EOF ? (*rtn ? rtn : NULL) : rtn);
-}
-// v2015-05-12
-$struct_ifreadBuf
-*ifreadBuf_alloc(
-	INT64 fsize // ifopen()するファイルのサイズ
-)
-{
-	if(fsize < 1)
-	{
-		fsize = 0;
-	}
-	MEMORYSTATUS stat;
-	GlobalMemoryStatus(&stat);
-	CONST INT64 _freeMem = (stat.dwAvailPhys * 0.5); // 最大50%以下
-	CONST INT64 _maxByte = 1024 * 1024 * 512;        // 最大512MB
-	if(fsize > _freeMem)
-	{
-		fsize = _freeMem;
-	}
-	if(fsize > _maxByte)
-	{
-		fsize = _maxByte;
-	}
-	$struct_ifreadBuf *Buf = ($struct_ifreadBuf*)icalloc(1, sizeof($struct_ifreadBuf), FALSE);
-		icalloc_err(Buf);
-	(Buf->size) = (UINT)fsize;
-	(Buf->ptr) = icalloc_MBS(Buf->size);
-	return Buf;
-}
-// v2015-01-03
-UINT
-ifreadBuf(
-	FILE *Fp,              // 入力ファイルポインタ
-	$struct_ifreadBuf *Buf // ifreadBuf_alloc(Fn)で取得
-)
-{
-	UINT size = (Buf->size);
-	if(size<1 || feof(Fp))
-	{
-		return 0;
-	}
-	MBS *p1 = (Buf->ptr);
-	UINT rtn = fread(p1, 1, size, Fp);
-	*(p1 + rtn) = EOF;
-	return rtn;
-}
-// v2016-08-30
-VOID
-ifreadBuf_free(
-	$struct_ifreadBuf *Buf
-)
-{
-	if(Buf)
-	{
-		ifree(Buf->ptr);
-		ifree(Buf);
-	}
-}
 //-----------------------------------
 // ファイルが存在するときTRUEを返す
 //-----------------------------------
@@ -4238,140 +4023,6 @@ iConsole_setTextColor(
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
-	Clipboard
----------------------------------------------------------------------------------------*/
-/////////////////////////////////////////////////////////////////////////////////////////
-//---------------------------
-// クリップボードを使用する
-//---------------------------
-/* (例)
-	iClipboard_setText("abcde"); // コピー
-	iClipboard_addText("123");   // 追加
-	PL2(iClipboard_getText());   // 文字列取得
-	iclipboard_erase();          // クリア
-*/
-// v2015-11-26
-BOOL
-iClipboard_erase()
-{
-	if(OpenClipboard(0))
-	{
-		EmptyClipboard();
-		CloseClipboard();
-		return TRUE;
-	}
-	return FALSE;
-}
-// v2021-04-19
-BOOL
-iClipboard_setText(
-	MBS *pM
-)
-{
-	if(!pM)
-	{
-		return FALSE;
-	}
-	BOOL rtn = FALSE;
-	UINT size = imi_len(pM) + 1;       // +NULL 分
-	MBS *p1 = GlobalAlloc(GPTR, size); // 継承しないので固定メモリで十分
-	if(p1)
-	{
-		imi_cpy(p1, pM);
-		if(OpenClipboard(0))
-		{
-			SetClipboardData(CF_TEXT, p1);
-			rtn = TRUE;
-		}
-		CloseClipboard();
-	}
-	GlobalFree(p1);
-	return rtn;
-}
-// v2015-11-26
-MBS
-*iClipboard_getText()
-{
-	MBS *rtn = 0;
-	if(OpenClipboard(0))
-	{
-		HANDLE handle = GetClipboardData(CF_TEXT);
-		MBS *p1 = GlobalLock(handle);
-		rtn = ims_clone(p1);
-		GlobalUnlock(handle);
-		CloseClipboard();
-	}
-	return rtn;
-}
-// v2021-04-19
-BOOL
-iClipboard_addText(
-	MBS *pM
-)
-{
-	if(!pM)
-	{
-		return FALSE;
-	}
-	MBS *p1 = iClipboard_getText();    // Clipboardを読む
-	MBS *p2 = ims_cats(p1, pM, NULL);  // pMを追加
-	BOOL rtn = iClipboard_setText(p2); // Clipboardへ書き込む
-	ifree(p2);
-	ifree(p1);
-	return rtn;
-}
-// v2021-04-19
-/*
-	エクスプローラにてコピーされたファイルからファイル名を抽出
-	引数処理では長さ制限があるので、こちらを使用する
-*/
-MBS
-*iClipboard_getDropFn(
-	UINT option // iFget_extPathname()参照
-)
-{
-	MBS *rtn = 0;
-	MBS *pBgn = 0;
-	MBS *pEnd = 0;
-	UINT u1 = 0;
-	OpenClipboard(0);
-	HDROP hDrop = (HDROP)GetClipboardData(CF_HDROP);
-	if(hDrop)
-	{
-		MBS *buf = icalloc_MBS(IMAX_PATHA);
-		//ファイル数を取得
-		CONST UINT cnt = DragQueryFileA(hDrop, 0XFFFFFFFF, NULL, 0);
-		// rtn作成
-		UINT size = 0;
-		u1 = 0;
-		while(u1 < cnt)
-		{
-			size += DragQueryFileA(hDrop, u1, buf, IMAX_PATHA) + 4; // CRLF+NULL+"\" 分
-			++u1;
-		}
-		// パス名正規化
-		pEnd = rtn = icalloc_MBS(size);
-		size = 0;
-		u1 = 0;
-		while(u1 < cnt)
-		{
-			size = DragQueryFileA(hDrop, u1, buf, IMAX_PATHA); //ファイル名を取得
-			pBgn = iFget_extPathname(buf, option);
-			if(*pBgn)
-			{
-				pEnd += imi_cpy(pEnd, pBgn);
-				pEnd += imi_cpy(pEnd, "\r\n"); // CRLF
-			}
-			ifree(pBgn);
-			++u1;
-		}
-		ifree(buf);
-	}
-	CloseClipboard();
-	return rtn;
-}
-/////////////////////////////////////////////////////////////////////////////////////////
-/*---------------------------------------------------------------------------------------
 	暦
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -4561,7 +4212,7 @@ idate_MBStoCjd(
 // v2016-01-20
 MBS
 **idate_MBS_to_mAryYmdhns(
-	MBS *pM // (例)"2012-03-12 13:40:00"
+	MBS *pM // (例) "2012-03-12 13:40:00"
 )
 {
 	BOOL bMinus = (pM && *pM == '-' ? TRUE : FALSE);
@@ -4589,7 +4240,7 @@ MBS
 // v2014-10-19
 INT
 *idate_MBS_to_iAryYmdhns(
-	MBS *pM // (例)"2012-03-12 13:40:00"
+	MBS *pM // (例) "2012-03-12 13:40:00"
 )
 {
 	INT *rtn = icalloc_INT(6);
@@ -5150,7 +4801,7 @@ idate_diff_checker(
 	\n
 	\t
 */
-/* (例)ymdhns
+/* (例) ymdhns
 	INT *ai = idate_reYmdhns(1970, 12, 10, 0, 0, 0);
 	MBS *s1 = 0;
 		s1 = idate_format_ymdhns("%g%y-%m-%d(%a), %c/%C", *(ai + 0), *(ai + 1), *(ai + 2), *(ai + 3), *(ai + 4), *(ai + 5));
@@ -5158,7 +4809,7 @@ idate_diff_checker(
 	ifree(s1);
 	ifree(ai);
 */
-/* (例)diff
+/* (例) diff
 	INT *ai = idate_diff(1970, 12, 10, 0, 0, 0, 2021, 4, 18, 0, 0, 0);
 	MBS *s1 = idate_format_diff("%g%y-%m-%d\t%W週\t%D日\t%S秒", *(ai + 0), *(ai + 1), *(ai + 2), *(ai + 3), *(ai + 4), *(ai + 5), *(ai + 6), *(ai + 7));
 		PL2(s1);
@@ -5410,9 +5061,9 @@ MBS
 MBS
 *idate_replace_format_ymdhns(
 	MBS *pM,        // 変換対象文字列
-	MBS *quoteBgn,  // 囲文字 1文字 (例)"["
-	MBS *quoteEnd,  // 囲文字 1文字 (例)"]"
-	MBS *add_quote, // 出力文字に追加するquote (例)"'"
+	MBS *quoteBgn,  // 囲文字 1文字 (例) "["
+	MBS *quoteEnd,  // 囲文字 1文字 (例) "]"
+	MBS *add_quote, // 出力文字に追加するquote (例) "'"
 	CONST INT i_y,  // ベース年
 	CONST INT i_m,  // ベース月
 	CONST INT i_d,  // ベース日
