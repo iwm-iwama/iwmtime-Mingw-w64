@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20210920"
+#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20210925"
 #define  LIB_IWMUTIL_COPYLIGHT "Copyright (C)2008-2021 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -30,8 +30,6 @@
 #define  INT64                                   LONGLONG // %I64d
 
 #define  NULL_DEVICE                             "NUL"    // "NUL" = "/dev/null"
-
-#define  EOD                                     NULL
 
 #define  ISO_FORMAT_DATE                         "%.4d-%02d-%02d" // "yyyy-mm-dd"
 #define  ISO_FORMAT_TIME                         "%02d:%02d:%02d" // "hh:nn:ss"
@@ -180,21 +178,17 @@ UINT     iji_len(MBS *pM);
 UINT     iui_len(U8N *pU);
 UINT     iwi_len(WCS *pW);
 
-MBS      *imp_forwardN(MBS *pM,UINT sizeM);
 MBS      *ijp_forwardN(MBS *pM,UINT sizeJ);
 U8N      *iup_forwardN(U8N *pU,UINT sizeU);
 
-#define  imp_eod(pM)                             (MBS*)(pM+imi_len(pM))
-#define  iwp_eod(pW)                             (WCS*)(pW+iwi_len(pW))
-
-MBS      *ims_upper(MBS *pM);
-MBS      *ims_lower(MBS *pM);
+MBS      *ims_UpperLower(MBS *pM,INT option);
+#define  ims_upper(pM)                           (MBS*)ims_UpperLower(pM,1)
+#define  ims_lower(pM)                           (MBS*)ims_UpperLower(pM,2)
 
 UINT     imi_cpy(MBS *to,MBS *from);
 UINT     imi_pcpy(MBS *to,MBS *from1,MBS *from2);
 
 UINT     iwi_cpy(WCS *to,WCS *from);
-UINT     iwi_pcpy(WCS *to,WCS *from1,WCS *from2);
 
 MBS      *ims_clone(MBS *from);
 WCS      *iws_clone(WCS *from);
@@ -202,13 +196,7 @@ WCS      *iws_clone(WCS *from);
 MBS      *ims_pclone(MBS *from1,MBS *from2);
 #define  ims_nclone(from1,size)                  (MBS*)ims_pclone(from1,(from1+size))
 
-MBS      *ims_cat_pclone(MBS *to,MBS *from1,MBS *from2);
-
 MBS      *ims_cats(MBS *pM,...);
-
-MBS      *ijs_sub_clone(MBS *pM,INT start,INT sizeJ);
-#define  ijs_sub_cloneL(pM,sizeJ)                (MBS*)ijs_sub_clone(pM,0,sizeJ)
-#define  ijs_sub_cloneR(pM,sizeJ)                (MBS*)ijs_sub_clone(pM,-sizeJ,sizeJ)
 
 BOOL     imb_cmp(MBS *pM,MBS *search,BOOL perfect,BOOL icase);
 #define  imb_cmpf(pM,search)                     (BOOL)imb_cmp(pM,search,FALSE,FALSE)
@@ -264,10 +252,9 @@ BOOL     icmpOperator_chk_INT(INT i1,INT i2,INT operator);
 BOOL     icmpOperator_chk_INT64(INT64 i1,INT64 i2,INT operator);
 BOOL     icmpOperator_chkDBL(DOUBLE d1,DOUBLE d2,INT operator);
 
-MBS      **ija_split(MBS *pM,MBS *tokens,MBS *quotes,BOOL quote_cut);
-#define  ija_token(pM,tokens)                    (MBS**)ija_split(pM,tokens,"",FALSE)
-MBS      **ija_token_eod(MBS *pM);
-MBS      **ija_token_zero(MBS *pM);
+MBS      **ija_split(MBS *pM,MBS *tokensM);
+MBS      **ija_split_zero(MBS *pM);
+MBS      **ija_split_eod(MBS *pM);
 
 MBS      *ijs_rm_quote(MBS *pM,MBS *quoteS,MBS *quoteE,BOOL icase,BOOL one_to_one);
 
@@ -284,7 +271,8 @@ MBS      *ijs_trimR(MBS *pM);
 
 MBS      *ijs_chomp(MBS *pM);
 
-MBS      *ijs_replace(MBS *from,MBS *before,MBS *after);
+MBS      *ijs_replace(MBS *from,MBS *before,MBS *after,BOOL icase);
+WCS      *iws_replace(WCS *from,WCS *before,WCS *after,BOOL icase);
 
 BOOL     imb_shiftL(MBS *pM,UINT byte);
 BOOL     imb_shiftR(MBS *pM,UINT byte);
@@ -316,8 +304,7 @@ DOUBLE   MT_irandDBL(INT posMin,INT posMax,UINT decRound);
 	Command Line
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-MBS      *iCLI_getCMD();
-MBS      **iCLI_getARGS();
+UINT     iCLI_getARGV();
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -325,28 +312,22 @@ MBS      **iCLI_getARGS();
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
 MBS      **ima_null();
-WCS      **iwa_null();
 
 UINT     iary_size(MBS **ary);
-#define  iargs_size(ary)                         (UINT)iary_size((MBS**)ary)
 
 UINT     iary_Mlen(MBS **ary);
-#define  iargs_Mlen(ary)                         (UINT)iary_Mlen((MBS**)ary)
-
 UINT     iary_Jlen(MBS **ary);
-#define  iargs_Jlen(ary)                         (UINT)iary_Jlen(((MBS**)ary)
 
 INT      iary_qsort_cmp(CONST VOID *p1,CONST VOID *p2,BOOL asc);
 INT      iary_qsort_cmpAsc(CONST VOID *p1,CONST VOID *p2);
 INT      iary_qsort_cmpDesc(CONST VOID *p1,CONST VOID *p2);
 #define  iary_sortAsc(ary)                       (VOID)qsort((MBS*)ary,iary_size(ary),sizeof(MBS**),iary_qsort_cmpAsc)
 #define  iary_sortDesc(ary)                      (VOID)qsort((MBS*)ary,iary_size(ary),sizeof(MBS**),iary_qsort_cmpDesc)
+
 MBS      *iary_join(MBS **ary,MBS *token);
 
 MBS      **iary_simplify(MBS **ary,BOOL icase);
 MBS      **iary_higherDir(MBS **ary,UINT depth);
-
-MBS      **iary_clone(MBS **ary);
 
 VOID     iary_print(MBS **ary);
 

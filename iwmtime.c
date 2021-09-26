@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20210721"
-#define   IWM_COPYRIGHT       "Copyright (C)2021 iwm-iwama"
+#define  IWM_VERSION         "iwmtime_20210924"
+#define  IWM_COPYRIGHT       "Copyright (C)2021 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil.h"
 
@@ -15,24 +15,23 @@ VOID print_help();
 // 12 = Red     13 = Fuchsia 14 = Yellow  15 = White
 
 // タイトル
-#define   COLOR01             (15 + ( 9 * 16))
+#define  COLOR01             (15 + ( 9 * 16))
 // 入力例／注
-#define   COLOR11             (15 + (12 * 16))
-#define   COLOR12             (13 + ( 0 * 16))
-#define   COLOR13             (12 + ( 0 * 16))
+#define  COLOR11             (15 + (12 * 16))
+#define  COLOR12             (13 + ( 0 * 16))
+#define  COLOR13             (12 + ( 0 * 16))
 // オプション
-#define   COLOR21             (14 + ( 0 * 16))
-#define   COLOR22             (11 + ( 0 * 16))
+#define  COLOR21             (14 + ( 0 * 16))
+#define  COLOR22             (11 + ( 0 * 16))
 // 説明
-#define   COLOR91             (15 + ( 0 * 16))
-#define   COLOR92             ( 7 + ( 0 * 16))
+#define  COLOR91             (15 + ( 0 * 16))
+#define  COLOR92             ( 7 + ( 0 * 16))
 
 INT
 main()
 {
 	// lib_iwmutil 初期化
-	iCLI_getCMD();       //=> $IWM_CMD
-	iCLI_getARGS();      //=> $IWM_ARGV, $IWM_ARGC
+	iCLI_getARGV();      //=> $IWM_CMD, $IWM_ARGV, $IWM_ARGC
 	iConsole_getColor(); //=> $IWM_ColorDefault, $IWM_StdoutHandle
 
 	// -h | -help

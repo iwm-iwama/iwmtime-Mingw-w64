@@ -79,14 +79,13 @@ UINT     $IWM_ExecSecBgn   = 0;   // 実行開始時間
 	実行開始時間
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-/*
-	Win32 SDK Reference Help「win32.hlp(1996/11/26)」より
-		経過時間はDWORD型で保存されています。
-		システムを49.7日間連続して動作させると、
-		経過時間は 0 に戻ります。
+/* Win32 SDK Reference Help「win32.hlp(1996/11/26)」より
+	経過時間はDWORD型で保存されています。
+	システムを49.7日間連続して動作させると、
+	経過時間は 0 に戻ります。
 */
 /* (例)
-	iExecSec_init(); //=> $IWM_ExecSecBgn // 実行開始時間
+	iExecSec_init(); //=> $IWM_ExecSecBgn
 	Sleep(2000);
 	P("-- %.6fsec\n\n", iExecSec_next());
 	Sleep(1000);
@@ -95,7 +94,7 @@ UINT     $IWM_ExecSecBgn   = 0;   // 実行開始時間
 // v2021-03-19
 UINT
 iExecSec(
-	CONST UINT microSec // 0のとき Init
+	const UINT microSec // 0 のとき Init
 )
 {
 	UINT microSec2 = GetTickCount();
@@ -128,7 +127,7 @@ UINT __icallocMapSize = 0;        // *__icallocMap のサイズ＋1
 UINT __icallocMapEOD = 0;         // *__icallocMap の現在位置＋1
 UINT __icallocMapFreeCnt = 0;     // *__icallocMap 中の空白領域
 UINT __icallocMapId = 0;          // *__icallocMap の順番
-CONST UINT __sizeof_icallocMap = sizeof($struct_icallocMap);
+const UINT __sizeof_icallocMap = sizeof($struct_icallocMap);
 // *__icallocMap の基本区画サイズ(適宜変更>0)
 #define   IcallocDiv          (1 << 5)
 // 16の倍数に切り上げ
@@ -317,14 +316,14 @@ icalloc_free(
 				// memset() + NULL代入 で free() の代替
 				// 2次元削除
 				memset(map->ptr, 0, map->size);
-				map->ptr = NULL;
+				map->ptr = 0;
 				memset(map, 0, __sizeof_icallocMap);
 				return;
 			}
 			else
 			{
 				memset(map->ptr, 0, map->size);
-				map->ptr = NULL;
+				map->ptr = 0;
 				memset(map, 0, __sizeof_icallocMap);
 				++__icallocMapFreeCnt;
 				return;
@@ -364,7 +363,6 @@ icalloc_mapSweep()
 	UINT u1 = 0, u2 = 0;
 
 	// 隙間を詰める
-	u1 = 0;
 	while(u1 < __icallocMapEOD)
 	{
 		map1 = (__icallocMap + u1);
@@ -409,7 +407,7 @@ icalloc_mapPrint1()
 
 	iConsole_setTextColor(9 + (0 * 16));
 	P2("-1 ----------- 8 ------------ 16 ------------ 24 ------------ 32--------");
-	CONST UINT _rowsCnt = 32;
+	const UINT _rowsCnt = 32;
 	UINT uRowsCnt = _rowsCnt;
 	UINT u1 = 0, u2 = 0;
 	while(u1 < __icallocMapSize)
@@ -491,7 +489,7 @@ icalloc_mapPrint2()
 // v2015-01-24
 VOID
 P(
-	CONST MBS *format,
+	const MBS *format,
 	...
 )
 {
@@ -504,31 +502,28 @@ P(
 // 繰り返し表示
 //---------------
 /* (例)
-	PR("abc", 3);  //=> "abcabcabc"
+	PR("abc", 3); //=> "abcabcabc"
 */
-// v2020-05-28
+// v2021-09-20
 VOID
 PR(
 	MBS *pM,   // 文字列
 	INT repeat // 繰り返し回数
 )
 {
-	if(repeat <= 0)
-	{
-		return;
-	}
-	while(repeat--)
+	while(repeat > 0)
 	{
 		P(pM);
+		--repeat;
 	}
 }
 //---------------
 // 色文字を表示
 //---------------
 /* (例)
-	iConsole_getColor(); //=> $IWM_ColorDefault // 元の色を保存
+	iConsole_getColor();              //=> $IWM_ColorDefault // 元の色を保存
 	PZ(15, "カラー文字：%s\n", "白"); //=> "カラー文字：白\n"
-	PZ(-1, NULL); // 元の色に戻す
+	PZ(-1, NULL);                     // 元の色に戻す
 */
 // v2021-03-19
 VOID
@@ -554,25 +549,25 @@ PZ(
 /* (例)
 	INT iMax = 100;
 	MBS *rtn = icalloc_MBS(10 * iMax);
-	INT iPos = 0;
+	MBS *pEnd = rtn;
 	INT iCnt = 0;
 
 	for(INT _i1 = 1; _i1 <= iMax; _i1++)
 	{
-		iPos += sprintf((rtn + iPos), "%d\n", _i1);
+		pEnd += sprintf(pEnd, "%d\n", _i1);
 
 		++iCnt;
 		if(iCnt == 30)
 		{
 			iCnt = 0;
 
-			QP(rtn, iPos);
-			iPos = 0;
+			QP(rtn, (pEnd - rtn));
+			pEnd = rtn;
 
 			Sleep(1000);
 		}
 	}
-	QP(rtn, iPos);
+	QP(rtn, (pEnd - rtn));
 */
 // v2021-09-19
 VOID
@@ -732,7 +727,7 @@ U8N
 	ifree(pW);
 	return pU;
 }
-// v2016-09-05
+// v2021-09-23
 WCS
 *icnv_U2W(
 	U8N *pU
@@ -742,7 +737,7 @@ WCS
 	{
 		return NULL;
 	}
-	UINT uW = iui_len(pU);
+	UINT uW = imi_len(pU) * 2; // 正確には x1.5
 	WCS *pW = icalloc_WCS(uW);
 	MultiByteToWideChar(CP_UTF8, 0, pU, -1, pW, uW);
 	return pW;
@@ -792,7 +787,7 @@ MBS
 	WCS *wp1 = M2W(mp1);
 	PL3(iwi_len(wp1)); //=> 10
 */
-// v2021-04-20
+// v2021-09-23
 UINT
 imi_len(
 	MBS *pM
@@ -802,11 +797,14 @@ imi_len(
 	{
 		return 0;
 	}
-	MBS *pBgn = pM;
-	while(*(++pM));
-	return (pM - pBgn);
+	UINT rtn = 0;
+	while(*pM++)
+	{
+		++rtn;
+	}
+	return rtn;
 }
-// v2016-09-06
+// v2021-09-23
 UINT
 iji_len(
 	MBS *pM
@@ -816,13 +814,13 @@ iji_len(
 	{
 		return 0;
 	}
-	UINT uCnt = 0;
+	UINT rtn = 0;
 	while(*pM)
 	{
 		pM = CharNextA(pM);
-		++uCnt;
+		++rtn;
 	}
-	return uCnt;
+	return rtn;
 }
 // v2020-05-30
 UINT
@@ -862,7 +860,7 @@ iui_len(
 	}
 	return rtn;
 }
-// v2021-04-20
+// v2021-09-23
 UINT
 iwi_len(
 	WCS *pW
@@ -872,32 +870,16 @@ iwi_len(
 	{
 		return 0;
 	}
-	WCS *pBgn = pW;
-	while(*(++pW));
-	return (pW - pBgn);
+	UINT rtn = 0;
+	while(*pW++)
+	{
+		++rtn;
+	}
+	return rtn;
 }
 //-------------------------
 // size先のポインタを返す
 //-------------------------
-/* (例)
-	MBS *p1 = "ABあいう";
-	PL2(imp_forwardN(p1, 4)); //=> "いう"
-*/
-// v2021-03-20
-MBS
-*imp_forwardN(
-	MBS *pM,   // 開始位置
-	UINT sizeM // 文字数
-)
-{
-	if(!pM)
-	{
-		return 0;
-	}
-	UINT uCnt = imi_len(pM);
-
-	return (uCnt < sizeM ? (pM + uCnt) : (pM + sizeM));
-}
 /* (例)
 	MBS *p1 = "ABあいう";
 	PL2(ijp_forwardN(p1, 3)); //=> "いう"
@@ -911,7 +893,7 @@ MBS
 {
 	if(!pM)
 	{
-		return 0;
+		return pM;
 	}
 	while(*pM && sizeJ > 0)
 	{
@@ -923,40 +905,40 @@ MBS
 // v2020-05-30
 U8N
 *iup_forwardN(
-	U8N *p,    // 開始位置
+	U8N *pU,   // 開始位置
 	UINT sizeU // 文字数
 )
 {
-	if(!p)
+	if(!pU)
 	{
-		return p;
+		return pU;
 	}
 	// BOMを読み飛ばす(UTF-8N は該当しない)
-	if(*p == (CHAR)0xEF && *(p + 1) == (CHAR)0xBB && *(p + 2) == (CHAR)0xBF)
+	if(*pU == (CHAR)0xEF && *(pU + 1) == (CHAR)0xBB && *(pU + 2) == (CHAR)0xBF)
 	{
-		p += 3;
+		pU += 3;
 	}
 	INT c = 0;
-	while(*p && sizeU > 0)
+	while(*pU && sizeU > 0)
 	{
-		if(*p & 0x80)
+		if(*pU & 0x80)
 		{
 			// 多バイト文字
-			c = (*p & 0xfc);
+			c = (*pU & 0xfc);
 			while(c & 0x80)
 			{
-				++p;
+				++pU;
 				c <<= 1;
 			}
 		}
 		else
 		{
 			// 1バイト文字
-			++p;
+			++pU;
 		}
 		--sizeU;
 	}
-	return p;
+	return pU;
 }
 //---------------
 // 大小文字置換
@@ -966,23 +948,19 @@ U8N
 	PL2(ims_upper(p1)); //=> "ABC"
 	PL2(ims_lower(p1)); //=> "abc"
 */
-// v2016-02-15
+// v2021-09-21
 MBS
-*ims_upper(
-	MBS *pM
+*ims_UpperLower(
+	MBS *pM,
+	INT option // 1=Upper／2=Lower
 )
 {
 	MBS *rtn = ims_clone(pM);
-	return CharUpperA(rtn);
-}
-// v2016-02-15
-MBS
-*ims_lower(
-	MBS *pM
-)
-{
-	MBS *rtn = ims_clone(pM);
-	return CharLowerA(rtn);
+	switch(option)
+	{
+		case(1): return CharUpperA(rtn); break;
+		default: return CharLowerA(rtn); break;
+	}
 }
 //-------------------------
 // コピーした文字長を返す
@@ -992,40 +970,40 @@ MBS
 	PL3(imi_cpy(to, "abcde")); //=> 5
 	ifree(to);
 */
-// v2021-04-20
+// v2021-09-22
 UINT
 imi_cpy(
 	MBS *to,
 	MBS *from
 )
 {
-	MBS *pBgn = from;
 	if(!from)
 	{
 		return 0;
 	}
+	MBS *pBgn = from;
 	while(*from)
 	{
-		*(to++) = *(from++);
+		*to++ = *from++;
 	}
 	*to = 0;
 	return (from - pBgn);
 }
-// v2021-04-20
+// v2021-09-22
 UINT
 iwi_cpy(
 	WCS *to,
 	WCS *from
 )
 {
-	WCS *pBgn = from;
 	if(!from)
 	{
 		return 0;
 	}
+	WCS *pBgn = from;
 	while(*from)
 	{
-		*(to++) = *(from++);
+		*to++ = *from++;
 	}
 	*to = 0;
 	return (from - pBgn);
@@ -1036,7 +1014,7 @@ iwi_cpy(
 	PL3(imi_pcpy(to, p1 + 3, p1 + 8)); //=> 5
 	ifree(to);
 */
-// v2021-04-20
+// v2021-09-22
 UINT
 imi_pcpy(
 	MBS *to,
@@ -1044,34 +1022,14 @@ imi_pcpy(
 	MBS *from2
 )
 {
+	if(!from1 || !from2)
+	{
+		return 0;
+	}
 	MBS *pBgn = from1;
-	if(!from1 || !from2)
-	{
-		return 0;
-	}
 	while(*from1 && from1 < from2)
 	{
-		*(to++) = *(from1++);
-	}
-	*to = 0;
-	return (from1 - pBgn);
-}
-// v2021-04-20
-UINT
-iwi_pcpy(
-	WCS *to,
-	WCS *from1,
-	WCS *from2
-)
-{
-	WCS *pBgn = from1;
-	if(!from1 || !from2)
-	{
-		return 0;
-	}
-	while(*from1 && from1 < from2)
-	{
-		*(to++) = *(from1++);
+		*to++ = *from1++;
 	}
 	*to = 0;
 	return (from1 - pBgn);
@@ -1116,24 +1074,6 @@ MBS
 {
 	MBS *rtn = icalloc_MBS(from2 - from1);
 	imi_pcpy(rtn, from1, from2);
-	return rtn;
-}
-/* (例)
-	MBS *to = "123";
-	MBS *from = "abcde";
-	PL2(ims_cat_pclone(to, from, from + 3)); //=> "123abc"
-*/
-// v2021-04-19
-MBS
-*ims_cat_pclone(
-	MBS *to,    // 先
-	MBS *from1, // 元の開始位置
-	MBS *from2  // 元の終了位置(含まれる)
-)
-{
-	MBS *rtn = icalloc_MBS(imi_len(to) + (from2 - from1));
-	MBS *pEnd = rtn + imi_cpy(rtn, to);
-	imi_pcpy(pEnd, from1, from2);
 	return rtn;
 }
 /* (例)
@@ -1189,60 +1129,6 @@ MBS
 
 	return rtn;
 }
-//-----------------------
-// 新規部分文字列を生成
-//-----------------------
-/* (例)
-	//----------------------------
-	//  [ A  B  C  D  E ] のとき
-	//    0  1  2  3  4
-	//   -5 -4 -3 -2 -1
-	//----------------------------
-	MBS *p1 = "ABCDE";
-	PL2(ijs_sub_clone(p1,  0, 2)); //=> "AB"
-	PL2(ijs_sub_clone(p1,  1, 2)); //=> "BC"
-	PL2(ijs_sub_clone(p1,  2, 2)); //=> "CD"
-	PL2(ijs_sub_clone(p1,  3, 2)); //=> "DE"
-	PL2(ijs_sub_clone(p1,  4, 2)); //=> "E"
-	PL2(ijs_sub_clone(p1,  5, 2)); //=> ""
-	PL2(ijs_sub_clone(p1, -1, 2)); //=> "E"
-	PL2(ijs_sub_clone(p1, -2, 2)); //=> "DE"
-	PL2(ijs_sub_clone(p1, -3, 2)); //=> "CD"
-	PL2(ijs_sub_clone(p1, -4, 2)); //=> "BC"
-	PL2(ijs_sub_clone(p1, -5, 2)); //=> "AB"
-	PL2(ijs_sub_clone(p1, -6, 2)); //=> "A"
-	PL2(ijs_sub_clone(p1, -7, 2)); //=> ""
-*/
-// v2019-08-15
-MBS
-*ijs_sub_clone(
-	MBS *pM,  // 文字列
-	INT jpos, // 開始位置
-	INT sizeJ // 文字数
-)
-{
-	if(!pM)
-	{
-		return pM;
-	}
-	INT len = iji_len(pM);
-	if(jpos >= len)
-	{
-		return imp_eod(pM);
-	}
-	if(jpos < 0)
-	{
-		jpos += len;
-		if(jpos < 0)
-		{
-			sizeJ += jpos;
-			jpos = 0;
-		}
-	}
-	MBS *pBgn = ijp_forwardN(pM, jpos);
-	MBS *pEnd = ijp_forwardN(pBgn, sizeJ);
-	return ims_cat_pclone(NULL, pBgn, pEnd);
-}
 //--------------------------------
 // lstrcmp()／lstrcmpi()より安全
 //--------------------------------
@@ -1270,11 +1156,11 @@ MBS
 	PL3(imb_cmp("abc", "AB", TRUE, TRUE));   //=> FALSE
 	NL();
 	// searchに１文字でも合致すればTRUEを返す
-	PL3(imb_cmp_leq(""   , "..", TRUE)); //=> TRUE
-	PL3(imb_cmp_leq("."  , "..", TRUE)); //=> TRUE
-	PL3(imb_cmp_leq(".." , "..", TRUE)); //=> TRUE
-	PL3(imb_cmp_leq("...", "..", TRUE)); //=> FALSE
-	PL3(imb_cmp_leq("...", ""  , TRUE)); //=> FALSE
+	PL3(imb_cmp_leq(""   , "..", TRUE));     //=> TRUE
+	PL3(imb_cmp_leq("."  , "..", TRUE));     //=> TRUE
+	PL3(imb_cmp_leq(".." , "..", TRUE));     //=> TRUE
+	PL3(imb_cmp_leq("...", "..", TRUE));     //=> FALSE
+	PL3(imb_cmp_leq("...", ""  , TRUE));     //=> FALSE
 	NL();
 */
 // v2021-04-20
@@ -1302,8 +1188,7 @@ imb_cmp(
 		return FALSE;
 	}
 	// int型で比較した方が速い
-	INT i1 = 0;
-	INT i2 = 0;
+	INT i1 = 0, i2 = 0;
 	if(icase)
 	{
 		while(*pM && *search)
@@ -1340,6 +1225,7 @@ imb_cmp(
 	// searchE の末尾が \0 なら 前方一致
 	return (!*search ? TRUE : FALSE);
 }
+// v2021-04-20
 BOOL
 iwb_cmp(
 	WCS *pW,      // 検索対象
@@ -1353,7 +1239,7 @@ iwb_cmp(
 	{
 		return FALSE;
 	}
-	// 例外 "" == "
+	// 例外
 	if(!*pW && !*search)
 	{
 		return TRUE;
@@ -1364,8 +1250,7 @@ iwb_cmp(
 		return FALSE;
 	}
 	// int型で比較した方が速い
-	INT i1 = 0;
-	INT i2 = 0;
+	INT i1 = 0, i2 = 0;
 	if(icase)
 	{
 		while(*pW && *search)
@@ -1428,15 +1313,15 @@ MBS
 // 一致文字数を返す
 //-------------------
 /* (例)
-	PL3(iji_searchCnti("d:\\folder1\\表\", "\\"));  //=> 2
-	PL3(iji_searchCntLi("表\表\123表\表\", "表\")); //=> 2
-	PL3(iji_searchCntRi("表\表\123表\表\", "表\")); //=> 2
-	PL3(iji_searchLenLi("表\表\123表\表\", "表\")); //=> 2
-	PL3(imi_searchLenLi("表\表\123表\表\", "表\")); //=> 4
-	PL3(iji_searchLenRi("表\表\123表\表\", "表\")); //=> 2
-	PL3(imi_searchLenRi("表\表\123表\表\", "表\")); //=> 4
+	PL3(iji_searchCnti("表\表\123表\", "表\"));  //=> 3 Word
+	PL3(iji_searchCntLi("表\表\123表\", "表\")); //=> 2 Word
+	PL3(iji_searchLenLi("表\表\123表\", "表\")); //=> 2 Word
+	PL3(imi_searchLenLi("表\表\123表\", "表\")); //=> 4 byte
+	PL3(iji_searchCntRi("表\表\123表\", "表\")); //=> 1 Word
+	PL3(iji_searchLenRi("表\表\123表\", "表\")); //=> 1 Word
+	PL3(imi_searchLenRi("表\表\123表\", "表\")); //=> 2 byte
 */
-// v2014-11-29
+// v2021-09-20
 UINT
 iji_searchCntA(
 	MBS *pM,     // 文字列
@@ -1444,24 +1329,11 @@ iji_searchCntA(
 	BOOL icase   // TRUE=大文字小文字区別しない
 )
 {
-	if(!pM || !search)
-	{
-		return 0;
-	}
-	UINT rtn = 0;
-	CONST UINT _searchLen = iji_len(search);
-	while(*pM)
-	{
-		if(imb_cmp(pM, search, FALSE, icase))
-		{
-			pM = ijp_forwardN(pM, _searchLen);
-			++rtn;
-		}
-		else
-		{
-			pM = CharNextA(pM);
-		}
-	}
+	WCS *pW = M2W(pM);
+	WCS *wp1 = M2W(search);
+	UINT rtn = iwi_searchCntW(pW, wp1, icase);
+	ifree(wp1);
+	ifree(pW);
 	return rtn;
 }
 // v2014-11-30
@@ -1477,7 +1349,7 @@ iwi_searchCntW(
 		return 0;
 	}
 	UINT rtn = 0;
-	CONST UINT _searchLen = iwi_len(search);
+	const UINT _searchLen = iwi_len(search);
 	while(*pW)
 	{
 		if(iwb_cmp(pW, search, FALSE, icase))
@@ -1498,7 +1370,7 @@ iji_searchCntLA(
 	MBS *pM,     // 文字列
 	MBS *search, // 検索文字列
 	BOOL icase,  // TRUE=大文字小文字区別しない
-	INT option   // 0=個数／1=Byte数／2=文字数
+	INT option   // 0=個数／1=Byte数／2=Word数
 )
 {
 	if(!pM || !search)
@@ -1506,7 +1378,7 @@ iji_searchCntLA(
 		return 0;
 	}
 	UINT rtn = 0;
-	CONST UINT _searchLen = imi_len(search);
+	const UINT _searchLen = imi_len(search);
 	while(*pM)
 	{
 		if(imb_cmp(pM, search, FALSE, icase))
@@ -1521,9 +1393,9 @@ iji_searchCntLA(
 	}
 	switch(option)
 	{
-		case(0):                         break;
-		case(1): rtn *= imi_len(search); break;
-		case(2): rtn *= iji_len(search); break;
+		case(1): rtn *= imi_len(search); break; // Byte数
+		case(2): rtn *= iji_len(search); break; // Word数
+		default: break;                         // 個数
 	}
 	return rtn;
 }
@@ -1533,7 +1405,7 @@ iji_searchCntRA(
 	MBS *pM,     // 文字列
 	MBS *search, // 検索文字列
 	BOOL icase,  // TRUE=大文字小文字区別しない
-	INT option   // 0=個数／1=Byte数／2=文字数
+	INT option   // 0=個数／1=Byte数／2=Word数
 )
 {
 	if(!pM || !search)
@@ -1541,8 +1413,8 @@ iji_searchCntRA(
 		return 0;
 	}
 	UINT rtn = 0;
-	CONST UINT _searchLen = imi_len(search);
-	MBS *pEnd = imp_eod(pM) - _searchLen;
+	const UINT _searchLen = imi_len(search);
+	MBS *pEnd = pM + imi_len(pM) - _searchLen;
 	while(pM <= pEnd)
 	{
 		if(imb_cmp(pEnd, search, FALSE, icase))
@@ -1557,9 +1429,9 @@ iji_searchCntRA(
 	}
 	switch(option)
 	{
-		case(0):                         break;
-		case(1): rtn *= imi_len(search); break;
-		case(2): rtn *= iji_len(search); break;
+		case(1): rtn *= imi_len(search); break; // Byte数
+		case(2): rtn *= iji_len(search); break; // Word数
+		default: break;                         // 個数
 	}
 	return rtn;
 }
@@ -1815,154 +1687,73 @@ icmpOperator_chkDBL(
 // 文字列を分割し配列を作成
 //---------------------------
 /* (例)
-	MBS *p1 = "2014年 4月29日  {(18時 42分) 00秒}";
-	MBS *tokens = "年月日時分秒 ";
-	MBS **ary = {0};
-	// ary = ija_split(p1, tokens, "{}[]", FALSE); //=> [0]"2014" [1]"4" [2]"29" [3]"{(18時 42分) 00秒}"
-	// ary = ija_split(p1, tokens, "{}[]", TRUE);  //=> [0]"2014" [1]"4" [2]"29" [3]"(18時 42分) 00秒"
-	// 第3引数 = NULL | "" のとき、以降の引数は無視される
-	// ary = ija_split(p1, tokens, "", FALSE);     //=> [0]"2014" [1]"4" [2]"29" [3]"{<18" [4]"42" [5]")" [6]"00" [7]"}"
-	// ary = ija_split(p1, tokens, "", TRUE);      //=> [0]"2014" [1]"4" [2]"29" [3]"{<18" [4]"42" [5]")" [6]"00" [7]"}"
-	// ary = ija_split(p1, "", "", FALSE);         // 1文字ずつ返す
-	// ary = ija_split(p1, "", "", TRUE);          // 1文字ずつ返す
-	// ary = ija_split(p1, NULL, "", FALSE);       // pを返す
-	// ary = ija_split(p1, NULL, "", TRUE);        // pを返す
+	MBS *pM = "2014年 4月29日　18時42分00秒";
+	MBS *tokensM = "年月日時分秒　 ";
+	MBS **ary =
+		ija_split(pM, tokensM); //=> [0]"2014" [1]"4" [2]"29" [3]"18" [4]"42" [5]"00"
+	//	ija_split(pM, "");      // 1文字ずつ返す
+	//	ija_split_zero(pM);     // ↑
+	//	ija_split(pM, NULL);    // ↑
 	iary_print(ary);
 	ifree(ary);
 */
-// v2021-04-19
+// v2021-09-24
 MBS
 **ija_split(
-	MBS *pM,       // 元文字列
-	MBS *tokens,   // 区切文字（複数）
-	MBS *quotes,   // quote文字（2文字1セット／複数可）／NULL | "" のとき無視
-	BOOL quote_cut // TRUE=quote文字を消去／FALSE=しない
+	MBS *pM,     // 元文字列
+	MBS *tokensM // 区切文字／複数 (例) "\t\r\n"
 )
 {
-	if(!pM || !*pM || !tokens)
+	if(!pM || !*pM)
 	{
-		return ija_token_eod(pM);
+		return ija_split_eod(pM);
 	}
-	if(!*tokens)
+
+	if(!tokensM || !*tokensM)
 	{
-		return ija_token_zero(pM);
+		return ija_split_zero(pM);
 	}
-	// 前後の空白を無視
-	MBS *sPtr = ijs_trim(pM);
-	UINT arySize = 0, u1 = 0, u2 = 0;
-	MBS *pBgn = 0, *pEnd = 0, *p1 = 0, *p2 = 0, *p3 = 0;
-	MBS **aToken = ija_token_zero(tokens);
-	MBS **aQuote = ija_token_zero((quotes ? quotes: NULL));
-	u1 = 0;
-	while((p1 = *(aToken + u1)))
+
+	WCS *pW = M2W(pM);
+	WCS *tokensW = M2W(tokensM);
+
+	UINT uAry = 0;
+	MBS **rtn = icalloc_MBS_ary(uAry + 1);
+
+	WCS *wp1 = wcstok(pW, tokensW);
+	*(rtn + uAry) = W2M(wp1);
+	while(wp1)
 	{
-		arySize += iji_searchCnt(sPtr, p1);
-		++u1;
+		wp1 = wcstok(NULL, tokensW);
+		++uAry;
+		rtn = irealloc_MBS_ary(rtn, (uAry + 1));
+		*(rtn + uAry) = W2M(wp1);
 	}
-	++arySize;
-	MBS **rtn = icalloc_MBS_ary(arySize);
-	pEnd = pBgn = sPtr;
-	u1 = 0;
-	while(*pEnd)
-	{
-		// quote検索
-		u2 = 0;
-		while((p1 = *(aQuote + u2)) && (p2 = *(aQuote + u2 + 1)))
-		{
-			p3 = pEnd;
-			pEnd = ijp_bypass(p3, p1, p2);
-			if(pEnd > p3)
-			{
-				++pEnd;
-			}
-			u2 += 2;
-		}
-		// token検索
-		u2 = 0;
-		while((p1 = *(aToken + u2)))
-		{
-			if(imb_cmpf(pEnd, p1))
-			{
-				if(pEnd > pBgn)
-				{
-					*(rtn + u1) = ims_pclone(pBgn, pEnd);
-					pBgn = CharNextA(pEnd);
-					++u1;
-				}
-				pBgn = CharNextA(pEnd);
-				break;
-			}
-			++u2;
-		}
-		pEnd = CharNextA(pEnd);
-	}
-	*(rtn + u1) = ims_pclone(pBgn, pEnd);
-	// quoteを消去
-	if(quote_cut)
-	{
-		arySize = iary_size(rtn);
-		u1 = 0;
-		while(u1 < arySize)
-		{
-			p1 = *(rtn + u1);
-			u2 = 0;
-			while(*(aQuote + u2) && *(aQuote + u2 + 1))
-			{
-				if(imb_cmpf(p1, *(aQuote + u2)))
-				{
-					p2 = ijs_rm_quote(p1, *(aQuote + u2), *(aQuote + u2 + 1), FALSE, TRUE);
-						imi_cpy(p1, p2);
-					ifree(p2);
-					break;
-				}
-				u2 += 2;
-			}
-			++u1;
-		}
-	}
-	ifree(aQuote);
-	ifree(aToken);
-	ifree(sPtr);
-	return rtn;
-}
-//-----------------------------
-// NULL(行末)で区切って配列化
-//-----------------------------
-/* (例)
-	MBS **ary = ija_token_eod("ABC");
-	iary_print(ary); //=> [ABC]
-*/
-// v2020-05-30
-MBS
-**ija_token_eod(
-	MBS *pM
-)
-{
-	MBS **rtn = icalloc_MBS_ary(1);
-	*(rtn + 0) = ims_clone(pM);
+
+	ifree(tokensW);
+	ifree(pW);
+
 	return rtn;
 }
 //---------------------------
 // １文字づつ区切って配列化
 //---------------------------
 /* (例)
-	MBS **ary = ija_token_zero("ABCあいう");
+	MBS **ary = ija_split_zero("ABCあいう");
 	iary_print(ary); //=> "A" "B" "C" "あ" "い" "う"
 */
-// v2020-05-30
+// v2021-09-24
 MBS
-**ija_token_zero(
+**ija_split_zero(
 	MBS *pM
 )
 {
-	MBS **rtn = 0;
 	if(!pM)
 	{
-		rtn = ima_null();
-		return rtn;
+		return ima_null();
 	}
-	CONST UINT pLen = iji_len(pM);
-	rtn = icalloc_MBS_ary(pLen);
+	UINT pLen = iji_len(pM);
+	MBS **rtn = icalloc_MBS_ary(pLen);
 	MBS *pBgn = pM;
 	MBS *pEnd = 0;
 	UINT u1 = 0;
@@ -1973,6 +1764,23 @@ MBS
 		pBgn = pEnd;
 		++u1;
 	}
+	return rtn;
+}
+//-----------------------------
+// NULL(行末)で区切って配列化
+//-----------------------------
+/* (例)
+	MBS **ary = ija_split_eod("ABC");
+	iary_print(ary); //=> [ABC]
+*/
+// v2021-09-24
+MBS
+**ija_split_eod(
+	MBS *pM
+)
+{
+	MBS **rtn = icalloc_MBS_ary(1);
+	*(rtn + 0) = ims_clone(pM);
 	return rtn;
 }
 //----------------------
@@ -2012,10 +1820,10 @@ MBS
 		quoteR2 = ims_clone(quoteR);
 	}
 	// 先頭のquote数
-	CONST UINT quoteL2Len = imi_len(quoteL2);
+	const UINT quoteL2Len = imi_len(quoteL2);
 	UINT quoteL2Cnt = iji_searchCntL(rtn, quoteL2);
 	// 末尾のquote数
-	CONST UINT quoteR2Len = imi_len(quoteR2);
+	const UINT quoteR2Len = imi_len(quoteR2);
 	UINT quoteR2Cnt = iji_searchCntR(rtn, quoteR2);
 	// ifree()
 	ifree(quoteR2);
@@ -2032,8 +1840,8 @@ MBS
 		rtn = ims_clone(pM); // 元の文字列に置換
 	}
 	// 先頭と末尾のquoteを対で消去
-	imb_shiftL(rtn, (quoteL2Len*quoteL2Cnt));      // 先頭位置をシフト
-	*(imp_eod(rtn) - (quoteR2Len*quoteR2Cnt)) = 0; // 末尾にNULL代入
+	imb_shiftL(rtn, (quoteL2Len*quoteL2Cnt));            // 先頭位置をシフト
+	*(rtn + imi_len(rtn) - (quoteR2Len*quoteR2Cnt)) = 0; // 末尾にNULL代入
 	return rtn;
 }
 //---------------------
@@ -2154,7 +1962,7 @@ MBS
 /* (例)
 	PL2(ijs_cut(" \tABC\t ", " \t", " \t")); //=> "ABC"
 */
-// v2014-10-13
+// v2021-09-24
 MBS
 *ijs_cut(
 	MBS *pM,
@@ -2163,11 +1971,11 @@ MBS
 )
 {
 	MBS *rtn = 0;
-	MBS **aryLs = ija_token_zero(rmLs);
-	MBS **aryRs = ija_token_zero(rmRs);
+	MBS **aryLs = ija_split_zero(rmLs);
+	MBS **aryRs = ija_split_zero(rmRs);
 		rtn = ijs_cutAry(pM, aryLs, aryRs);
-	ifree(aryLs);
 	ifree(aryRs);
+	ifree(aryLs);
 	return rtn;
 }
 // v2014-11-05
@@ -2186,7 +1994,7 @@ MBS
 	BOOL execR = (aryRs && *aryRs ? TRUE : FALSE);
 	UINT i1 = 0;
 	MBS *pBgn = pM;
-	MBS *pEnd = imp_eod(pBgn);
+	MBS *pEnd = pBgn + imi_len(pBgn);
 	MBS *p1 = 0;
 	// 先頭
 	if(execL)
@@ -2242,7 +2050,7 @@ MBS
 	"\t",
 	"\x20",     // " "
 	"\x81\x40", // "　"
-	EOD
+	NULL
 };
 // v2014-11-05
 MBS
@@ -2273,7 +2081,7 @@ MBS
 *ARY_CRLF[] = {
 	"\r",
 	"\n",
-	EOD
+	NULL
 };
 // v2014-11-05
 MBS
@@ -2287,34 +2095,91 @@ MBS
 // 文字列置換
 //-------------
 /* (例)
-	PL2(ijs_replace("100YEN", "YEN", "円")); //=> "100円"
+	PL2(ijs_replace("100YEN yen", "YEN", "円", TRUE));  //=> "100円 円"
+	PL2(ijs_replace("100YEN yen", "YEN", "円", FALSE)); //=> "100円 yen"
 */
-// v2021-04-19
+// v2021-09-22
 MBS
 *ijs_replace(
 	MBS *from,   // 文字列
 	MBS *before, // 変換前の文字列
-	MBS *after   // 変換後の文字列
+	MBS *after,  // 変換後の文字列
+	BOOL icase   // TRUE=大文字小文字区別しない
+)
+{
+	// "\\" "表\" に対応するため MBS => WCS => MBS の順で変換
+	WCS *fromW = M2W(from);
+	WCS *beforeW = M2W(before);
+	WCS *afterW = M2W(after);
+	WCS *rtnW = iws_replace(fromW, beforeW, afterW, icase);
+
+	MBS *rtn = W2M(rtnW);
+
+	ifree(rtnW);
+	ifree(afterW);
+	ifree(beforeW);
+	ifree(fromW);
+
+	return rtn;
+}
+// v2021-09-22
+WCS
+*iws_replace(
+	WCS *from,   // 文字列
+	WCS *before, // 変換前の文字列
+	WCS *after,  // 変換後の文字列
+	BOOL icase   // TRUE=大文字小文字区別しない
 )
 {
 	if(!from || !*from || !before || !*before)
 	{
-		return ims_clone(from);
+		return iws_clone(from);
 	}
-	UINT beforeLen = iji_len(before);
-	UINT cnvCnt = iji_searchCntA(from, before, FALSE);
-	MBS *rtn = icalloc_MBS(imi_len(from) + (cnvCnt*(imi_len(after) - imi_len(before))));
-	MBS *rtnE = rtn;
-	MBS *pBgn = from;
-	MBS *pEnd = pBgn;
-	while((cnvCnt--))
+
+	WCS *fW = 0;
+	WCS *bW = 0;
+
+	if(icase)
 	{
-		pEnd = ijp_searchLA(pEnd, before, FALSE);
-			rtnE += imi_pcpy(rtnE, pBgn, pEnd);
-			rtnE += imi_cpy(rtnE, after);
-		pBgn = pEnd = ijp_forwardN(pEnd, beforeLen);
+		fW = iws_clone(from);
+		CharLowerW(fW);
+		bW = iws_clone(before);
+		CharLowerW(bW);
 	}
-	imi_cpy(rtnE, pBgn);
+	else
+	{
+		fW = from;
+		bW = before;
+	}
+
+	UINT fWLen = iwi_len(fW);
+	UINT bWLen = iwi_len(bW);
+	UINT afterLen = iwi_len(after);
+
+	WCS *fWB = fW;
+
+	WCS *rtn = icalloc_WCS(fWLen * afterLen);
+	WCS *rtnE = rtn;
+
+	while(*fWB)
+	{
+		if(!wcsncmp(fWB, bW, bWLen))
+		{
+			rtnE += iwi_cpy(rtnE, after);
+			fWB += bWLen;
+		}
+		else
+		{
+			*rtnE++ = *fWB++;
+		}
+	}
+
+	if(icase)
+	{
+		ifree(bW);
+		ifree(fW);
+	}
+
 	return rtn;
 }
 //-----------------------------
@@ -2643,46 +2508,35 @@ MT_irandDBL(
 	Command Line
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-//-------------------
-// コマンド名を取得
-//-------------------
+//-------------------------
+// コマンド名／引数を取得
+//-------------------------
 /* (例)
-	iCLI_getCMD(); //=> $IWM_CMD
-	// "a.exe 123 abc ..."
-	PL2($IWM_CMD); //=> "a.exe"
+	iCLI_getARGV();
+	PL2($IWM_CMD);
+	iary_print($IWM_ARGV);
+	PL3($IWM_ARGC);
 */
-// v2021-03-19
-MBS
-*iCLI_getCMD()
+// v2021-09-24
+UINT
+iCLI_getARGV()
 {
-	MBS *pBgn = GetCommandLineA();
-	MBS *pEnd = pBgn;
-	for(; *pEnd && *pEnd != ' '; pEnd++);
-	$IWM_CMD = ims_pclone(pBgn, pEnd);
-	return $IWM_CMD;
-}
-//--------------------------------
-// 引数を取得（コマンド名は除去）
-//--------------------------------
-/* (例)
-	// "a.exe 123 abc"
-	iCLI_getARGS();
-		//=> $IWM_ARGV => ["123", "abc"]
-		//=> $IWM_ARGC => 2
-*/
-// v2021-03-20
-MBS
-**iCLI_getARGS()
-{
-	MBS *pBgn = ijs_trim(GetCommandLineA());
-	for(; *pBgn && *pBgn != ' '; pBgn++); // コマンド部分をスルー
-	$IWM_ARGV = (
-		*pBgn ?
-		ija_split(pBgn, " ", "\"\"\'\'", TRUE) : // quote = [""]['']のみ対象
-		ima_null()
-	);
-	$IWM_ARGC = iary_size($IWM_ARGV);
-	return $IWM_ARGV;
+	INT iArgc;
+	WCS **aW = CommandLineToArgvW(GetCommandLineW(), &iArgc);
+
+	$IWM_ARGC = iArgc - 1;
+	$IWM_CMD = W2M(*(aW + 0));
+
+	MBS **rtn = icalloc_MBS_ary(iArgc);
+	INT i1 = 1;
+	while(i1 < iArgc)
+	{
+		*(rtn + i1 - 1) = W2M(*(aW + i1));
+		++i1;
+	}
+	$IWM_ARGV = rtn;
+
+	return iArgc;
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -2704,13 +2558,6 @@ MBS
 	static MBS *ary[1] = {0};
 	return (MBS**)ary;
 }
-// v2016-01-19
-WCS
-**iwa_null()
-{
-	static WCS *ary[1] = {0};
-	return (WCS**)ary;
-}
 //-------------------
 // 配列サイズを取得
 //-------------------
@@ -2718,27 +2565,14 @@ WCS
 	MBS **ary = iCLI_getARGS(); // {"123", "45", "abc", NULL}
 	INT i1 = iary_size(ary);    //=> 3
 */
-// v2016-01-19
+// v2021-09-23
 UINT
 iary_size(
 	MBS **ary // 引数列
 )
 {
 	UINT rtn = 0;
-	while(*(ary + rtn))
-	{
-		++rtn;
-	}
-	return rtn;
-}
-// v2016-01-19
-UINT
-iwary_size(
-	WCS **ary // 引数列
-)
-{
-	UINT rtn = 0;
-	while(*(ary + rtn))
+	while(*ary++)
 	{
 		++rtn;
 	}
@@ -2752,33 +2586,31 @@ iwary_size(
 	INT i1 = iary_Mlen(ary);    //=> 7
 	INT i2 = iary_Jlen(ary);    //=> 5
 */
-// v2016-01-19
+// v2021-09-22
 UINT
 iary_Mlen(
 	MBS **ary
 )
 {
-	UINT size = 0, cnt = 0;
-	while(*(ary + cnt))
+	UINT rtn = 0;
+	while(*ary)
 	{
-		size += imi_len(*(ary + cnt));
-		++cnt;
+		 rtn += imi_len(*ary++);
 	}
-	return size;
+	return rtn;
 }
-// v2016-01-19
+// v2021-09-22
 UINT
 iary_Jlen(
 	MBS **ary
 )
 {
-	UINT size = 0, cnt = 0;
-	while(*(ary + cnt))
+	UINT rtn = 0;
+	while(*ary)
 	{
-		size += iji_len(*(ary + cnt));
-		++cnt;
+		 rtn += iji_len(*ary++);
 	}
-	return size;
+	return rtn;
 }
 //--------------
 // 配列をqsort
@@ -2803,8 +2635,8 @@ iary_Jlen(
 // v2014-02-07
 INT
 iary_qsort_cmp(
-	CONST VOID *p1, //
-	CONST VOID *p2, //
+	const VOID *p1, //
+	const VOID *p2, //
 	BOOL asc        // TRUE=昇順／FALSE=降順
 )
 {
@@ -2816,8 +2648,8 @@ iary_qsort_cmp(
 // v2014-02-07
 INT
 iary_qsort_cmpAsc(
-	CONST VOID *p1,
-	CONST VOID *p2
+	const VOID *p1,
+	const VOID *p2
 )
 {
 	return iary_qsort_cmp(p1, p2, TRUE);
@@ -2825,28 +2657,12 @@ iary_qsort_cmpAsc(
 // v2014-02-07
 INT
 iary_qsort_cmpDesc(
-	CONST VOID *p1,
-	CONST VOID *p2
+	const VOID *p1,
+	const VOID *p2
 )
 {
 	return iary_qsort_cmp(p1, p2, FALSE);
 }
-// v2014-02-07
-/*
-VOID
-iary_sort(
-	MBS **ary, // 配列
-	BOOL asc   // TRUE=昇順／FALSE=降順
-)
-{
-	qsort(
-		(MBS*)ary,
-		iary_size(ary),
-		sizeof(MBS**),
-		(asc ? iary_qsort_cmpAsc : iary_qsort_cmpDesc)
-	);
-}
-*/
 //---------------------
 // 配列を文字列に変換
 //---------------------
@@ -2855,7 +2671,7 @@ iary_sort(
 	MBS *p1 = iary_join(ary, "\t");
 	PL2(p1);
 */
-// v2021-04-19
+// v2021-09-22
 MBS
 *iary_join(
 	MBS **ary, // 配列
@@ -2864,18 +2680,12 @@ MBS
 {
 	UINT arySize = iary_size(ary);
 	UINT tokenSize = imi_len(token);
-	UINT u1 = iary_Mlen(ary) + (tokenSize*arySize);
-	MBS *rtn = icalloc_MBS(u1);
+	MBS *rtn = icalloc_MBS(iary_Mlen(ary) + (tokenSize * arySize));
 	MBS *pEnd = rtn;
-	u1 = 0;
-	while(u1 < arySize)
+	while(*ary)
 	{
-		pEnd += imi_cpy(pEnd, *(ary + u1));
-		if(token)
-		{
-			pEnd += imi_cpy(pEnd, token);
-		}
-		++u1;
+		pEnd += imi_cpy(pEnd, *ary++);
+		pEnd += imi_cpy(pEnd, token);
 	}
 	*(pEnd - tokenSize) = 0;
 	return rtn;
@@ -2910,7 +2720,7 @@ MBS
 	BOOL icase // TRUE=大文字小文字区別しない
 )
 {
-	CONST UINT uArySize = iary_size(ary);
+	const UINT uArySize = iary_size(ary);
 	UINT u1 = 0, u2 = 0;
 	// iAryFlg 生成
 	INT *iAryFlg = icalloc_INT(uArySize); // 初期値 = 0
@@ -3002,7 +2812,7 @@ MBS
 	UINT depth // 階層 = 0..MAX_PATH
 )
 {
-	CONST UINT uArySize = iary_size(ary);
+	const UINT uArySize = iary_size(ary);
 	UINT u1 = 0, u2 = 0;
 	// 実在Dirのみ抽出
 	MBS **sAry = icalloc_MBS_ary(uArySize);
@@ -3075,54 +2885,27 @@ MBS
 	ifree(sAry);
 	return rtn;
 }
-//---------------------
-// 配列のクローン作成
-//---------------------
-/* (例)
-	MBS **ary1 = iCLI_getARGS();
-	MBS **ary2 = iary_clone(ary1);
-	PL3(iary_size(ary1));
-		iary_print(ary1);
-	PL3(iary_size(ary2));
-		iary_print(ary2);
-	ifree(ary2);
-	ifree(ary1);
-*/
-// v2015-12-31
-MBS
-**iary_clone(
-	MBS **ary
-)
-{
-	UINT size = iary_size(ary);
-	MBS **rtn = icalloc_MBS_ary(size);
-	MBS **ps = rtn;
-	while(size)
-	{
-		*(ps++) = ims_clone(*(ary++));
-		--size;
-	}
-	return rtn;
-}
 //-----------
 // 配列一覧
 //-----------
 /* (例)
-	// **ary = {"a", "b", "c"} のとき
-	iget_ary_print(ary); //=> [0]"a", [1]"b", [2]"c"
+	// コマンドライン引数
+	iary_print($IWM_ARGV);
+
+	// 文字配列
+	MBS *ary[] = {"ABC", "12345", NULL};
+	iary_print(ary);
 */
-// v2014-10-16
+// v2021-09-24
 VOID
 iary_print(
 	MBS **ary // 引数列
 )
 {
-	UINT aSize = iary_size(ary);
-	UINT u1 = 0;
-	while(u1 < aSize)
+	UINT u1 = 1;
+	while(*ary)
 	{
-		P("[%04d] \"%s\"\n", u1 + 1, *(ary + u1));
-		++u1;
+		P("[%04d] '%s'\n", u1++, *ary++);
 	}
 }
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -3454,7 +3237,7 @@ iFinfo_init2M(
 		UINT uDirLen = (iFtype == 1 ? imi_len(path2) : (UINT)(PathFindFileNameA(path2) - path2));
 		MBS *pDir = (FI->fullnameA); // tmp
 			imi_pcpy(pDir, path2, path2 + uDirLen);
-		MBS *sName = NULL;
+		MBS *sName = 0;
 			if(iFtype == 1)
 			{
 				// Dir
@@ -3538,7 +3321,7 @@ MBS
 	*(rtn + 4) = (iAttr & FILE_ATTRIBUTE_ARCHIVE   ? 'a' : '-'); // 32: Archive
 	return rtn;
 }
-// v2016-02-11
+// v2021-09-24
 UINT
 iFinfo_attrAtoUINT(
 	MBS *sAttr // "r, h, s, d, a" => 55
@@ -3548,7 +3331,7 @@ iFinfo_attrAtoUINT(
 	{
 		return 0;
 	}
-	MBS **ap1 = ija_token(sAttr, "");
+	MBS **ap1 = ija_split_zero(sAttr);
 	MBS **ap2 = iary_simplify(ap1, TRUE);
 		MBS *p1 = iary_join(ap2, "");
 	ifree(ap2);
@@ -3556,11 +3339,11 @@ iFinfo_attrAtoUINT(
 	// 小文字に変換
 	CharLowerA(p1);
 	UINT rtn = 0;
-	MBS *p2 = p1;
-	while(*p2)
+	MBS *pE = p1;
+	while(*pE)
 	{
 		// 頻出順
-		switch(*p2)
+		switch(*pE)
 		{
 			// 32: ARCHIVE
 			case('a'):
@@ -3587,7 +3370,7 @@ iFinfo_attrAtoUINT(
 				rtn += FILE_ATTRIBUTE_READONLY;
 				break;
 		}
-		++p2;
+		++pE;
 	}
 	ifree(p1);
 	return rtn;
@@ -3826,9 +3609,9 @@ iFchk_Bfile(
 	// 存在しなくても機械的に抽出
 	// 必要に応じて iFchk_existPathA() で前処理
 	MBS *p1 = "c:\\windows\\win.ini";
-	PL2(iget_regPathname(p1, 0)); //=>"c:\windows\win.ini"
-	PL2(iget_regPathname(p1, 1)); //=>"win.ini"
-	PL2(iget_regPathname(p1, 2)); //=>"win"
+	PL2(iFget_extPathname(p1, 0)); //=>"c:\windows\win.ini"
+	PL2(iFget_extPathname(p1, 1)); //=>"win.ini"
+	PL2(iFget_extPathname(p1, 2)); //=>"win"
 */
 // v2021-04-19
 MBS
@@ -3915,14 +3698,14 @@ MBS
 	}
 	return rtn;
 }
-//---------------------------
-// 相対Dir を "\"付きに変換
-//---------------------------
+//----------------------------
+// 相対Dir を "\" 付きに変換
+//----------------------------
 /* (例)
 	// _fullpath() の応用
 	PL2(iFget_RdirA(".")); => ".\\"
 */
-// v2021-04-19
+// v2021-09-22
 MBS
 *iFget_RdirA(
 	MBS *path // ファイルパス
@@ -3933,13 +3716,13 @@ MBS
 	{
 		rtn = ims_clone(path);
 		UINT u1 = iji_searchLenR(rtn, "\\");
-		MBS *pEnd = imp_eod(rtn) - u1;
+		MBS *pEnd = rtn + imi_len(rtn) - u1;
 		*(pEnd + 0) = '\\';
 		*(pEnd + 1) = 0;
 	}
 	else
 	{
-		rtn = ijs_replace(path, "\\\\", "\\");
+		rtn = ijs_replace(path, "\\\\", "\\", FALSE);
 	}
 	return rtn;
 }
@@ -4162,8 +3945,8 @@ idate_chk_month_end(
 	PL4(idate_MBStoCjd(">[0000-00-00]"));                   //=> 1721026.00000000
 	PL4(idate_MBStoCjd(">[-1970-12-10]"));                  //=> 1001859.00000000
 	PL4(idate_MBStoCjd(">[2016-01-02]"));                   //=> 2457390.00000000
-	PL4(idate_MBStoCjd(">[0D]"));    // "2016-01-02 10:44:08" => 2457390.00000000
-	PL4(idate_MBStoCjd(">[]"));      // "2016-01-02 10:44:08" => 2457390.44731481
+	PL4(idate_MBStoCjd(">[0D]"));                           // "2016-01-02 10:44:08" => 2457390.00000000
+	PL4(idate_MBStoCjd(">[]"));                             // "2016-01-02 10:44:08" => 2457390.44731481
 	PL4(idate_MBStoCjd(""));                                //=> DBL_MAX
 */
 // v2016-01-03
@@ -4209,18 +3992,18 @@ idate_MBStoCjd(
 		iary_print(ary); //=> "-2012" "8" "12" "12" "45" "00"
 	ifree(ary);
 */
-// v2016-01-20
+// v2021-09-24
 MBS
 **idate_MBS_to_mAryYmdhns(
 	MBS *pM // (例) "2012-03-12 13:40:00"
 )
 {
 	BOOL bMinus = (pM && *pM == '-' ? TRUE : FALSE);
-	MBS **rtn = ija_token(pM, "/.-: "); // NULL対応
+	MBS **rtn = ija_split(pM, "/.-: ");
 	if(bMinus)
 	{
 		MBS *p1 = *(rtn + 0);
-		memmove(p1 + 1, p1, imi_len(p1) + 1); // NULLも移動
+		memmove(p1 + 1, p1, imi_len(p1) + 1);
 		*p1 = '-';
 	}
 	return rtn;
@@ -4569,7 +4352,7 @@ INT
 /* (例)
 	INT *ai = idate_diff(2012, 1, 31, 0, 0, 0, 2012, 2, 29, 0, 0, 0); //=> sign = 1, y = 0, m = 1, d = 0, h = 0, n = 0, s = 0, days = 29
 	INT i1 = 0;
-	for(i1 = 0; i1 < 7; i1++) P("[%d]%d\n", i1, *(ai + i1)); //=> 2012, 2, 29, 0, 0, 0, 29
+	for(i1 = 0; i1 < 7; i1++) P("[%d]%d\n", i1, *(ai + i1));          //=> 2012, 2, 29, 0, 0, 0, 29
 */
 // v2014-11-23
 INT
@@ -4835,8 +4618,8 @@ MBS
 		return "";
 	}
 
-	CONST UINT BufSizeMax = 512;
-	CONST UINT BufSizeDmz = 64;
+	const UINT BufSizeMax = 512;
+	const UINT BufSizeDmz = 64;
 	MBS *rtn = icalloc_MBS(BufSizeMax + BufSizeDmz);
 	MBS *pEnd = rtn;
 	UINT uPos = 0;
@@ -5064,12 +4847,12 @@ MBS
 	MBS *quoteBgn,  // 囲文字 1文字 (例) "["
 	MBS *quoteEnd,  // 囲文字 1文字 (例) "]"
 	MBS *add_quote, // 出力文字に追加するquote (例) "'"
-	CONST INT i_y,  // ベース年
-	CONST INT i_m,  // ベース月
-	CONST INT i_d,  // ベース日
-	CONST INT i_h,  // ベース時
-	CONST INT i_n,  // ベース分
-	CONST INT i_s   // ベース秒
+	const INT i_y,  // ベース年
+	const INT i_m,  // ベース月
+	const INT i_d,  // ベース日
+	const INT i_h,  // ベース時
+	const INT i_n,  // ベース分
+	const INT i_s   // ベース秒
 )
 {
 	if(!pM)
@@ -5453,25 +5236,25 @@ rtnGeoVincentry(
 		return ($Geo){0, 0, 0, 0, 0};
 	}
 
-	/// CONST DOUBLE _A = 6378137.0;
-	CONST DOUBLE _B   = 6356752.314140356;    // GRS80
-	CONST DOUBLE _F   = 0.003352810681182319; // 1 / 298.257222101
-	CONST DOUBLE _RAD = 0.017453292519943295; // π / 180
+	/// const DOUBLE _A = 6378137.0;
+	const DOUBLE _B   = 6356752.314140356;    // GRS80
+	const DOUBLE _F   = 0.003352810681182319; // 1 / 298.257222101
+	const DOUBLE _RAD = 0.017453292519943295; // π / 180
 
-	CONST DOUBLE latR1 = lat1 * _RAD;
-	CONST DOUBLE lngR1 = lng1 * _RAD;
-	CONST DOUBLE latR2 = lat2 * _RAD;
-	CONST DOUBLE lngR2 = lng2 * _RAD;
+	const DOUBLE latR1 = lat1 * _RAD;
+	const DOUBLE lngR1 = lng1 * _RAD;
+	const DOUBLE latR2 = lat2 * _RAD;
+	const DOUBLE lngR2 = lng2 * _RAD;
 
-	CONST DOUBLE f1 = 1 - _F;
+	const DOUBLE f1 = 1 - _F;
 
-	CONST DOUBLE omega = lngR2 - lngR1;
-	CONST DOUBLE tanU1 = f1 * tan(latR1);
-	CONST DOUBLE cosU1 = 1 / sqrt(1 + tanU1 * tanU1);
-	CONST DOUBLE sinU1 = tanU1 * cosU1;
-	CONST DOUBLE tanU2 = f1 * tan(latR2);
-	CONST DOUBLE cosU2 = 1 / sqrt(1 + tanU2 * tanU2);
-	CONST DOUBLE sinU2 = tanU2 * cosU2;
+	const DOUBLE omega = lngR2 - lngR1;
+	const DOUBLE tanU1 = f1 * tan(latR1);
+	const DOUBLE cosU1 = 1 / sqrt(1 + tanU1 * tanU1);
+	const DOUBLE sinU1 = tanU1 * cosU1;
+	const DOUBLE tanU2 = f1 * tan(latR2);
+	const DOUBLE cosU2 = 1 / sqrt(1 + tanU2 * tanU2);
+	const DOUBLE sinU2 = tanU2 * cosU2;
 
 	DOUBLE lamda  = omega;
 	DOUBLE dLamda = 0.0;

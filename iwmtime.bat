@@ -1,41 +1,38 @@
 :: Ini ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	@echo off
-	cd %~dp0
-	%~d0
 	cls
 
 	:: ファイル名はソースと同じ
 	set fn=%~n0
-	set fn_exe=%fn%.exe
-	set cc=gcc.exe
-	set op_link=-Og -lgdi32 -luser32 -lshlwapi
 	set src=%fn%.c
+	set exec=%fn%.exe
+	set cc=gcc.exe
 	set lib=lib_iwmutil.a
+	set option=-Os -Wall -lgdi32 -luser32 -lshlwapi
 
 :: Make ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 	echo --- Compile -S ------------------------------------
 	for %%s in (%src%) do (
-		%cc% %%s -S %op_link%
+		%cc% %%s -S %option%
 		echo %%~ns.s
 	)
 	echo.
 
-	:: Make
 	echo --- Make ------------------------------------------
 	for %%s in (%src%) do (
-		echo %%s
-		%cc% %%s -c -Wall %op_link%
+		%cc% %%s -c %option%
 	)
-	%cc% *.o %lib% -o %fn_exe% %op_link%
+	%cc% *.o %lib% -o %exec% %option%
+	echo %exec%
 	echo.
 
 	:: 後処理
-	strip %fn_exe%
+	strip %exec%
 	rm *.o
 
 	:: 失敗
-	if not exist "%fn_exe%" goto end
+	if not exist "%exec%" goto end
 
 	:: 成功
 	echo.
@@ -46,8 +43,8 @@
 	set t=%time%
 	echo [%t%]
 
-	%fn%.exe
-	%fn%.exe sleep 1
+	%exec%
+	%exec% sleep 1
 
 	echo [%t%]
 	echo [%time%]
