@@ -30,17 +30,18 @@
 	動的メモリ確保( = icalloc_XXX()等)と解放を丁寧に行えば、
 	十分な『安全』と『速度』を今時のハードウェアは提供する。
 */
-/* 2014-02-13
-	変数ルール
-		◆INT    ： 当面の標準
-		◆UINT   ： (要注意)「FILE関係」「正数」のみ ⇒ 頃合みて INT64 に移行する
-		◆DOUBLE ： 小数点の扱い全て
+/* 2014-02-13 (2021-11-12修正)
+	変数ルール／Minqw-w64
+		◆INT    : (±31bit) 標準 
+		◇UINT   : (＋32bit) NTFS関係
+		◇INT64  : (±63bit) ファイルサイズ, 暦数
+		◆DOUBLE : (±64bit) 小数
 */
-/* 2016-08-19
+/* 2016-08-19 (2021-11-11修正)
 	大域変数・定数表記
-		◆iwmutil共通の変数 // "$IWM_"+型略記+大文字で始まる
-			$IWM_(b|i|p|u)Str
-		◆特殊な大域変数 // "$"の次は小文字
+		◆iwmutil共通の変数 // "$" + 大文字
+			$CMD, $ARGV など
+		◆特殊な大域変数 // "$" + 小文字
 			$struct_func() <=> $struct_var
 			$union_func() <=> $union_var
 		◆特殊な大域変数から派生した大域変数
@@ -68,12 +69,13 @@
 	大域変数
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-MBS      *$IWM_CMD         = "";  // コマンド名を格納
-MBS      **$IWM_ARGV       = {0}; // ARGVを格納
-UINT     $IWM_ARGC         = 0;   // ARGCを格納
-HANDLE   $IWM_StdoutHandle = 0;   // 画面制御用ハンドル
-UINT     $IWM_ColorDefault = 0;   // コンソール色
-UINT     $IWM_ExecSecBgn   = 0;   // 実行開始時間
+MBS      *$CMD         = "";  // コマンド名を格納
+MBS      **$ARGV       = {0}; // ARGVを格納
+UINT     $ARGC         = 0;   // ARGCを格納
+HANDLE   $StdoutHandle = 0;   // 画面制御用ハンドル
+UINT     $ColorDefault = 0;   // コンソール色
+UINT     $ExecSecBgn   = 0;   // 実行開始時間
+
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
 	実行開始時間
@@ -85,7 +87,7 @@ UINT     $IWM_ExecSecBgn   = 0;   // 実行開始時間
 	経過時間は 0 に戻ります。
 */
 /* (例)
-	iExecSec_init(); //=> $IWM_ExecSecBgn
+	iExecSec_init(); //=> $ExecSecBgn
 	Sleep(2000);
 	P("-- %.6fsec\n\n", iExecSec_next());
 	Sleep(1000);
@@ -100,7 +102,7 @@ iExecSec(
 	UINT microSec2 = GetTickCount();
 	if(!microSec)
 	{
-		$IWM_ExecSecBgn = microSec2;
+		$ExecSecBgn = microSec2;
 	}
 	return (microSec2 < microSec ? 0 : (microSec2 - microSec)); // Err = 0
 }
@@ -521,11 +523,11 @@ PR(
 // 色文字を表示
 //---------------
 /* (例)
-	iConsole_getColor();              //=> $IWM_ColorDefault // 元の色を保存
+	iConsole_getColor();              //=> $ColorDefault // 元の色を保存
 	PZ(15, "カラー文字：%s\n", "白"); //=> "カラー文字：白\n"
 	PZ(-1, NULL);                     // 元の色に戻す
 */
-// v2021-03-19
+// v2021-11-10
 VOID
 PZ(
 	INT rgb, // iConsole_setTextColor() 参照
@@ -535,14 +537,22 @@ PZ(
 {
 	if(rgb < 0)
 	{
-		rgb = $IWM_ColorDefault;
+		rgb = $ColorDefault;
 	}
-	SetConsoleTextAttribute($IWM_StdoutHandle, rgb);
+
+	if(!format)
+	{
+		format = "";
+	}
+
+	iConsole_setTextColor(rgb);
+
 	va_list va;
 	va_start(va, format);
 		vfprintf(stdout, format, va);
 	va_end(va);
 }
+
 //--------------
 // Quick Print
 //--------------
@@ -2240,34 +2250,11 @@ imb_shiftR(
 // 文字を無視した位置で数値に変換する
 //-------------------------------------
 /* (例)
-	PL3(inum_atoi("-0123.45")); //=> -123
-*/
-// v2015-12-31
-INT
-inum_atoi(
-	MBS *pM // 文字列
-)
-{
-	if(!pM || !*pM)
-	{
-		return 0;
-	}
-	while(*pM)
-	{
-		if(inum_chkM(pM))
-		{
-			break;
-		}
-		++pM;
-	}
-	return atoi(pM);
-}
-/* (例)
 	PL3(inum_atoi64("-0123.45")); //=> -123
 */
 // v2015-12-31
 INT64
-inum_atoi64(
+inum_atoi(
 	MBS *pM // 文字列
 )
 {
@@ -2513,9 +2500,9 @@ MT_irandDBL(
 //-------------------------
 /* (例)
 	iCLI_getARGV();
-	PL2($IWM_CMD);
-	iary_print($IWM_ARGV);
-	PL3($IWM_ARGC);
+	PL2($CMD);
+	iary_print($ARGV);
+	PL3($ARGC);
 */
 // v2021-09-24
 UINT
@@ -2524,8 +2511,8 @@ iCLI_getARGV()
 	INT iArgc;
 	WCS **aW = CommandLineToArgvW(GetCommandLineW(), &iArgc);
 
-	$IWM_ARGC = iArgc - 1;
-	$IWM_CMD = W2M(*(aW + 0));
+	$ARGC = iArgc - 1;
+	$CMD = W2M(*(aW + 0));
 
 	MBS **rtn = icalloc_MBS_ary(iArgc);
 	INT i1 = 1;
@@ -2534,9 +2521,99 @@ iCLI_getARGV()
 		*(rtn + i1 - 1) = W2M(*(aW + i1));
 		++i1;
 	}
-	$IWM_ARGV = rtn;
+	$ARGV = rtn;
 
 	return iArgc;
+}
+//---------------------------------------
+// 引数 [Key+Value] から [Value] を取得
+//---------------------------------------
+/* (例)
+	iCLI_getARGV();
+	// $ARGV[0] => "-w=size <= 1000"
+	P2(iCLI_getOptValue(0, "-w=", NULL)); //=> "size <= 1000"
+*/
+// v2021-11-11
+MBS
+*iCLI_getOptValue(
+	UINT argc, // $ARGV[argc]
+	MBS *opt1, // (例) "-w="
+	MBS *opt2  // (例) "-where=", NULL
+)
+{
+	if(argc >= $ARGC)
+	{
+		return NULL;
+	}
+
+	if(!imi_len(opt1))
+	{
+		return NULL;
+	}
+	else if(!imi_len(opt2))
+	{
+		opt2 = opt1;
+	}
+
+	MBS *_p1 = $ARGV[argc];
+
+	// 前方一致
+	if(imb_cmpf(_p1, opt1))
+	{
+		return (_p1 + imi_len(opt1));
+	}
+	else if(imb_cmpf(_p1, opt2))
+	{
+		return (_p1 + imi_len(opt2));
+	}
+
+	return NULL;
+}
+//--------------------------
+// 引数 [Key] と一致するか
+//--------------------------
+/* (例)
+	iCLI_getARGV();
+	// $ARGV[0] => "-repeat"
+	P3(iCLI_getOptMatch(0, "-repeat", NULL)); //=> TRUE
+	// $ARGV[0] => "-w=size <= 1000"
+	P3(iCLI_getOptMatch(0, "-w=", NULL));     //=> FALSE
+*/
+// v2021-11-11
+BOOL
+iCLI_getOptMatch(
+	UINT argc, // $ARGV[argc]
+	MBS *opt1, // (例) "-r"
+	MBS *opt2  // (例) "-repeat", NULL
+)
+{
+	if(argc >= $ARGC)
+	{
+		return FALSE;
+	}
+
+	if(!imi_len(opt1))
+	{
+		return FALSE;
+	}
+	else if(!imi_len(opt2))
+	{
+		opt2 = opt1;
+	}
+
+	MBS *_p1 = $ARGV[argc];
+
+	// 完全一致
+	if(imb_cmpp(_p1, opt1))
+	{
+		return TRUE;
+	}
+	else if(imb_cmpp(_p1, opt2))
+	{
+		return TRUE;
+	}
+
+	return FALSE;
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -2890,7 +2967,7 @@ MBS
 //-----------
 /* (例)
 	// コマンドライン引数
-	iary_print($IWM_ARGV);
+	iary_print($ARGV);
 
 	// 文字配列
 	MBS *ary[] = {"ABC", "12345", NULL};
@@ -3474,9 +3551,9 @@ iFinfo_ftimeToCjd(
 	FILETIME ftime
 )
 {
-	INT64 I1 = ((INT64)ftime.dwHighDateTime << 32) + ftime.dwLowDateTime;
-	I1 /= 10000000; // (重要) MicroSecond 削除
-	return ((DOUBLE)I1 / 86400) + 2305814.0;
+	INT64 i1 = ((INT64)ftime.dwHighDateTime << 32) + ftime.dwLowDateTime;
+	i1 /= 10000000; // (重要) MicroSecond 削除
+	return ((DOUBLE)i1 / 86400) + 2305814.0;
 }
 // v2014-11-21
 FILETIME
@@ -3776,8 +3853,8 @@ imk_dir(
 	//  8 = Gray     9 = Blue    10 = Lime    11 = Aqua
 	// 12 = Red     13 = Fuchsia 14 = Yellow  15 = White
 	iConsole_getColor();
-		//=> $IWM_ColorDefault // 現在色を保存
-		//=> $IWM_StdoutHandle // 画面ハンドルを保存
+		//=> $ColorDefault // 現在色を保存
+		//=> $StdoutHandle // 画面ハンドルを保存
 	iConsole_setTextColor(9 + (15 * 16)); // 変更
 	iConsole_setTextColor(-1); // 元の色に戻す
 */
@@ -3785,11 +3862,11 @@ imk_dir(
 UINT
 iConsole_getColor()
 {
-	$IWM_StdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+	$StdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_SCREEN_BUFFER_INFO info;
-	GetConsoleScreenBufferInfo($IWM_StdoutHandle, &info);
-	$IWM_ColorDefault = info.wAttributes;
-	return $IWM_ColorDefault;
+	GetConsoleScreenBufferInfo($StdoutHandle, &info);
+	$ColorDefault = info.wAttributes;
+	return $ColorDefault;
 }
 // v2021-03-19
 VOID
@@ -3799,7 +3876,7 @@ iConsole_setTextColor(
 {
 	if(rgb < 0)
 	{
-		rgb = $IWM_ColorDefault;
+		rgb = $ColorDefault;
 	}
 	HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
 	SetConsoleTextAttribute(handle, rgb);
@@ -4599,18 +4676,18 @@ idate_diff_checker(
 	ifree(s1);
 	ifree(ai);
 */
-// v2021-04-18
+// v2021-11-12
 MBS
 *idate_format_diff(
-	MBS *format, //
-	INT i_sign,  // 符号／-1="-", 0<="+"
-	INT i_y,     // 年
-	INT i_m,     // 月
-	INT i_d,     // 日
-	INT i_h,     // 時
-	INT i_n,     // 分
-	INT i_s,     // 秒
-	INT i_days   // 通産日／idate_diff()で使用
+	MBS   *format, //
+	INT   i_sign,  // 符号／-1="-", 0<="+"
+	INT   i_y,     // 年
+	INT   i_m,     // 月
+	INT   i_d,     // 日
+	INT   i_h,     // 時
+	INT   i_n,     // 分
+	INT   i_s,     // 秒
+	INT64 i_days   // 通算日／idate_diff()で使用
 )
 {
 	if(!format)
@@ -4676,27 +4753,27 @@ MBS
 					break;
 
 				case 'D': // 通算日
-					pEnd += sprintf(pEnd, "%d", i_days);
+					pEnd += sprintf(pEnd, "%lld", i_days);
 					break;
 
 				case 'H': // 通算時
-					pEnd += sprintf(pEnd, "%I64d", ((INT64)i_days * 24) + i_h);
+					pEnd += sprintf(pEnd, "%lld", (i_days * 24) + i_h);
 					break;
 
 				case 'N': // 通算分
-					pEnd += sprintf(pEnd, "%I64d", ((INT64)i_days * 24 * 60) + (i_h * 60) + i_n);
+					pEnd += sprintf(pEnd, "%lld", (i_days * 24 * 60) + (i_h * 60) + i_n);
 					break;
 
 				case 'S': // 通算秒
-					pEnd += sprintf(pEnd, "%I64d", ((INT64)i_days * 24 * 60 * 60) + (i_h * 60 * 60) + (i_n * 60) + i_s);
+					pEnd += sprintf(pEnd, "%lld", (i_days * 24 * 60 * 60) + (i_h * 60 * 60) + (i_n * 60) + i_s);
 					break;
 
 				case 'W': // 通算週
-					pEnd += sprintf(pEnd, "%d", (INT)(i_days / 7));
+					pEnd += sprintf(pEnd, "%lld", (i_days / 7));
 					break;
 
 				case 'w': // 通算週の余日
-					pEnd += sprintf(pEnd, "%d", (i_days % 7));
+					pEnd += sprintf(pEnd, "%d", (INT)(i_days % 7));
 					break;
 
 				// 共通
@@ -4941,7 +5018,7 @@ MBS
 				if(i1)
 				{
 					zero = FALSE; // "00:00:00" かどうか
-					i1 = inum_atoi(p3); // 引数から数字を抽出
+					i1 = (INT)inum_atoi(p3); // 引数から数字を抽出
 					while(*p3)
 					{
 						switch(*p3)

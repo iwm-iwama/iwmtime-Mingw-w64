@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define  IWM_VERSION         "iwmtime_20210924"
+#define  IWM_VERSION         "iwmtime_20211111"
 #define  IWM_COPYRIGHT       "Copyright (C)2021 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil.h"
@@ -31,18 +31,18 @@ INT
 main()
 {
 	// lib_iwmutil 初期化
-	iCLI_getARGV();      //=> $IWM_CMD, $IWM_ARGV, $IWM_ARGC
-	iConsole_getColor(); //=> $IWM_ColorDefault, $IWM_StdoutHandle
+	iCLI_getARGV();      //=> $CMD, $ARGV, $ARGC
+	iConsole_getColor(); //=> $ColorDefault, $StdoutHandle
 
 	// -h | -help
-	if(! $IWM_ARGC || imb_cmpp($IWM_ARGV[0], "-h") || imb_cmpp($IWM_ARGV[0], "-help"))
+	if(! $ARGC || iCLI_getOptMatch(0, "-h", "-help"))
 	{
 		print_help();
 		imain_end();
 	}
 
 	// -v | -version
-	if(imb_cmpp($IWM_ARGV[0], "-v") || imb_cmpp($IWM_ARGV[0], "-version"))
+	if(iCLI_getOptMatch(0, "-v", "-version"))
 	{
 		print_version();
 		imain_end();
@@ -50,12 +50,12 @@ main()
 
 	// -q | -quiet
 	UINT iOptionQuiet = (
-		imb_cmpp($IWM_ARGV[0], "-q") || imb_cmpp($IWM_ARGV[0], "-quiet") ?
-		imi_len($IWM_ARGV[0]) + 1 :
+		iCLI_getOptMatch(0, "-q", "-quiet") ?
+		imi_len($ARGV[0]) + 1 :
 		0
 	);
 
-	MBS *cmd = iary_join($IWM_ARGV, " ");
+	MBS *cmd = iary_join($ARGV, " ");
 
 	MEMORYSTATUSEX memex = { sizeof(MEMORYSTATUSEX) };
 	DWORDLONG iBgnEmpMem = 0;
@@ -65,7 +65,7 @@ main()
 	iBgnEmpMem = memex.ullAvailPhys;
 
 	// 計測開始
-	iExecSec_init(); //=> $IWM_ExecSecBgn
+	iExecSec_init(); //=> $ExecSecBgn
 
 	if(iOptionQuiet)
 	{
@@ -122,14 +122,14 @@ print_help()
 {
 	print_version();
 	PZ(COLOR01, " コマンドの実行時間を計測 \n\n");
-	PZ(COLOR11, " %s [コマンド] [オプション] [引数] ... \n\n", $IWM_CMD);
+	PZ(COLOR11, " %s [コマンド] [オプション] [引数] ... \n\n", $CMD);
 	PZ(COLOR12, " (例１)\n");
-	PZ(COLOR91, "   > %s notepad\n\n", $IWM_CMD);
+	PZ(COLOR91, "   > %s notepad\n\n", $CMD);
 	PZ(COLOR12, " (例２)\n");
-	PZ(COLOR91, "   > %s dir \"..\" /b\n\n", $IWM_CMD);
+	PZ(COLOR91, "   > %s dir \"..\" /b\n\n", $CMD);
 	PZ(COLOR21, " [オプション]\n");
 	PZ(COLOR22, "   -quiet | -q\n");
-	PZ(COLOR91, "       結果を表\示しない\n\n");
+	PZ(COLOR91, "       コマンド出力を表\示しない\n\n");
 	PZ(COLOR92, NULL);
 	LN();
 	PZ(-1, NULL);

@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20210925"
+#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20211112"
 #define  LIB_IWMUTIL_COPYLIGHT "Copyright (C)2008-2021 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -21,15 +21,13 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 #define  IMAX_PATHW                              (UINT)(MAX_PATH+2) // windef.hŽQÆ
 #define  IMAX_PATHA                              (UINT)(2*IMAX_PATHW)
-#define  IVA_LIST_MAX                            64       // va_xxx()‚ÌãŒÀ’l
+#define  IVA_LIST_MAX                            64    // va_xxx()‚ÌãŒÀ’l
 
-#define  MBS                                     CHAR     // imx_xxx()^MBCS
-#define  WCS                                     WCHAR    // iwx_xxx()^UTF-16
-#define  U8N                                     CHAR     // iux_xxx()^UTF-8
+#define  MBS                                     CHAR  // imx_xxx()^MBCS^Muliti Byte String
+#define  WCS                                     WCHAR // iwx_xxx()^UTF-16^Wide Char String
+#define  U8N                                     CHAR  // iux_xxx()^UTF-8^UTF-8 NoBOM
 
-#define  INT64                                   LONGLONG // %I64d
-
-#define  NULL_DEVICE                             "NUL"    // "NUL" = "/dev/null"
+#define  NULL_DEVICE                             "NUL" // "/dev/null"
 
 #define  ISO_FORMAT_DATE                         "%.4d-%02d-%02d" // "yyyy-mm-dd"
 #define  ISO_FORMAT_TIME                         "%02d:%02d:%02d" // "hh:nn:ss"
@@ -43,12 +41,12 @@
 	‘åˆæ•Ï”
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-MBS      *$IWM_CMD;         // ƒRƒ}ƒ“ƒh–¼‚ðŠi”[
-MBS      **$IWM_ARGV;       // ARGV‚ðŠi”[
-UINT     $IWM_ARGC;         // ARGC‚ðŠi”[
-HANDLE   $IWM_StdoutHandle; // ‰æ–Ê§Œä—pƒnƒ“ƒhƒ‹
-UINT     $IWM_ColorDefault; // ƒRƒ“ƒ\[ƒ‹F
-UINT     $IWM_ExecSecBgn;   // ŽÀsŠJŽnŽžŠÔ
+extern MBS    *$CMD;         // ƒRƒ}ƒ“ƒh–¼‚ðŠi”[
+extern MBS    **$ARGV;       // ARGV‚ðŠi”[
+extern UINT   $ARGC;         // ARGC‚ðŠi”[
+extern HANDLE $StdoutHandle; // ‰æ–Ê§Œä—pƒnƒ“ƒhƒ‹
+extern UINT   $ColorDefault; // ƒRƒ“ƒ\[ƒ‹F
+extern UINT   $ExecSecBgn;   // ŽÀsŠJŽnŽžŠÔ
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -57,7 +55,7 @@ UINT     $IWM_ExecSecBgn;   // ŽÀsŠJŽnŽžŠÔ
 /////////////////////////////////////////////////////////////////////////////////////////
 UINT     iExecSec(CONST UINT microSec);
 #define  iExecSec_init()                         (UINT)iExecSec(0)
-#define  iExecSec_next()                         (DOUBLE)(iExecSec($IWM_ExecSecBgn))/1000
+#define  iExecSec_next()                         (DOUBLE)(iExecSec($ExecSecBgn))/1000
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -123,18 +121,23 @@ VOID     QP(MBS *pM,UINT sizeM);
 #define  PP(pM)                                  P("[%p] ",pM)
 #define  PX(pM)                                  P("|%#hx|",*pM)
 #define  NL()                                    putchar('\n')
-#define  LN()                                    PR("-",72);NL()
+#define  LN()                                    PR("-",78);NL()
 
 #define  P2(pM)                                  P("%s\n",pM)
-#define  P3(num)                                 P("%I64d\n",(INT64)num)
-#define  P4(num)                                 P("%.8f\n",(DOUBLE)num)
+#define  P3(num)                                 P("%lld\n",(INT64)num)
+#define  P4(num)                                 P("%.8Lf\n",(long double)num)
 #define  P9(repeat)                              PR("\n",repeat)
 
+#define  P22(pM,str)                             P("%s%s\n",pM,str)
+#define  P23(pM,num)                             P("%s%lld\n",pM,(INT64)num)
+#define  P24(pM,num)                             P("%s%.8Lf\n",pM,(long double)num)
+
 #define  PL2(pM)                                 PL();P2(pM)
-#define  PL23(pM,num)                            PL();P("%s%I64d\n",pM,(INT64)num)
 #define  PL3(num)                                PL();P3(num)
-#define  PL32(num,pM)                            PL();P("[%I64d] %s\n",(INT64)num,pM)
 #define  PL4(num)                                PL();P4(num)
+
+#define  PL23(pM,num)                            PL();P("%s%lld\n",pM,(INT64)num)
+#define  PL24(pM,num)                            PL();P("%s%.8Lf\n",pM,(long double)num)
 
 MBS      *ims_conv_escape(MBS *pM);
 MBS      *ims_sprintf(MBS *format,...);
@@ -284,8 +287,7 @@ BOOL     imb_shiftR(MBS *pM,UINT byte);
 /////////////////////////////////////////////////////////////////////////////////////////
 #define  inum_chkM(pM)                           (BOOL)((*pM>='0'&&*pM<='9')||*pM=='+'||*pM=='-'||*pM=='.'?TRUE:FALSE)
 #define  inum_chk2M(pM)                          (BOOL)(*pM>='0'&&*pM<='9'?TRUE:FALSE)
-INT      inum_atoi(MBS *pM);
-INT64    inum_atoi64(MBS *pM);
+INT64    inum_atoi(MBS *pM);
 DOUBLE   inum_atof(MBS *pM);
 
 /*yCopyright (C) 1997 - 2002,Makoto Matsumoto and Takuji Nishimura,All rights reserved.z
@@ -305,6 +307,8 @@ DOUBLE   MT_irandDBL(INT posMin,INT posMax,UINT decRound);
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
 UINT     iCLI_getARGV();
+MBS      *iCLI_getOptValue(UINT argc,MBS *opt1,MBS *opt2);
+BOOL     iCLI_getOptMatch(UINT argc,MBS *opt1,MBS *opt2);
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -579,7 +583,7 @@ INT      *idate_diff(INT i_y1,INT i_m1,INT i_d1,INT i_h1,INT i_n1,INT i_s1,INT i
 	\n
 	\t
 */
-MBS      *idate_format_diff(MBS *format,INT i_sign,INT i_y,INT i_m,INT i_d,INT i_h,INT i_n,INT i_s,INT i_days);
+MBS      *idate_format_diff(MBS *format,INT i_sign,INT i_y,INT i_m,INT i_d,INT i_h,INT i_n,INT i_s,INT64 i_days);
 #define  idate_format_ymdhns(format,i_y,i_m,i_d,i_h,i_n,i_s)    (MBS*)idate_format_diff(format,0,i_y,i_m,i_d,i_h,i_n,i_s,0)
 
 MBS      *idate_format_iAryToA(MBS *format,INT *ymdhns);
