@@ -673,7 +673,7 @@ MBS
 		PL2(p1);
 	ifree(p1);
 */
-// v2021-04-13
+// v2021-11-14
 MBS
 *ims_sprintf(
 	MBS *format,
@@ -683,8 +683,7 @@ MBS
 	FILE *oFp = fopen(NULL_DEVICE, "wb");
 		va_list va;
 		va_start(va, format);
-			UINT len = vfprintf(oFp, format, va);
-			MBS *rtn = icalloc_MBS(len);
+			MBS *rtn = icalloc_MBS(vfprintf(oFp, format, va));
 			vsprintf(rtn, format, va);
 		va_end(va);
 	fclose(oFp);
@@ -1096,7 +1095,7 @@ MBS
 	PL2(rtn);
 	ifree(rtn);
 */
-// v2021-04-18
+// v2021-11-14
 MBS
 *ims_cats(
 	MBS *pM, // ary[0]
@@ -1107,7 +1106,6 @@ MBS
 	{
 		return pM;
 	}
-	UINT u1 = 0;
 
 	// [0]
 	UINT uSize = imi_len(pM);
@@ -1115,14 +1113,15 @@ MBS
 	// [1..n]
 	va_list va;
 	va_start(va, pM);
+		MBS *p1 = 0;
 		UINT uCnt = 1;
 		while(uCnt < IVA_LIST_MAX)
 		{
-			if(!(u1 = imi_len((MBS*)va_arg(va, MBS*))))
+			if(!(p1 = va_arg(va, MBS*)))
 			{
 				break;
 			}
-			uSize += u1;
+			uSize += imi_len(p1);
 			++uCnt;
 		}
 	va_end(va);
@@ -1133,7 +1132,7 @@ MBS
 	va_start(va, pM);
 		while(--uCnt)
 		{
-			pEnd += imi_cpy(pEnd, (MBS*)va_arg(va, MBS*)); // [0..n]
+			pEnd += imi_cpy(pEnd, va_arg(va, MBS*)); // [0..n]
 		}
 	va_end(va);
 
