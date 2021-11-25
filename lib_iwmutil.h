@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20211114"
+#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20211125"
 #define  LIB_IWMUTIL_COPYLIGHT "Copyright (C)2008-2021 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -19,8 +19,7 @@
 	‹¤’Ê’è”
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-#define  IMAX_PATHW                              (UINT)(MAX_PATH+2) // windef.hŽQÆ
-#define  IMAX_PATHA                              (UINT)(2*IMAX_PATHW)
+#define  IMAX_PATH                               (((MAX_PATH>>3)<<3)+(1<<3)) // windef.hŽQÆ
 #define  IVA_LIST_MAX                            64    // va_xxx()‚ÌãŒÀ’l
 
 #define  MBS                                     CHAR  // imx_xxx()^MBCS^Muliti Byte String
@@ -87,8 +86,8 @@ VOID     *irealloc(VOID *ptr,UINT n,UINT size);
 #define  icalloc_INT64(n)                        (INT64*)icalloc(n,sizeof(INT64),FALSE)
 #define  irealloc_INT64(ptr,n)                   (INT64*)irealloc(ptr,n,sizeof(INT64))
 
-#define  icallocDBL(n)                           (DOUBLE*)icalloc(n,sizeof(DOUBLE),FALSE)
-#define  ireallocDBL(ptr,n)                      (DOUBLE*)irealloc(ptr,n,sizeof(DOUBLE))
+#define  icalloc_DBL(n)                          (DOUBLE*)icalloc(n,sizeof(DOUBLE),FALSE)
+#define  irealloc_DBL(ptr,n)                     (DOUBLE*)irealloc(ptr,n,sizeof(DOUBLE))
 
 VOID     icalloc_err(VOID *ptr);
 
@@ -138,6 +137,7 @@ VOID     QP(MBS *pM,UINT sizeM);
 
 #define  PL23(pM,num)                            PL();P("%s%lld\n",pM,(INT64)num)
 #define  PL24(pM,num)                            PL();P("%s%.8Lf\n",pM,(long double)num)
+#define  PL32(num,pM)                            PL();P("[%lld]%s\n",(INT64)num,pM)
 
 MBS      *ims_conv_escape(MBS *pM);
 MBS      *ims_sprintf(MBS *format,...);
@@ -257,7 +257,6 @@ BOOL     icmpOperator_chkDBL(DOUBLE d1,DOUBLE d2,INT operator);
 
 MBS      **ija_split(MBS *pM,MBS *tokensM);
 MBS      **ija_split_zero(MBS *pM);
-MBS      **ija_split_eod(MBS *pM);
 
 MBS      *ijs_rm_quote(MBS *pM,MBS *quoteS,MBS *quoteE,BOOL icase,BOOL one_to_one);
 
@@ -331,7 +330,7 @@ INT      iary_qsort_cmpDesc(CONST VOID *p1,CONST VOID *p2);
 MBS      *iary_join(MBS **ary,MBS *token);
 
 MBS      **iary_simplify(MBS **ary,BOOL icase);
-MBS      **iary_higherDir(MBS **ary,UINT depth);
+MBS      **iary_higherDir(MBS **ary);
 
 VOID     iary_print(MBS **ary);
 
@@ -342,31 +341,31 @@ VOID     iary_print(MBS **ary);
 /////////////////////////////////////////////////////////////////////////////////////////
 typedef struct
 {
-	MBS      fullnameA[IMAX_PATHA]; // (—á) D:\ŠâŠÔ\iwama.txt
-	UINT     iFname;                // MBS =  8^WCS =  6
-	UINT     iExt;                  // MBS = 13^WCS = 11
-	UINT     iEnd;                  // MBS = 17^WCS = 15
-	UINT     iAttr;                 // 32
-	UINT     iFtype;                // 2 : •s–¾ = 0^Dir = 1^File = 2
-	DOUBLE   cjdCtime;              // (DWORD)dwLowDateTime,(DWORD)dwHighDateTime
-	DOUBLE   cjdMtime;              // ª
-	DOUBLE   cjdAtime;              // ª
-	INT64    iFsize;                // byte (4GB‘Î‰ž)
+	MBS      fullnameA[IMAX_PATH]; // (—á) D:\ŠâŠÔ\iwama.txt
+	UINT     iFname;               // MBS =  8^WCS =  6
+	UINT     iExt;                 // MBS = 13^WCS = 11
+	UINT     iEnd;                 // MBS = 17^WCS = 15
+	UINT     iAttr;                // 32
+	UINT     iFtype;               // 2 : •s–¾ = 0^Dir = 1^File = 2
+	DOUBLE   cjdCtime;             // (DWORD)dwLowDateTime,(DWORD)dwHighDateTime
+	DOUBLE   cjdMtime;             // ª
+	DOUBLE   cjdAtime;             // ª
+	INT64    iFsize;               // byte (4GB‘Î‰ž)
 }
 $struct_iFinfoA;
 
 typedef struct
 {
-	WCS      fullnameW[IMAX_PATHW]; // (—á) D:\ŠâŠÔ\iwama.txt
-	UINT     iFname;                // MBS =  8^WCS =  6
-	UINT     iExt;                  // MBS = 13^WCS = 11
-	UINT     iEnd;                  // MBS = 17^WCS = 15
-	UINT     iAttr;                 // 32
-	UINT     iFtype;                // 2 : •s–¾ = 0^Dir = 1^File = 2
-	DOUBLE   cjdCtime;              // (DWORD)dwLowDateTime,(DWORD)dwHighDateTime
-	DOUBLE   cjdMtime;              // ª
-	DOUBLE   cjdAtime;              // ª
-	INT64    iFsize;                // byte (4GB‘Î‰ž)
+	WCS      fullnameW[IMAX_PATH]; // (—á) D:\ŠâŠÔ\iwama.txt
+	UINT     iFname;               // MBS =  8^WCS =  6
+	UINT     iExt;                 // MBS = 13^WCS = 11
+	UINT     iEnd;                 // MBS = 17^WCS = 15
+	UINT     iAttr;                // 32
+	UINT     iFtype;               // 2 : •s–¾ = 0^Dir = 1^File = 2
+	DOUBLE   cjdCtime;             // (DWORD)dwLowDateTime,(DWORD)dwHighDateTime
+	DOUBLE   cjdMtime;             // ª
+	DOUBLE   cjdAtime;             // ª
+	INT64    iFsize;               // byte (4GB‘Î‰ž)
 }
 $struct_iFinfoW;
 
@@ -436,16 +435,16 @@ VOID     iConsole_setTextColor(INT rgb);
 /////////////////////////////////////////////////////////////////////////////////////////
 /*
 	Ÿ‚Í‚¶‚ß‚É
-		ƒ†ƒŠƒEƒX—ï    F"B.C.4713-01-01 12:00" ` "A.C.1582-10-04 23:59"
-		ƒOƒŒƒSƒŠƒEƒX—ïF"A.C.1582-10-15 00:00" ` Œ»Ý
+		ƒ†ƒŠƒEƒX—ï     : "B.C.4713-01-01 12:00" - "A.C.1582-10-04 23:59"
+		ƒOƒŒƒSƒŠƒEƒX—ï : "A.C.1582-10-15 00:00" - Œ»Ý
 
 		ŽÀ—ï‚Íã‹L‚Ì‚Æ‚¨‚è‚¾‚ªAƒ†ƒŠƒEƒX—ïˆÈ‘O‚à(ƒ†ƒŠƒEƒX—ï‚É‘¥‚è)ŒvŽZ‰Â”\‚Å‚ ‚éB
 		wB.C.—ïx‚ÌŽæ‚èˆµ‚¢‚É‚Â‚¢‚Ä‚ÍAŒãqw‰¼B.C.—ïx‚É‘¥‚éB
 		‚È‚¨A”h¶—ï“™‚É‚Â‚¢‚Ä‚ÍAŒãqwŠe—ï‚Ì•Ï”x‚ðŽg—p‚Ì‚±‚ÆB
 
 	Ÿ‰¼B.C.—ï
-		(ŽÀ—ï) "-4713-01-01"`"-0001-12-31"
-		(‰¼)   "-4712-01-01"`"+0000-12-31" // ŽÀ—ð+‚P”N
+		(ŽÀ—ï) "-4713-01-01" - "-0001-12-31"
+		(‰¼)   "-4712-01-01" - "+0000-12-31" // ŽÀ—ð+‚P”N
 
 	ŸŠe—ï‚Ì•Ï”
 		¦CJD‚ðŠî€‚ÉŒvŽZB
@@ -535,12 +534,12 @@ FILETIME idate_cjdToFtime(DOUBLE cjd);
 
 // ”N“à‚Ì’ÊŽZ“ú
 INT      idate_cjd_yeardays(DOUBLE cjd);
-// cjd1`cjd2‚Ì’ÊŽZ“ú
+// cjd1 - cjd2 ‚Ì’ÊŽZ“ú
 #define  idate_cjd_days(cjd1,cjd2)               (INT)((INT)cjd2-(INT)cjd1)
 
 // ”N“à‚Ì’ÊŽZT
 #define  idate_cjd_yearweeks(cjd)                (INT)((6+idate_cjd_yeardays(cjd))/7)
-// cjd1`cjd2‚Ì’ÊŽZT
+// cjd1 - cjd2 ‚Ì’ÊŽZT
 #define  idate_cjd_weeks(cjd1,cjd2)              (INT)((idate_cjd_days(cjd1,cjd2)+6)/7)
 
 // [6]={y,m,d,h,n,s}
