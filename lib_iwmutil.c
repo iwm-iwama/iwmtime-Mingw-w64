@@ -104,7 +104,7 @@ UINT     $ExecSecBgn   = 0;   // 実行開始時間
 // v2021-03-19
 UINT
 iExecSec(
-	const UINT microSec // 0 のとき Init
+	CONST UINT microSec // 0 のとき Init
 )
 {
 	UINT microSec2 = GetTickCount();
@@ -137,7 +137,7 @@ UINT __icallocMapSize = 0;        // *__icallocMap のサイズ＋1
 UINT __icallocMapEOD = 0;         // *__icallocMap の現在位置＋1
 UINT __icallocMapFreeCnt = 0;     // *__icallocMap 中の空白領域
 UINT __icallocMapId = 0;          // *__icallocMap の順番
-const UINT __sizeof_icallocMap = sizeof($struct_icallocMap);
+CONST UINT __sizeof_icallocMap = sizeof($struct_icallocMap);
 // *__icallocMap の基本区画サイズ(適宜変更 > 0)
 #define  IcallocDiv          (1 << 5)
 // 確保したメモリ後方に最低4byteの空白を確保
@@ -207,38 +207,34 @@ VOID
 	pM = irealloc_MBS(pM, 2000);
 
 	// 以下、結果が同じ例。
-	// alloc＆free(例2)(例3)を推奨。
+	//   (例1)はデフラグメントに注意
+	//   (例2)は要素数が多いほど効率が良い
+	//   (例3)はprintf()系の割に速い
+	// よって、
+	//   可能であれば(例2)を推奨。
+	//   文字・数字混在は(例3)一択。
 
 	// (例1)
 	MBS *p11 = ims_clone("ABCDEFGH");
+	MBS *p12 = "12345678";
 	UINT u11 = imi_len(p11);
-	p11 = irealloc_MBS(p11, 20);
-	u11 += imi_cpy((p11 + u11), "12345678");
-	P2(p11);
+	UINT u12 = imi_len(p12);
+	p11 = irealloc_MBS(p11, (u11 + u12));
+	imi_cpy((p11 + u11), p12);
+	P0(p11);
 	ifree(p11);
 
 	// (例2) (例1)と同程度。
-	MBS *p21 = ims_clone("ABCDEFGH");
-	MBS *p22 = ims_cats(p21, "12345678", NULL);
-	P2(p22);
+	MBS *p21 = "ABCDEFGH";
+	MBS *p22 = ims_cats(2, p21, "12345678");
+	P0(p22);
 	ifree(p22);
-	ifree(p21);
 
-	// (例3) (例1)より30%程度遅い。
-	MBS *p31 = ims_clone("ABCDEFGH");
+	// (例3) (例1)より少し遅い程度。
+	MBS *p31 = "ABCDEFGH";
 	MBS *p32 = ims_sprintf("%s%s", p31, "12345678");
-	P2(p32);
+	P0(p32);
 	ifree(p32);
-	ifree(p31);
-
-	// (参考) 当然、以下のコードの方が速い。
-	MBS *p41 = icalloc_MBS(1000);
-	MBS *p49 = p41;
-		p49 += imi_cpy(p49, "ABCDEFGH");
-		p49 += imi_cpy(p49, "12345678");
-		p49 += sprintf(p49, "%d", 12345678);
-	P2(p41);
-	ifree(p41);
 */
 // v2021-04-21
 VOID
@@ -407,7 +403,7 @@ icalloc_mapSweep()
 //---------------------------
 // __icallocMapをリスト出力
 //---------------------------
-// v2020-05-12
+// v2021-11-29
 VOID
 icalloc_mapPrint1()
 {
@@ -419,7 +415,7 @@ icalloc_mapPrint1()
 
 	iConsole_setTextColor(9 + (0 * 16));
 	P2("-1 ----------- 8 ------------ 16 ------------ 24 ------------ 32--------");
-	const UINT _rowsCnt = 32;
+	CONST UINT _rowsCnt = 32;
 	UINT uRowsCnt = _rowsCnt;
 	UINT u1 = 0, u2 = 0;
 	while(u1 < __icallocMapSize)
@@ -429,12 +425,12 @@ icalloc_mapPrint1()
 		{
 			if((__icallocMap + u1)->ptr)
 			{
-				P("■");
+				P0("■");
 				++u2;
 			}
 			else
 			{
-				P("□");
+				P0("□");
 			}
 			++u1;
 		}
@@ -495,13 +491,17 @@ icalloc_mapPrint2()
 // printf()
 //-----------
 /* (例)
-	P("%s", "abc"); //=> "abc"
-	P("abc");       //=> "abc"
+	P("abc");         //=> "abc"
+	P("%s\n", "abc"); //=> "abc\n"
+
+	// printf()系は遅い。可能であれば P0(), P2() を使用する。
+	P0("abc");        //=> "abc"
+	P2("abc");        //=> "abc\n"
 */
 // v2015-01-24
 VOID
 P(
-	const MBS *format,
+	MBS *format,
 	...
 )
 {
@@ -510,13 +510,42 @@ P(
 		vfprintf(stdout, format, va);
 	va_end(va);
 }
+//--------
+// Print
+//--------
+/* (例)
+	P0("abc"); //=> "abc"
+*/
+// v2021-11-30
+void
+P0(
+	MBS *pM // 文字列
+)
+{
+	fputs(pM, stdout);
+}
+//-------
+// Puts
+//-------
+/* (例)
+	P2("abc"); //=> "abc\n"
+*/
+// v2021-11-30
+void
+P2(
+	MBS *pM // 文字列
+)
+{
+	P0(pM);
+	fputc('\n', stdout);
+}
 //---------------
 // 繰り返し表示
 //---------------
 /* (例)
 	PR("abc", 3); //=> "abcabcabc"
 */
-// v2021-09-20
+// v2021-11-29
 VOID
 PR(
 	MBS *pM,   // 文字列
@@ -525,7 +554,7 @@ PR(
 {
 	while(repeat > 0)
 	{
-		P(pM);
+		P0(pM);
 		--repeat;
 	}
 }
@@ -1096,52 +1125,41 @@ MBS
 }
 /* (例)
 	// 要素を呼び出す度 realloc する方がスマートだが、
-	// 速度に不安があるので calloc １回で済ませる。
+	// 速度に不安があるので icalloc １回で済ませる。
 	MBS *p1 = "123";
 	MBS *p2 = "abcde";
 	MBS *p3 = "いわま";
-	MBS *rtn = ims_cats(p1, p2, p3, NULL); //=> "123abcde"
+	MBS *rtn = ims_cats(3, p1, p2, p3); //=> "123abcdeいわま"
 	PL2(rtn);
 	ifree(rtn);
 */
-// v2021-11-15
+// v2021-12-01
 MBS
 *ims_cats(
-	MBS *pM, // ary[0]
-	...      // ary[1...]、最後は必ず NULL
+	UINT size, // 要素数(n+1)
+	...        // ary[0..n]
 )
 {
-	if(!pM)
-	{
-		return pM;
-	}
+	UINT uSize = 0;
+	UINT u1 = 0;
 
-	// [0]
-	UINT uSize = imi_len(pM);
-
-	// [1..n]
 	va_list va;
-	va_start(va, pM);
-		MBS *p1 = 0;
-		UINT uCnt = 0;
-		while(uCnt < IVA_LIST_MAX)
+	va_start(va, size);
+		u1 = size;
+		while(u1--)
 		{
-			if(!(p1 = va_arg(va, MBS*)))
-			{
-				break;
-			}
-			uSize += imi_len(p1);
-			++uCnt;
+			uSize += imi_len(va_arg(va, MBS*));
 		}
 	va_end(va);
 
 	MBS *rtn = icalloc_MBS(uSize);
-	MBS *pEnd = rtn + imi_cpy(rtn, pM);
+	MBS *pEnd = rtn;
 
-	va_start(va, pM);
-		while(uCnt--)
+	va_start(va, size);
+		u1 = size;
+		while(u1--)
 		{
-			pEnd += imi_cpy(pEnd, va_arg(va, MBS*)); // [0..n]
+			pEnd += imi_cpy(pEnd, va_arg(va, MBS*));
 		}
 	va_end(va);
 
@@ -1367,7 +1385,7 @@ iwi_searchCntW(
 		return 0;
 	}
 	UINT rtn = 0;
-	const UINT _searchLen = iwi_len(search);
+	CONST UINT _searchLen = iwi_len(search);
 	while(*pW)
 	{
 		if(iwb_cmp(pW, search, FALSE, icase))
@@ -1396,7 +1414,7 @@ iji_searchCntLA(
 		return 0;
 	}
 	UINT rtn = 0;
-	const UINT _searchLen = imi_len(search);
+	CONST UINT _searchLen = imi_len(search);
 	while(*pM)
 	{
 		if(imb_cmp(pM, search, FALSE, icase))
@@ -1431,7 +1449,7 @@ iji_searchCntRA(
 		return 0;
 	}
 	UINT rtn = 0;
-	const UINT _searchLen = imi_len(search);
+	CONST UINT _searchLen = imi_len(search);
 	MBS *pEnd = pM + imi_len(pM) - _searchLen;
 	while(pM <= pEnd)
 	{
@@ -1743,13 +1761,13 @@ MBS
 	rtn = icalloc_MBS_ary(uAry + 1);
 
 	WCS *wp1 = wcstok(pW, tokensW);
-rtn[uAry] = W2M(wp1);
+	rtn[uAry] = W2M(wp1);
 	while(wp1)
 	{
 		wp1 = wcstok(NULL, tokensW);
 		++uAry;
 		rtn = irealloc_MBS_ary(rtn, (uAry + 1));
-rtn[uAry] = W2M(wp1);
+		rtn[uAry] = W2M(wp1);
 	}
 
 	ifree(tokensW);
@@ -1829,10 +1847,10 @@ MBS
 		quoteR2 = ims_clone(quoteR);
 	}
 	// 先頭のquote数
-	const UINT quoteL2Len = imi_len(quoteL2);
+	CONST UINT quoteL2Len = imi_len(quoteL2);
 	UINT quoteL2Cnt = iji_searchCntL(rtn, quoteL2);
 	// 末尾のquote数
-	const UINT quoteR2Len = imi_len(quoteR2);
+	CONST UINT quoteR2Len = imi_len(quoteR2);
 	UINT quoteR2Cnt = iji_searchCntR(rtn, quoteR2);
 	// ifree()
 	ifree(quoteR2);
@@ -2309,9 +2327,9 @@ inum_atof(
 INT
 main()
 {
-	const INT Output = 10; // 出力数
-	const INT Min    = -5; // 最小値(>=INT_MIN)
-	const INT Max    =  5; // 最大値(<=INT_MAX)
+	CONST INT Output = 10; // 出力数
+	CONST INT Min    = -5; // 最小値(>=INT_MIN)
+	CONST INT Max    =  5; // 最大値(<=INT_MAX)
 
 	MT_initByAry(TRUE); // 初期化
 
@@ -2705,8 +2723,8 @@ iary_Jlen(
 // v2014-02-07
 INT
 iary_qsort_cmp(
-	const VOID *p1, //
-	const VOID *p2, //
+	CONST VOID *p1, //
+	CONST VOID *p2, //
 	BOOL asc        // TRUE=昇順／FALSE=降順
 )
 {
@@ -2718,8 +2736,8 @@ iary_qsort_cmp(
 // v2014-02-07
 INT
 iary_qsort_cmpAsc(
-	const VOID *p1,
-	const VOID *p2
+	CONST VOID *p1,
+	CONST VOID *p2
 )
 {
 	return iary_qsort_cmp(p1, p2, TRUE);
@@ -2727,8 +2745,8 @@ iary_qsort_cmpAsc(
 // v2014-02-07
 INT
 iary_qsort_cmpDesc(
-	const VOID *p1,
-	const VOID *p2
+	CONST VOID *p1,
+	CONST VOID *p2
 )
 {
 	return iary_qsort_cmp(p1, p2, FALSE);
@@ -2797,7 +2815,7 @@ MBS
 	BOOL icase // TRUE=大文字小文字区別しない
 )
 {
-	const UINT uArySize = iary_size(ary);
+	CONST UINT uArySize = iary_size(ary);
 	UINT u1 = 0, u2 = 0;
 	// iAryFlg 生成
 	INT *iAryFlg = icalloc_INT(uArySize); // 初期値 = 0
@@ -3714,7 +3732,7 @@ MBS
 	// _fullpath() の応用
 	PL2(iFget_AdirA(".\\"));
 */
-// v2021-11-17
+// v2021-12-01
 MBS
 *iFget_AdirA(
 	MBS *path // ファイルパス
@@ -3726,7 +3744,7 @@ MBS
 	{
 		// Dir
 		case(1):
-			p2 = ims_cats(path, "\\", NULL);
+			p2 = ims_cats(2, path, "\\");
 				_fullpath(p1, p2, IMAX_PATH);
 			ifree(p2);
 			break;
@@ -4663,8 +4681,8 @@ MBS
 		return "";
 	}
 
-	const UINT BufSizeMax = 512;
-	const UINT BufSizeDmz = 64;
+	CONST UINT BufSizeMax = 512;
+	CONST UINT BufSizeDmz = 64;
 	MBS *rtn = icalloc_MBS(BufSizeMax + BufSizeDmz);
 	MBS *pEnd = rtn;
 	UINT uPos = 0;
@@ -4885,19 +4903,19 @@ MBS
 	ifree(p1);
 	ifree(ai1);
 */
-// v2021-11-15
+// v2021-11-30
 MBS
 *idate_replace_format_ymdhns(
 	MBS *pM,        // 変換対象文字列
 	MBS *quoteBgn,  // 囲文字 1文字 (例) "["
 	MBS *quoteEnd,  // 囲文字 1文字 (例) "]"
 	MBS *add_quote, // 出力文字に追加するquote (例) "'"
-	const INT i_y,  // ベース年
-	const INT i_m,  // ベース月
-	const INT i_d,  // ベース日
-	const INT i_h,  // ベース時
-	const INT i_n,  // ベース分
-	const INT i_s   // ベース秒
+	INT i_y,        // ベース年
+	INT i_m,        // ベース月
+	INT i_d,        // ベース日
+	INT i_h,        // ベース時
+	INT i_n,        // ベース分
+	INT i_s         // ベース秒
 )
 {
 	if(!pM)
@@ -5210,7 +5228,7 @@ idate_nowToCjd(
 // 度分秒 => 十進法
 //-------------------
 /* (例)
-	printf("%f度\n", rtnGeoIBLto10A(24, 26, 58.495200));
+	P("%f度\n", rtnGeoIBLto10A(24, 26, 58.495200));
 */
 // v2019-12-19
 DOUBLE
@@ -5223,7 +5241,7 @@ rtnGeoIBLto10A(
 	return (DOUBLE)deg + ((DOUBLE)min / 60.0) + (sec / 3600.0);
 }
 /* (例)
-	printf("%f度\n", rtnGeoIBLto10B(242658.495200));
+	P("%f度\n", rtnGeoIBLto10B(242658.495200));
 */
 // v2019-12-19
 DOUBLE
@@ -5241,7 +5259,7 @@ rtnGeoIBLto10B(
 //-------------------
 /* (例)
 	$Geo geo = rtnGeo10toIBL(24.449582);
-	printf("%d度%d分%f秒\n", geo.deg, geo.min, geo.sec);
+	P("%d度%d分%f秒\n", geo.deg, geo.min, geo.sec);
 */
 // v2019-12-18
 $Geo
@@ -5271,7 +5289,7 @@ rtnGeo10toIBL(
 */
 /* (例)
 	$Geo geo = rtnGeoVincentry(35.685187, 139.752274, 24.449582, 122.934340);
-	printf("%fkm %f度\n", geo.dist, geo.angle);
+	P("%fkm %f度\n", geo.dist, geo.angle);
 */
 // v2021-03-05
 $Geo
@@ -5287,25 +5305,25 @@ rtnGeoVincentry(
 		return ($Geo){0, 0, 0, 0, 0};
 	}
 
-	/// const DOUBLE _A = 6378137.0;
-	const DOUBLE _B   = 6356752.314140356;    // GRS80
-	const DOUBLE _F   = 0.003352810681182319; // 1 / 298.257222101
-	const DOUBLE _RAD = 0.017453292519943295; // π / 180
+	/// CONST DOUBLE _A = 6378137.0;
+	CONST DOUBLE _B   = 6356752.314140356;    // GRS80
+	CONST DOUBLE _F   = 0.003352810681182319; // 1 / 298.257222101
+	CONST DOUBLE _RAD = 0.017453292519943295; // π / 180
 
-	const DOUBLE latR1 = lat1 * _RAD;
-	const DOUBLE lngR1 = lng1 * _RAD;
-	const DOUBLE latR2 = lat2 * _RAD;
-	const DOUBLE lngR2 = lng2 * _RAD;
+	CONST DOUBLE latR1 = lat1 * _RAD;
+	CONST DOUBLE lngR1 = lng1 * _RAD;
+	CONST DOUBLE latR2 = lat2 * _RAD;
+	CONST DOUBLE lngR2 = lng2 * _RAD;
 
-	const DOUBLE f1 = 1 - _F;
+	CONST DOUBLE f1 = 1 - _F;
 
-	const DOUBLE omega = lngR2 - lngR1;
-	const DOUBLE tanU1 = f1 * tan(latR1);
-	const DOUBLE cosU1 = 1 / sqrt(1 + tanU1 * tanU1);
-	const DOUBLE sinU1 = tanU1 * cosU1;
-	const DOUBLE tanU2 = f1 * tan(latR2);
-	const DOUBLE cosU2 = 1 / sqrt(1 + tanU2 * tanU2);
-	const DOUBLE sinU2 = tanU2 * cosU2;
+	CONST DOUBLE omega = lngR2 - lngR1;
+	CONST DOUBLE tanU1 = f1 * tan(latR1);
+	CONST DOUBLE cosU1 = 1 / sqrt(1 + tanU1 * tanU1);
+	CONST DOUBLE sinU1 = tanU1 * cosU1;
+	CONST DOUBLE tanU2 = f1 * tan(latR2);
+	CONST DOUBLE cosU2 = 1 / sqrt(1 + tanU2 * tanU2);
+	CONST DOUBLE sinU2 = tanU2 * cosU2;
 
 	DOUBLE lamda  = omega;
 	DOUBLE dLamda = 0.0;

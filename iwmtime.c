@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define  IWM_VERSION         "iwmtime_20211111"
+#define  IWM_VERSION         "iwmtime_20211201"
 #define  IWM_COPYRIGHT       "Copyright (C)2021 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil.h"
@@ -69,7 +69,7 @@ main()
 
 	if(iOptionQuiet)
 	{
-		system(ims_cats((cmd + iOptionQuiet), " > ", NULL_DEVICE, NULL));
+		system(ims_cats(3, (cmd + iOptionQuiet), " > ", NULL_DEVICE));
 		PZ(COLOR21, NULL);
 		P2("[Quiet Mode]");
 	}
@@ -87,7 +87,7 @@ main()
 	PZ(COLOR91, NULL);
 	LN();
 	// Program
-	P ("  Program  %s\n", (cmd + iOptionQuiet));
+	P("  Program  %s\n", (cmd + iOptionQuiet));
 	// Memory
 	P("  Memory   %s KB (%s KB => %s KB)\n",
 		ims_addTokenNStr(ims_sprintf("%d", ((iEndEmpMem - iBgnEmpMem) / 1024))),

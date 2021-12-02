@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20211125"
+#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20211202"
 #define  LIB_IWMUTIL_COPYLIGHT "Copyright (C)2008-2021 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -110,7 +110,9 @@ VOID     icalloc_mapPrint2();
 	PrintŠÖŒW
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-VOID     P(CONST MBS *format,...);
+VOID     P(MBS *format,...);
+VOID     P0(MBS *pM);
+VOID     P2(MBS *pM);
 VOID     PR(MBS *pM,INT repeat);
 VOID     PZ(INT rgb,MBS *format,...);
 VOID     QP(MBS *pM,UINT sizeM);
@@ -122,12 +124,11 @@ VOID     QP(MBS *pM,UINT sizeM);
 #define  NL()                                    putchar('\n')
 #define  LN()                                    PR("-",78);NL()
 
-#define  P2(pM)                                  P("%s\n",pM)
 #define  P3(num)                                 P("%lld\n",(INT64)num)
 #define  P4(num)                                 P("%.8Lf\n",(long double)num)
 #define  P9(repeat)                              PR("\n",repeat)
 
-#define  P22(pM,str)                             P("%s%s\n",pM,str)
+#define  P22(pM1,pM2)                            P0(pM1);P2(pM2)
 #define  P23(pM,num)                             P("%s%lld\n",pM,(INT64)num)
 #define  P24(pM,num)                             P("%s%.8Lf\n",pM,(long double)num)
 
@@ -199,7 +200,7 @@ WCS      *iws_clone(WCS *from);
 MBS      *ims_pclone(MBS *from1,MBS *from2);
 #define  ims_nclone(from1,size)                  (MBS*)ims_pclone(from1,(from1+size))
 
-MBS      *ims_cats(MBS *pM,...);
+MBS      *ims_cats(UINT size,...);
 
 BOOL     imb_cmp(MBS *pM,MBS *search,BOOL perfect,BOOL icase);
 #define  imb_cmpf(pM,search)                     (BOOL)imb_cmp(pM,search,FALSE,FALSE)
@@ -588,7 +589,7 @@ MBS      *idate_format_diff(MBS *format,INT i_sign,INT i_y,INT i_m,INT i_d,INT i
 MBS      *idate_format_iAryToA(MBS *format,INT *ymdhns);
 MBS      *idate_format_cjdToA(MBS *format,DOUBLE cjd);
 
-MBS      *idate_replace_format_ymdhns(MBS *pM,MBS *quote1,MBS *quote2,MBS *add_quote,CONST INT i_y,CONST INT i_m,CONST INT i_d,CONST INT i_h,CONST INT i_n,CONST INT i_s);
+MBS      *idate_replace_format_ymdhns(MBS *pM,MBS *quote1,MBS *quote2,MBS *add_quote,INT i_y,INT i_m,INT i_d,INT i_h,INT i_n,INT i_s);
 #define  idate_format_nowToYmdhns(i_y,i_m,i_d,i_h,i_n,i_s)      (MBS*)idate_replace_format_ymdhns("[]","[","]","",i_y,i_m,i_d,i_h,i_n,i_s)
 
 INT      *idate_now_to_iAryYmdhns(BOOL area);
