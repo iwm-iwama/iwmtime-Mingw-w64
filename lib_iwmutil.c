@@ -2519,24 +2519,26 @@ MT_irandDBL(
 	iary_print($ARGV);
 	PL3($ARGC);
 */
-// v2021-11-17
+// v2021-12-10
 UINT
 iCLI_getARGV()
 {
-	INT iArgc;
-	WCS **aW = CommandLineToArgvW(GetCommandLineW(), &iArgc);
+	// 引数が "c:\" のようなとき \" が囲いの終端と認識されないので対応
+	WCS *pW = iws_replace(GetCommandLineW(), L"\\\"", L"\\\\\"", FALSE);
+		INT iArgc;
+		WCS **aW = CommandLineToArgvW(pW, &iArgc);
+	ifree(pW);
 
-	$ARGC = iArgc - 1;
 	$CMD = W2M(aW[0]);
 
 	MBS **rtn = icalloc_MBS_ary(iArgc);
-	INT i1 = 1;
-	while(i1 < iArgc)
+	for(INT _i1 = 1; _i1 < iArgc; _i1++)
 	{
-		rtn[i1 - 1] = W2M(aW[i1]);
-		++i1;
+		rtn[_i1 - 1] = W2M(aW[_i1]);
 	}
 	$ARGV = rtn;
+
+	$ARGC = iArgc - 1;
 
 	return iArgc;
 }
@@ -5183,13 +5185,12 @@ INT
 	{
 		GetSystemTime(&st);
 	}
-	/*
-		[Pending] 2021-11-15
-			下記コードでビープ音を発生することがある。
-				INT *rtn = icalloc_INT(n) ※INT系全般／DOUBL系は問題なし
-				rtn[n] = 1793..2047
-			2021-11-10にコンパイラを MInGW(32bit) から Mingw-w64(64bit) に変更した影響か？
-			当面、様子を見る。
+	/* [Pending] 2021-11-15
+		下記コードでビープ音を発生することがある。
+			INT *rtn = icalloc_INT(n) ※INT系全般／DOUBL系は問題なし
+			rtn[n] = 1793..2047
+		2021-11-10にコンパイラを MInGW(32bit) から Mingw-w64(64bit) に変更した影響か？
+		当面、様子を見る。
 	*/
 	INT *rtn = icalloc_INT(7);
 		rtn[0] = st.wYear;
