@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20211210"
-#define  LIB_IWMUTIL_COPYLIGHT "Copyright (C)2008-2021 iwm-iwama"
+#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20220313"
+#define  LIB_IWMUTIL_COPYLIGHT "Copyright (C)2008-2022 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
 #include <ctype.h>
@@ -34,6 +34,8 @@
 
 #define  IDATE_FORMAT_STD                        "%G%y-%m-%d %h:%n:%s"
 #define  IDATE_FORMAT_DIFF                       "%g%y-%m-%d %h:%n:%s"
+
+#define  ILN                                     "--------------------------------------------------------------------------------"
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -113,8 +115,6 @@ VOID     icalloc_mapPrint2();
 VOID     P(MBS *format,...);
 VOID     P0(MBS *pM);
 VOID     P2(MBS *pM);
-VOID     PR(MBS *pM,INT repeat);
-VOID     PZ(INT rgb,MBS *format,...);
 VOID     QP(MBS *pM,UINT sizeM);
 
 #define  PC(pM)                                  putchar(*pM)
@@ -122,11 +122,10 @@ VOID     QP(MBS *pM,UINT sizeM);
 #define  PP(pM)                                  P("[%p] ",pM)
 #define  PX(pM)                                  P("|%#hx|",*pM)
 #define  NL()                                    putchar('\n')
-#define  LN()                                    PR("-",78);NL()
+#define  LN()                                    P2(ILN)
 
 #define  P3(num)                                 P("%lld\n",(INT64)num)
 #define  P4(num)                                 P("%.8Lf\n",(long double)num)
-#define  P9(repeat)                              PR("\n",repeat)
 
 #define  P22(pM1,pM2)                            P0(pM1);P2(pM2)
 #define  P23(pM,num)                             P("%s%lld\n",pM,(INT64)num)
@@ -294,9 +293,9 @@ DOUBLE   inum_atof(MBS *pM);
 	http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/CODES/mt19937ar.c
 	http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/mt.html
 */
-VOID     MT_initByAry(BOOL fixOn);
+VOID     MT_init(BOOL fixOn);
 UINT     MT_genrandUint32();
-VOID     MT_freeAry();
+VOID     MT_free();
 
 INT      MT_irand_INT(INT posMin,INT posMax);
 DOUBLE   MT_irandDBL(INT posMin,INT posMax,UINT decRound);
@@ -342,31 +341,31 @@ VOID     iary_print(MBS **ary);
 /////////////////////////////////////////////////////////////////////////////////////////
 typedef struct
 {
-	MBS      fullnameA[IMAX_PATH]; // (ó·) D:\ä‚ä‘\iwama.txt
-	UINT     iFname;               // MBS =  8Å^WCS =  6
-	UINT     iExt;                 // MBS = 13Å^WCS = 11
-	UINT     iEnd;                 // MBS = 17Å^WCS = 15
-	UINT     iAttr;                // 32
-	UINT     iFtype;               // 2 : ïsñæ = 0Å^Dir = 1Å^File = 2
-	DOUBLE   cjdCtime;             // (DWORD)dwLowDateTime,(DWORD)dwHighDateTime
-	DOUBLE   cjdMtime;             // Å™
-	DOUBLE   cjdAtime;             // Å™
-	INT64    iFsize;               // byte (4GBëŒâû)
+	MBS    fullnameA[IMAX_PATH]; // (ó·) D:\ä‚ä‘\iwama.txt
+	UINT   iFname;               // MBS =  8Å^WCS =  6
+	UINT   iExt;                 // MBS = 13Å^WCS = 11
+	UINT   iEnd;                 // MBS = 17Å^WCS = 15
+	UINT   iAttr;                // 32
+	UINT   iFtype;               // 2 : ïsñæ = 0Å^Dir = 1Å^File = 2
+	DOUBLE cjdCtime;             // (DWORD)dwLowDateTime,(DWORD)dwHighDateTime
+	DOUBLE cjdMtime;             // Å™
+	DOUBLE cjdAtime;             // Å™
+	INT64  iFsize;               // byte (4GBëŒâû)
 }
 $struct_iFinfoA;
 
 typedef struct
 {
-	WCS      fullnameW[IMAX_PATH]; // (ó·) D:\ä‚ä‘\iwama.txt
-	UINT     iFname;               // MBS =  8Å^WCS =  6
-	UINT     iExt;                 // MBS = 13Å^WCS = 11
-	UINT     iEnd;                 // MBS = 17Å^WCS = 15
-	UINT     iAttr;                // 32
-	UINT     iFtype;               // 2 : ïsñæ = 0Å^Dir = 1Å^File = 2
-	DOUBLE   cjdCtime;             // (DWORD)dwLowDateTime,(DWORD)dwHighDateTime
-	DOUBLE   cjdMtime;             // Å™
-	DOUBLE   cjdAtime;             // Å™
-	INT64    iFsize;               // byte (4GBëŒâû)
+	WCS    fullnameW[IMAX_PATH]; // (ó·) D:\ä‚ä‘\iwama.txt
+	UINT   iFname;               // MBS =  8Å^WCS =  6
+	UINT   iExt;                 // MBS = 13Å^WCS = 11
+	UINT   iEnd;                 // MBS = 17Å^WCS = 15
+	UINT   iAttr;                // 32
+	UINT   iFtype;               // 2 : ïsñæ = 0Å^Dir = 1Å^File = 2
+	DOUBLE cjdCtime;             // (DWORD)dwLowDateTime,(DWORD)dwHighDateTime
+	DOUBLE cjdMtime;             // Å™
+	DOUBLE cjdAtime;             // Å™
+	INT64  iFsize;               // byte (4GBëŒâû)
 }
 $struct_iFinfoW;
 
@@ -424,10 +423,9 @@ BOOL     imk_dir(MBS *path);
 	Console
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-UINT     iConsole_getColor();
-VOID     iConsole_setTextColor(INT rgb);
-#define  iConsole_setColor(textcolor,bgcolor)    (VOID)iConsole_setTextColor(textcolor+(bgcolor*16))
 #define  iConsole_setTitle(pM)                   (VOID)SetConsoleTitleA(pM)
+
+VOID     iConsole_EscOn();
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -584,13 +582,13 @@ INT      *idate_diff(INT i_y1,INT i_m1,INT i_d1,INT i_h1,INT i_n1,INT i_s1,INT i
 	\t
 */
 MBS      *idate_format_diff(MBS *format,INT i_sign,INT i_y,INT i_m,INT i_d,INT i_h,INT i_n,INT i_s,INT64 i_days);
-#define  idate_format_ymdhns(format,i_y,i_m,i_d,i_h,i_n,i_s)    (MBS*)idate_format_diff(format,0,i_y,i_m,i_d,i_h,i_n,i_s,0)
+#define  idate_format_ymdhns(format,i_y,i_m,i_d,i_h,i_n,i_s)         (MBS*)idate_format_diff(format,0,i_y,i_m,i_d,i_h,i_n,i_s,0)
 
 MBS      *idate_format_iAryToA(MBS *format,INT *ymdhns);
 MBS      *idate_format_cjdToA(MBS *format,DOUBLE cjd);
 
 MBS      *idate_replace_format_ymdhns(MBS *pM,MBS *quote1,MBS *quote2,MBS *add_quote,INT i_y,INT i_m,INT i_d,INT i_h,INT i_n,INT i_s);
-#define  idate_format_nowToYmdhns(i_y,i_m,i_d,i_h,i_n,i_s)      (MBS*)idate_replace_format_ymdhns("[]","[","]","",i_y,i_m,i_d,i_h,i_n,i_s)
+#define  idate_format_nowToYmdhns(i_y,i_m,i_d,i_h,i_n,i_s)           (MBS*)idate_replace_format_ymdhns("[]","[","]","",i_y,i_m,i_d,i_h,i_n,i_s)
 
 INT      *idate_now_to_iAryYmdhns(BOOL area);
 #define  idate_now_to_iAryYmdhns_localtime()     (INT*)idate_now_to_iAryYmdhns(TRUE)

@@ -403,7 +403,7 @@ icalloc_mapSweep()
 //---------------------------
 // __icallocMapをリスト出力
 //---------------------------
-// v2021-11-29
+// v2022-03-12
 VOID
 icalloc_mapPrint1()
 {
@@ -411,16 +411,18 @@ icalloc_mapPrint1()
 	{
 		return;
 	}
-	iConsole_getColor();
 
-	iConsole_setTextColor(9 + (0 * 16));
+	iConsole_EscOn();
+
+	P0("\033[38;2;100;100;255m");
 	P2("-1 ----------- 8 ------------ 16 ------------ 24 ------------ 32--------");
+	P0("\033[38;2;50;255;50m");
+
 	CONST UINT _rowsCnt = 32;
 	UINT uRowsCnt = _rowsCnt;
 	UINT u1 = 0, u2 = 0;
 	while(u1 < __icallocMapSize)
 	{
-		iConsole_setTextColor(10 + (1 * 16));
 		while(u1 < uRowsCnt)
 		{
 			if((__icallocMap + u1)->ptr)
@@ -436,19 +438,21 @@ icalloc_mapPrint1()
 		}
 		P(" %7u", u2);
 		uRowsCnt += _rowsCnt;
-
-		iConsole_setTextColor(-1);
 		NL();
 	}
+
+	P0("\033[0m");
 }
-// v2020-05-12
+// v2022-03-12
 VOID
 icalloc_mapPrint2()
 {
-	iConsole_getColor();
+	iConsole_EscOn();
 
-	iConsole_setTextColor(9 + (0 * 16));
+	P0("\033[38;2;100;100;255m");
 	P2("------- id ---- pointer -- array --- byte ------------------------------");
+	P0("\033[38;2;255;255;255m");
+
 	$struct_icallocMap *map = 0;
 	UINT uUsedCnt = 0, uUsedSize = 0;
 	UINT u1 = 0;
@@ -459,7 +463,13 @@ icalloc_mapPrint2()
 		{
 			++uUsedCnt;
 			uUsedSize += (map->size);
-			iConsole_setTextColor(15 + (((map->num) ? 4 : 0) * 16));
+
+			if((map->num))
+			{
+				// 背景色変更
+				P0("\033[48;2;150;0;0m");
+			}
+
 			P(
 				"%-7u %07u [%p] (%2u)%10u => '%s'",
 				(u1 + 1),
@@ -469,18 +479,22 @@ icalloc_mapPrint2()
 				(map->size),
 				(map->ptr)
 			);
-			iConsole_setTextColor(-1);
+
+			// 背景色リセット
+			P0("\033[49m");
 			NL();
 		}
 		++u1;
 	}
-	iConsole_setTextColor(9 + (0 * 16));
+
+	P0("\033[38;2;100;100;255m");
 	P(
 		"------- Usage %-7u ---- %14u byte -------------------------\n\n",
 		uUsedCnt,
 		uUsedSize
 	);
-	iConsole_setTextColor(-1);
+
+	P0("\033[0m");
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -538,58 +552,6 @@ P2(
 {
 	P0(pM);
 	fputc('\n', stdout);
-}
-//---------------
-// 繰り返し表示
-//---------------
-/* (例)
-	PR("abc", 3); //=> "abcabcabc"
-*/
-// v2021-11-29
-VOID
-PR(
-	MBS *pM,   // 文字列
-	INT repeat // 繰り返し回数
-)
-{
-	while(repeat > 0)
-	{
-		P0(pM);
-		--repeat;
-	}
-}
-//---------------
-// 色文字を表示
-//---------------
-/* (例)
-	iConsole_getColor();              //=> $ColorDefault // 元の色を保存
-	PZ(15, "カラー文字：%s\n", "白"); //=> "カラー文字：白\n"
-	PZ(-1, NULL);                     // 元の色に戻す
-*/
-// v2021-11-10
-VOID
-PZ(
-	INT rgb, // iConsole_setTextColor() 参照
-	MBS *format,
-	...
-)
-{
-	if(rgb < 0)
-	{
-		rgb = $ColorDefault;
-	}
-
-	if(!format)
-	{
-		format = "";
-	}
-
-	iConsole_setTextColor(rgb);
-
-	va_list va;
-	va_start(va, format);
-		vfprintf(stdout, format, va);
-	va_end(va);
 }
 //--------------
 // Quick Print
@@ -2331,14 +2293,14 @@ main()
 	CONST INT Min    = -5; // 最小値(>=INT_MIN)
 	CONST INT Max    =  5; // 最大値(<=INT_MAX)
 
-	MT_initByAry(TRUE); // 初期化
+	MT_init(TRUE); // 初期化
 
 	for(INT _i1 = 0; _i1 < Output; _i1++)
 	{
 		P4(MT_irandDBL(Min, Max, 10));
 	}
 
-	MT_freeAry(); // 解放
+	MT_free(); // 解放
 
 	return 0;
 }
@@ -2355,12 +2317,12 @@ static UINT MT_i1 = (MT_N + 1);           // MT_i1 == MT_N + 1 means au1[MT_N] i
 static UINT *MT_au1 = 0;                  // the array forthe state vector
 // v2021-11-15
 VOID
-MT_initByAry(
+MT_init(
 	BOOL fixOn
 )
 {
 	// 二重Alloc回避
-	MT_freeAry();
+	MT_free();
 	MT_au1 = icalloc(MT_N, sizeof(UINT), FALSE);
 	// Seed設定
 	UINT init_key[4];
@@ -2447,7 +2409,7 @@ MT_genrandUint32()
 }
 // v2015-11-15
 VOID
-MT_freeAry()
+MT_free()
 {
 	ifree(MT_au1);
 }
@@ -2455,9 +2417,9 @@ MT_freeAry()
 // INT乱数を発生
 //----------------
 /* (例)
-	MT_initByAry(TRUE);               // 初期化
+	MT_init(TRUE);                    // 初期化
 	P("%3d\n", MT_irand_INT(0, 100)); // [0..100]
-	MT_freeAry();                     // 解放
+	MT_free();                        // 解放
 */
 // v2015-12-30
 INT
@@ -2477,9 +2439,9 @@ MT_irand_INT(
 // DOUBLE乱数を発生
 //-------------------
 /* (例)
-	MT_initByAry(TRUE);                    // 初期化
+	MT_init(TRUE);                         // 初期化
 	P("%20.12f\n", MT_irandDBL(0, 10, 5)); // [0.00000..10.00000]
-	MT_freeAry();                          // 解放
+	MT_free();                             // 解放
 */
 // v2015-12-30
 DOUBLE
@@ -3822,48 +3784,41 @@ imk_dir(
 	Console
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-//---------------------------------
-// 現在の文字・画面の表示色を得る
-//---------------------------------
-/* (注)
-	画面色を設定する場合、
-	バッファ不足になると表示に不具合が発生する（バグではない）。
-	都度 cls すれば治る。
-*/
+//------------------
+// RGB色を使用する
+//------------------
 /* (例)
-	// [文字色]+([背景色]*16)
-	//  0 = Black    1 = Navy     2 = Green    3 = Teal
-	//  4 = Maroon   5 = Purple   6 = Olive    7 = Silver
-	//  8 = Gray     9 = Blue    10 = Lime    11 = Aqua
-	// 12 = Red     13 = Fuchsia 14 = Yellow  15 = White
-	iConsole_getColor();
-		//=> $ColorDefault // 現在色を保存
-		//=> $StdoutHandle // 画面ハンドルを保存
-	iConsole_setTextColor(9 + (15 * 16)); // 変更
-	iConsole_setTextColor(-1); // 元の色に戻す
+	// ESC有効化
+	iConsole_EscOn();
+
+	// リセット
+	//   すべて   \033[0m
+	//   文字のみ \033[39m
+	//   背景のみ \033[49m
+
+	// SGRによる指定例
+	//  文字色 9n
+	//  背景色 10n
+	//    0 = 黒    1 = 赤    2 = 黄緑  3 = 黄
+	//    4 = 青    5 = 紅紫  6 = 水    7 = 白
+	P2("\033[91m 文字[赤] \033[0m");
+	P2("\033[101m 背景[赤] \033[0m");
+	P2("\033[91;107m 文字[赤]／背景[白] \033[0m");
+
+	// RGBによる指定例
+	//  文字色   \033[38;2;R;G;Bm
+	//  背景色   \033[48;2;R;G;Bm
+	P2("\033[38;2;255;255;255m\033[48;2;0;0;255m 文字[白]／背景[青] \033[0m");
 */
-// v2021-03-19
-UINT
-iConsole_getColor()
-{
-	$StdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-	CONSOLE_SCREEN_BUFFER_INFO info;
-	GetConsoleScreenBufferInfo($StdoutHandle, &info);
-	$ColorDefault = info.wAttributes;
-	return $ColorDefault;
-}
-// v2021-03-19
+// v2022-03-10
 VOID
-iConsole_setTextColor(
-	INT rgb // 表示色
-)
+iConsole_EscOn()
 {
-	if(rgb < 0)
-	{
-		rgb = $ColorDefault;
-	}
-	HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-	SetConsoleTextAttribute(handle, rgb);
+	HANDLE stdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+	DWORD consoleMode = 0;
+	GetConsoleMode(stdoutHandle, &consoleMode);
+	consoleMode = (consoleMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+	SetConsoleMode(stdoutHandle, consoleMode);
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -4578,7 +4533,7 @@ idate_diff_checker(
 	MBS s1[16] = "", s2[16] = "";
 	MBS *err = 0;
 	P2("-cnt--From----------To----------sign,    y,  m,  d---DateAdd------chk---");
-	MT_initByAry(TRUE);
+	MT_init(TRUE);
 	for(UINT _u1 = 1; _u1 <= repeat; _u1++)
 	{
 		y1 = from_year + MT_irand_INT(0, rnd_y);
@@ -4613,7 +4568,7 @@ idate_diff_checker(
 		ifree(ai2);
 		ifree(ai1);
 	}
-	MT_freeAry();
+	MT_free();
 }
 */
 /*
