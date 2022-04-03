@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define  IWM_VERSION         "iwmtime_20220313"
+#define  IWM_VERSION         "iwmtime_20220403"
 #define  IWM_COPYRIGHT       "Copyright (C)2021-2022 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil.h"
@@ -28,8 +28,8 @@ INT
 main()
 {
 	// lib_iwmutil 初期化
-	iExecSec_init();  //=> $ExecSecBgn
-	iCLI_getARGV();   //=> $CMD, $ARGV, $ARGC
+	iExecSec_init();       //=> $ExecSecBgn
+	iCLI_getCommandLine(); //=> $CMD, $ARG, $ARGC, $ARGV
 	iConsole_EscOn();
 
 	// -h | -help
@@ -47,26 +47,20 @@ main()
 	}
 
 	// -q | -quiet
-	UINT iOptionQuiet = (
-		iCLI_getOptMatch(0, "-q", "-quiet") ?
-		imi_len($ARGV[0]) + 1 :
-		0
-	);
-
-	MBS *cmd = iary_join($ARGV, " ");
+	INT iPosExec = (iCLI_getOptMatch(0, "-q", "-quiet") ? 1 : 0);
+	MBS *cmd = iary_njoin($ARGV, " ", iPosExec, $ARGC);
 
 	MEMORYSTATUSEX memex = { sizeof(MEMORYSTATUSEX) };
-	DWORDLONG iBgnEmpMem = 0;
-	DWORDLONG iEndEmpMem = 0;
 
 	GlobalMemoryStatusEx(&memex);
-	iBgnEmpMem = memex.ullAvailPhys;
+	CONST DWORDLONG iBgnEmpMem = memex.ullAvailPhys;
 
-	if(iOptionQuiet)
+	if(iPosExec)
 	{
-		system(ims_cats(3, (cmd + iOptionQuiet), " > ", NULL_DEVICE));
+		system(ims_cats(3, cmd, " > ", NULL_DEVICE));
 		PRGB21();
 		P2("[Quiet Mode]");
+		PRGB00();
 	}
 	else
 	{
@@ -76,21 +70,30 @@ main()
 	// 計測終了
 	DOUBLE dPassedSec = iExecSec_next();
 
-	GlobalMemoryStatusEx(&memex);
-	iEndEmpMem = memex.ullAvailPhys;
-
 	PRGB91();
 	LN();
 	// Program
-	P("  Program  %s\n", (cmd + iOptionQuiet));
-	// Memory
-	P("  Memory   %s KB (%s KB => %s KB)\n",
-		ims_addTokenNStr(ims_sprintf("%d", ((iEndEmpMem - iBgnEmpMem) / 1024))),
-		ims_addTokenNStr(ims_sprintf("%d", (iBgnEmpMem / 1024))),
-		ims_addTokenNStr(ims_sprintf("%d", (iEndEmpMem / 1024)))
-	);
+	P("  Program  %s\n", cmd);
+
 	// Exec
 	P("  Exec     %s sec\n", ims_addTokenNStr(ims_sprintf("%.4f", dPassedSec)));
+
+	// Memory
+	P2("  Memory   ");
+	CONST INT iMs = 500;
+	CONST INT iLoop = 5;
+	INT i1 = 0;
+	while(i1 < iLoop)
+	{
+		GlobalMemoryStatusEx(&memex);
+		P("   %4d ms %7s KB\n",
+			(iMs * i1),
+			ims_addTokenNStr(ims_sprintf("%d", ((memex.ullAvailPhys - iBgnEmpMem) / 1024)))
+		);
+		Sleep(iMs);
+		++i1;
+	}
+
 	LN();
 	PRGB00();
 
@@ -117,24 +120,25 @@ print_help()
 {
 	print_version();
 	PRGB01();
-	P2("\033[48;2;80;80;250m コマンドの実行時間を計測 \033[49m");
+	P2("\033[48;2;50;50;200m コマンドの実行時間を計測 \033[49m");
 	NL();
 	PRGB02();
-	P ("\033[48;2;250;80;80m %s [Option] [Command] \033[49m\n\n", $CMD);
+	P ("\033[48;2;200;50;50m %s [Option] [Command] \033[49m\n\n", $CMD);
 	PRGB11();
 	P0(" (例１) ");
 	PRGB91();
-	P ("%s \033[38;2;255;150;150mnotepad\n\n", $CMD);
+	P ("%s \033[38;2;150;150;255mnotepad\n\n", $CMD);
 	PRGB11();
 	P0(" (例２) ");
 	PRGB91();
-	P ("%s \033[38;2;255;150;150mdir \033[38;2;150;150;255m\"..\" /b\n\n", $CMD);
+	P ("%s \033[38;2;255;150;150m-quiet \033[38;2;150;150;255mdir \"..\" /b\n\n", $CMD);
 	PRGB02();
-	P2("\033[48;2;250;80;80m [Option] \033[49m");
+	P2("\033[48;2;200;50;50m [Option] \033[49m");
 	PRGB21();
 	P2("   -quiet | -q");
 	PRGB91();
 	P2("       コマンド出力を表\示しない");
+	NL();
 	PRGB92();
 	LN();
 	PRGB00();

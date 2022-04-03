@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20220313"
+#define  LIB_IWMUTIL_VERSION   "lib_iwmutil_20220403"
 #define  LIB_IWMUTIL_COPYLIGHT "Copyright (C)2008-2022 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -20,7 +20,6 @@
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
 #define  IMAX_PATH                               (((MAX_PATH>>3)<<3)+(1<<3)) // windef.h参照
-#define  IVA_LIST_MAX                            64    // va_xxx()の上限値
 
 #define  MBS                                     CHAR  // imx_xxx()／MBCS／Muliti Byte String
 #define  WCS                                     WCHAR // iwx_xxx()／UTF-16／Wide Char String
@@ -35,19 +34,19 @@
 #define  IDATE_FORMAT_STD                        "%G%y-%m-%d %h:%n:%s"
 #define  IDATE_FORMAT_DIFF                       "%g%y-%m-%d %h:%n:%s"
 
-#define  ILN                                     "--------------------------------------------------------------------------------"
+#define  LINE                                    "--------------------------------------------------------------------------------"
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
 	大域変数
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-extern MBS    *$CMD;         // コマンド名を格納
-extern MBS    **$ARGV;       // ARGVを格納
-extern UINT   $ARGC;         // ARGCを格納
-extern HANDLE $StdoutHandle; // 画面制御用ハンドル
-extern UINT   $ColorDefault; // コンソール色
-extern UINT   $ExecSecBgn;   // 実行開始時間
+extern   MBS    *$CMD;         // コマンド名を格納
+extern   UINT   $ARGC;         // 引数配列数
+extern   MBS    **$ARGV;       // 引数配列
+extern   MBS    **$ARGS;       // $ARGVからダブルクォーテーションを消去したもの
+extern   HANDLE $StdoutHandle; // 画面制御用ハンドル
+extern   UINT   $ExecSecBgn;   // 実行開始時間
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -82,9 +81,6 @@ VOID     *irealloc(VOID *ptr,UINT n,UINT size);
 #define  icalloc_INT(n)                          (INT*)icalloc(n,sizeof(INT),FALSE)
 #define  irealloc_INT(ptr,n)                     (INT*)irealloc(ptr,n,sizeof(INT))
 
-#define  icalloc_UINT(n)                         (UINT*)icalloc(n,sizeof(UINT),FALSE)
-#define  irealloc_UINT(ptr,n)                    (UINT*)irealloc(ptr,n,sizeof(UINT))
-
 #define  icalloc_INT64(n)                        (INT64*)icalloc(n,sizeof(INT64),FALSE)
 #define  irealloc_INT64(ptr,n)                   (INT64*)irealloc(ptr,n,sizeof(INT64))
 
@@ -113,30 +109,29 @@ VOID     icalloc_mapPrint2();
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
 VOID     P(MBS *format,...);
-VOID     P0(MBS *pM);
-VOID     P2(MBS *pM);
-VOID     QP(MBS *pM,UINT sizeM);
+VOID     QP(MBS *pM);
 
-#define  PC(pM)                                  putchar(*pM)
 #define  PL()                                    P("L%u\t",__LINE__)
 #define  PP(pM)                                  P("[%p] ",pM)
 #define  PX(pM)                                  P("|%#hx|",*pM)
-#define  NL()                                    putchar('\n')
-#define  LN()                                    P2(ILN)
+#define  NL()                                    fputc('\n', stdout)
+#define  LN()                                    P2(LINE)
 
+#define  P0(pM)                                  fputs(pM, stdout)
+#define  P2(pM)                                  fputs(pM, stdout);fputc('\n', stdout)
 #define  P3(num)                                 P("%lld\n",(INT64)num)
-#define  P4(num)                                 P("%.8Lf\n",(long double)num)
+#define  P4(num)                                 P("%.8lf\n",(DOUBLE)num)
 
-#define  P22(pM1,pM2)                            P0(pM1);P2(pM2)
+#define  P22(pM1,pM2)                            P("%s%s\n", pM1, pM2)
 #define  P23(pM,num)                             P("%s%lld\n",pM,(INT64)num)
-#define  P24(pM,num)                             P("%s%.8Lf\n",pM,(long double)num)
+#define  P24(pM,num)                             P("%s%.8lf\n",pM,(DOUBLE)num)
 
 #define  PL2(pM)                                 PL();P2(pM)
 #define  PL3(num)                                PL();P3(num)
 #define  PL4(num)                                PL();P4(num)
 
 #define  PL23(pM,num)                            PL();P("%s%lld\n",pM,(INT64)num)
-#define  PL24(pM,num)                            PL();P("%s%.8Lf\n",pM,(long double)num)
+#define  PL24(pM,num)                            PL();P("%s%.8lf\n",pM,(DOUBLE)num)
 #define  PL32(num,pM)                            PL();P("[%lld]%s\n",(INT64)num,pM)
 
 MBS      *ims_conv_escape(MBS *pM);
@@ -170,16 +165,16 @@ MBS      *icnv_U2M(U8N *pU);
 	文字列処理
 		"p" : return Pointer
 		"s" : return String
-		1byte     MBS : imp_, imp_, imi_
-		1 & 2byte MBS : ijp_, ijs_, iji_
-		UTF-8     U8N : iup_, ius_, iui_
-		UTF-16    WCS : iwp_, iws_, iwi_
+		1byte     MBS : imp_, imp_, imn_
+		1 & 2byte MBS : ijp_, ijs_, ijn_
+		UTF-8     U8N : iup_, ius_, iun_
+		UTF-16    WCS : iwp_, iws_, iwn_
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-UINT     imi_len(MBS *pM);
-UINT     iji_len(MBS *pM);
-UINT     iui_len(U8N *pU);
-UINT     iwi_len(WCS *pW);
+UINT     imn_len(MBS *pM);
+UINT     ijn_len(MBS *pM);
+UINT     iun_len(U8N *pU);
+UINT     iwn_len(WCS *pW);
 
 MBS      *ijp_forwardN(MBS *pM,UINT sizeJ);
 U8N      *iup_forwardN(U8N *pU,UINT sizeU);
@@ -188,10 +183,10 @@ MBS      *ims_UpperLower(MBS *pM,INT option);
 #define  ims_upper(pM)                           (MBS*)ims_UpperLower(pM,1)
 #define  ims_lower(pM)                           (MBS*)ims_UpperLower(pM,2)
 
-UINT     imi_cpy(MBS *to,MBS *from);
-UINT     imi_pcpy(MBS *to,MBS *from1,MBS *from2);
+UINT     imn_cpy(MBS *to,MBS *from);
+UINT     imn_pcpy(MBS *to,MBS *from1,MBS *from2);
 
-UINT     iwi_cpy(WCS *to,WCS *from);
+UINT     iwn_cpy(WCS *to,WCS *from);
 
 MBS      *ims_clone(MBS *from);
 WCS      *iws_clone(WCS *from);
@@ -221,29 +216,29 @@ BOOL     iwb_cmp(WCS *pW,WCS *search,BOOL perfect,BOOL icase);
 
 MBS      *ijp_bypass(MBS *pM,MBS *from,MBS *to);
 
-UINT     iji_searchCntA(MBS *pM,MBS *search,BOOL icase);
-#define  iji_searchCnt(pM,search)                (UINT)iji_searchCntA(pM,search,FALSE)
-#define  iji_searchCnti(pM,search)               (UINT)iji_searchCntA(pM,search,TRUE)
+UINT     ijn_searchCntA(MBS *pM,MBS *search,BOOL icase);
+#define  ijn_searchCnt(pM,search)                (UINT)ijn_searchCntA(pM,search,FALSE)
+#define  ijn_searchCnti(pM,search)               (UINT)ijn_searchCntA(pM,search,TRUE)
 
-UINT     iwi_searchCntW(WCS *pW,WCS *search,BOOL icase);
-#define  iwi_searchCnt(pW,search)                (UINT)iwi_searchCntW(pW,search,FALSE)
-#define  iwi_searchCnti(pW,search)               (UINT)iwi_searchCntW(pW,search,TRUE)
+UINT     iwn_searchCntW(WCS *pW,WCS *search,BOOL icase);
+#define  iwn_searchCnt(pW,search)                (UINT)iwn_searchCntW(pW,search,FALSE)
+#define  iwn_searchCnti(pW,search)               (UINT)iwn_searchCntW(pW,search,TRUE)
 
-UINT     iji_searchCntLA(MBS *pM,MBS *search,BOOL icase,INT option);
-#define  iji_searchCntL(pM,search)               (UINT)iji_searchCntLA(pM,search,FALSE,0)
-#define  iji_searchCntLi(pM,search)              (UINT)iji_searchCntLA(pM,search,TRUE,0)
-#define  imi_searchLenL(pM,search)               (UINT)iji_searchCntLA(pM,search,FALSE,1)
-#define  imi_searchLenLi(pM,search)              (UINT)iji_searchCntLA(pM,search,TRUE,1)
-#define  iji_searchLenL(pM,search)               (UINT)iji_searchCntLA(pM,search,FALSE,2)
-#define  iji_searchLenLi(pM,search)              (UINT)iji_searchCntLA(pM,search,TRUE,2)
+UINT     ijn_searchCntLA(MBS *pM,MBS *search,BOOL icase,INT option);
+#define  ijn_searchCntL(pM,search)               (UINT)ijn_searchCntLA(pM,search,FALSE,0)
+#define  ijn_searchCntLi(pM,search)              (UINT)ijn_searchCntLA(pM,search,TRUE,0)
+#define  imn_searchLenL(pM,search)               (UINT)ijn_searchCntLA(pM,search,FALSE,1)
+#define  imn_searchLenLi(pM,search)              (UINT)ijn_searchCntLA(pM,search,TRUE,1)
+#define  ijn_searchLenL(pM,search)               (UINT)ijn_searchCntLA(pM,search,FALSE,2)
+#define  ijn_searchLenLi(pM,search)              (UINT)ijn_searchCntLA(pM,search,TRUE,2)
 
-UINT     iji_searchCntRA(MBS *pM,MBS *search,BOOL icase,INT option);
-#define  iji_searchCntR(pM,search)               (UINT)iji_searchCntRA(pM,search,FALSE,0)
-#define  iji_searchCntRi(pM,search)              (UINT)iji_searchCntRA(pM,search,TRUE,0)
-#define  imi_searchLenR(pM,search)               (UINT)iji_searchCntRA(pM,search,FALSE,1)
-#define  imi_searchLenRi(pM,search)              (UINT)iji_searchCntRA(pM,search,TRUE,1)
-#define  iji_searchLenR(pM,search)               (UINT)iji_searchCntRA(pM,search,FALSE,2)
-#define  iji_searchLenRi(pM,search)              (UINT)iji_searchCntRA(pM,search,TRUE,2)
+UINT     ijn_searchCntRA(MBS *pM,MBS *search,BOOL icase,INT option);
+#define  ijn_searchCntR(pM,search)               (UINT)ijn_searchCntRA(pM,search,FALSE,0)
+#define  ijn_searchCntRi(pM,search)              (UINT)ijn_searchCntRA(pM,search,TRUE,0)
+#define  imn_searchLenR(pM,search)               (UINT)ijn_searchCntRA(pM,search,FALSE,1)
+#define  imn_searchLenRi(pM,search)              (UINT)ijn_searchCntRA(pM,search,TRUE,1)
+#define  ijn_searchLenR(pM,search)               (UINT)ijn_searchCntRA(pM,search,FALSE,2)
+#define  ijn_searchLenRi(pM,search)              (UINT)ijn_searchCntRA(pM,search,TRUE,2)
 
 MBS      *ijp_searchLA(MBS *pM,MBS *search,BOOL icase);
 #define  ijp_searchL(pM,search)                  (MBS*)ijp_searchLA(pM,search,FALSE)
@@ -251,7 +246,6 @@ MBS      *ijp_searchLA(MBS *pM,MBS *search,BOOL icase);
 
 INT      icmpOperator_extractHead(MBS *pM);
 MBS      *icmpOperator_toHeadA(INT operator);
-BOOL     icmpOperator_chk_INT(INT i1,INT i2,INT operator);
 BOOL     icmpOperator_chk_INT64(INT64 i1,INT64 i2,INT operator);
 BOOL     icmpOperator_chkDBL(DOUBLE d1,DOUBLE d2,INT operator);
 
@@ -294,18 +288,18 @@ DOUBLE   inum_atof(MBS *pM);
 	http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/mt.html
 */
 VOID     MT_init(BOOL fixOn);
-UINT     MT_genrandUint32();
+UINT     MT_genrand_UINT();
 VOID     MT_free();
 
-INT      MT_irand_INT(INT posMin,INT posMax);
-DOUBLE   MT_irandDBL(INT posMin,INT posMax,UINT decRound);
+INT64    MT_irand_INT64(INT posMin,INT posMax);
+DOUBLE   MT_irand_DBL(INT posMin,INT posMax,INT decRound);
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
 	Command Line
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-UINT     iCLI_getARGV();
+VOID     iCLI_getCommandLine();
 MBS      *iCLI_getOptValue(UINT argc,MBS *opt1,MBS *opt2);
 BOOL     iCLI_getOptMatch(UINT argc,MBS *opt1,MBS *opt2);
 
@@ -327,7 +321,8 @@ INT      iary_qsort_cmpDesc(CONST VOID *p1,CONST VOID *p2);
 #define  iary_sortAsc(ary)                       (VOID)qsort((MBS*)ary,iary_size(ary),sizeof(MBS**),iary_qsort_cmpAsc)
 #define  iary_sortDesc(ary)                      (VOID)qsort((MBS*)ary,iary_size(ary),sizeof(MBS**),iary_qsort_cmpDesc)
 
-MBS      *iary_join(MBS **ary,MBS *token);
+MBS      *iary_njoin(MBS **ary,MBS *token,UINT start,UINT count);
+#define  iary_join(ary,token)                    (MBS*)iary_njoin(ary,token,0,iary_size(ary))
 
 MBS      **iary_simplify(MBS **ary,BOOL icase);
 MBS      **iary_higherDir(MBS **ary);
@@ -341,31 +336,31 @@ VOID     iary_print(MBS **ary);
 /////////////////////////////////////////////////////////////////////////////////////////
 typedef struct
 {
-	MBS    fullnameA[IMAX_PATH]; // (例) D:\岩間\iwama.txt
-	UINT   iFname;               // MBS =  8／WCS =  6
-	UINT   iExt;                 // MBS = 13／WCS = 11
-	UINT   iEnd;                 // MBS = 17／WCS = 15
-	UINT   iAttr;                // 32
-	UINT   iFtype;               // 2 : 不明 = 0／Dir = 1／File = 2
-	DOUBLE cjdCtime;             // (DWORD)dwLowDateTime,(DWORD)dwHighDateTime
-	DOUBLE cjdMtime;             // ↑
-	DOUBLE cjdAtime;             // ↑
-	INT64  iFsize;               // byte (4GB対応)
+	MBS    fullnameA[IMAX_PATH]; // フルパス
+	UINT   uFname;               // ファイル名開始位置
+	UINT   uExt;                 // 拡張子開始位置
+	UINT   uEnd;                 // 終端NULL位置 = フルパス長
+	UINT   uAttr;                // 属性
+	UINT   uFtype;               // 不明 = 0, Dir = 1, File = 2
+	DOUBLE cjdCtime;             // 作成時間
+	DOUBLE cjdMtime;             // 更新時間
+	DOUBLE cjdAtime;             // アクセス時間
+	INT64  iFsize;               // ファイルサイズ
 }
 $struct_iFinfoA;
 
 typedef struct
 {
-	WCS    fullnameW[IMAX_PATH]; // (例) D:\岩間\iwama.txt
-	UINT   iFname;               // MBS =  8／WCS =  6
-	UINT   iExt;                 // MBS = 13／WCS = 11
-	UINT   iEnd;                 // MBS = 17／WCS = 15
-	UINT   iAttr;                // 32
-	UINT   iFtype;               // 2 : 不明 = 0／Dir = 1／File = 2
-	DOUBLE cjdCtime;             // (DWORD)dwLowDateTime,(DWORD)dwHighDateTime
-	DOUBLE cjdMtime;             // ↑
-	DOUBLE cjdAtime;             // ↑
-	INT64  iFsize;               // byte (4GB対応)
+	WCS    fullnameW[IMAX_PATH]; // フルパス
+	UINT   uFname;               // ファイル名開始位置
+	UINT   uExt;                 // 拡張子開始位置
+	UINT   uEnd;                 // 終端NULL位置 = フルパス長
+	UINT   uAttr;                // 属性
+	UINT   uFtype;               // 不明 = 0／Dir = 1／File = 2
+	DOUBLE cjdCtime;             // 作成時間
+	DOUBLE cjdMtime;             // 更新時間
+	DOUBLE cjdAtime;             // アクセス時間
+	INT64  iFsize;               // ファイルサイズ
 }
 $struct_iFinfoW;
 
@@ -382,10 +377,10 @@ BOOL     iFinfo_init2A($struct_iFinfoA *FI,MBS *path);
 VOID     iFinfo_freeA($struct_iFinfoA *FI);
 VOID     iFinfo_freeW($struct_iFinfoW *FI);
 
-MBS      *iFinfo_attrToA(UINT iAttr);
-UINT     iFinfo_attrAtoUINT(MBS *sAttr);
+MBS      *iFinfo_attrToA(UINT uAttr);
+INT      iFinfo_attrAtoINT(MBS *sAttr);
 
-MBS      *iFinfo_ftypeToA(UINT iFtype);
+MBS      *iFinfo_ftypeToA(INT iFtype);
 
 INT      iFinfo_depthA($struct_iFinfoA *FI);
 INT      iFinfo_depthW($struct_iFinfoW *FI);
@@ -404,14 +399,14 @@ FILETIME iFinfo_ymdhnsToFtime(INT wYear,INT wMonth,INT wDay,INT wHour,INT wMinut
 /////////////////////////////////////////////////////////////////////////////////////////
 BOOL     iFchk_existPathA(MBS *path);
 
-UINT     iFchk_typePathA(MBS *path);
+INT      iFchk_typePathA(MBS *path);
 
 BOOL     iFchk_Bfile(MBS *fn);
 #define  iFchk_Tfile(fn)                         (BOOL)(iFchk_typePathA(fn) == 2 && !iFchk_Bfile(fn) ? TRUE : FALSE)
 
-#define  ichk_attrDirFile(attr)                  (UINT)(((UINT)attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 2)
+#define  ichk_attrDirFile(attr)                  (INT)(((INT)attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 2)
 
-MBS      *iFget_extPathname(MBS *path,UINT option);
+MBS      *iFget_extPathname(MBS *path,INT option);
 
 MBS      *iFget_AdirA(MBS *path);
 MBS      *iFget_RdirA(MBS *path);
@@ -599,23 +594,3 @@ DOUBLE   idate_nowToCjd(BOOL area);
 #define  idate_nowToCjd_systemtime()             (DOUBLE)idate_nowToCjd(FALSE)
 
 #define  idate_cjd_sec(cjd)                      (DOUBLE)(cjd)*86400.0
-
-/////////////////////////////////////////////////////////////////////////////////////////
-/*---------------------------------------------------------------------------------------
-	Geography
----------------------------------------------------------------------------------------*/
-/////////////////////////////////////////////////////////////////////////////////////////
-typedef struct
-{
-	DOUBLE dist;  // 距離(km)
-	DOUBLE angle; // 度(十進法)
-	INT    deg;   // 度
-	INT    min;   // 分
-	DOUBLE sec;   // 秒
-}
-$Geo;
-
-DOUBLE   rtnGeoIBLto10A(INT deg,INT min,DOUBLE sec);
-DOUBLE   rtnGeoIBLto10B(DOUBLE ddmmss);
-$Geo     rtnGeo10toIBL(DOUBLE angle);
-$Geo     rtnGeoVincentry(DOUBLE lat1,DOUBLE lng1,DOUBLE lat2,DOUBLE lng2);
