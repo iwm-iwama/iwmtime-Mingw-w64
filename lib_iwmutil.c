@@ -125,7 +125,7 @@ iExecSec(
 typedef struct
 {
 	VOID *ptr; // ポインタ位置
-	UINT num;  // 配列個数（配列以外 = 0）
+	UINT ary;  // 配列個数（配列以外 = 0）
 	UINT size; // アロケート長
 	UINT id;   // 順番
 }
@@ -152,18 +152,18 @@ CONST UINT __sizeof_icallocMap = sizeof($struct_icallocMap);
 /* (注)
 	calloc()可能値は、1プロセス／32bitOSで1.5GB程度(OS依存)
 */
-// v2016-01-31
+// v2022-04-29
 VOID
 *icalloc(
 	UINT n,    // 個数
 	UINT size, // 宣言子サイズ
-	BOOL aryOn // TRUE=配列
+	BOOL aryOn // TRUE = 配列
 )
 {
 	UINT size2 = sizeof($struct_icallocMap);
 
 	// 初回 __icallocMap を更新
-	if(__icallocMapSize == 0)
+	if(!__icallocMapSize)
 	{
 		__icallocMapSize = IcallocDiv;
 		__icallocMap = ($struct_icallocMap*)calloc(__icallocMapSize, size2);
@@ -178,17 +178,18 @@ VOID
 	}
 
 	// 引数にポインタ割当
-	VOID *rtn = calloc(ceilX(n), size);
-		icalloc_err(rtn); // 戻値が 0 なら exit()
+	UINT uSize = ceilX(n * size);
+	VOID *rtn = calloc(uSize, 1);
+	icalloc_err(rtn);
 
 	// ポインタ
 	(__icallocMap + __icallocMapEOD)->ptr = rtn;
 
 	// 配列
-	(__icallocMap + __icallocMapEOD)->num = (aryOn ? n : 0);
+	(__icallocMap + __icallocMapEOD)->ary = (aryOn ? n : 0);
 
 	// サイズ
-	(__icallocMap + __icallocMapEOD)->size = ceilX(n) * size;
+	(__icallocMap + __icallocMapEOD)->size = uSize;
 
 	// 順番
 	++__icallocMapId;
@@ -235,7 +236,7 @@ VOID
 	PL2(p32);
 	ifree(p32);
 */
-// v2022-04-02
+// v2022-04-29
 VOID
 *irealloc(
 	VOID *ptr, // icalloc()ポインタ
@@ -256,10 +257,10 @@ VOID
 	{
 		if(ptr == (__icallocMap + u2)->ptr)
 		{
-			rtn = (VOID*)realloc(ptr, u1); // 遅いが確実
-				icalloc_err(rtn);          // 戻値が 0 なら exit()
+			rtn = (VOID*)realloc(ptr, u1);
+			icalloc_err(rtn);
 			(__icallocMap + u2)->ptr = rtn;
-			(__icallocMap + u2)->num = ((__icallocMap + u2)->num ? n : 0);
+			(__icallocMap + u2)->ary = ((__icallocMap + u2)->ary ? n : 0);
 			(__icallocMap + u2)->size = u1;
 			break;
 		}
@@ -291,7 +292,7 @@ icalloc_err(
 //-------------------------
 // (__icallocMap+n)をfree
 //-------------------------
-// v2021-04-22
+// v2022-04-29
 VOID
 icalloc_free(
 	VOID *ptr // icalloc()ポインタ
@@ -305,11 +306,11 @@ icalloc_free(
 		if(ptr == (map->ptr))
 		{
 			// 配列から先に free
-			if(map->num)
+			if(map->ary)
 			{
 				// 1次元削除
 				u2 = 0;
-				while(u2 < (map->num))
+				while(u2 < (map->ary))
 				{
 					if(!(*((MBS**)(map->ptr) + u2)))
 					{
@@ -322,14 +323,16 @@ icalloc_free(
 
 				// memset() + NULL代入 で free() の代替
 				// 2次元削除
+				// ポインタ配列を消去
 				memset(map->ptr, 0, map->size);
+				free(map->ptr);
 				map->ptr = 0;
 				memset(map, 0, __sizeof_icallocMap);
 				return;
 			}
 			else
 			{
-				memset(map->ptr, 0, map->size);
+				free(map->ptr);
 				map->ptr = 0;
 				memset(map, 0, __sizeof_icallocMap);
 				++__icallocMapFreeCnt;
@@ -442,14 +445,14 @@ icalloc_mapPrint1()
 
 	P0("\033[0m");
 }
-// v2022-04-03
+// v2022-04-29
 VOID
 icalloc_mapPrint2()
 {
 	iConsole_EscOn();
 
 	P0("\033[38;2;100;100;255m");
-	P0("------- id ---- pointer -- array --- byte ------------------------------");
+	P0("------- id ---- pointer ---------- array --- size ----------------------");
 	P2("\033[38;2;255;255;255m");
 
 	$struct_icallocMap *map = 0;
@@ -463,18 +466,18 @@ icalloc_mapPrint2()
 			++uUsedCnt;
 			uUsedSize += (map->size);
 
-			if((map->num))
+			if((map->ary))
 			{
 				// 背景色変更
 				P0("\033[48;2;150;0;0m");
 			}
 
 			P(
-				"%-7u %07u [%p] (%2u)%10u => '%s'",
+				"%-7u %07u [%p] %4u %9u => '%s'",
 				(u1 + 1),
 				(map->id),
 				(map->ptr),
-				(map->num),
+				(map->ary),
 				(map->size),
 				(map->ptr)
 			);
@@ -487,7 +490,7 @@ icalloc_mapPrint2()
 
 	P0("\033[38;2;100;100;255m");
 	P(
-		"------- Usage %-7u ---- %14u byte -------------------------",
+		"------- Usage %-9u ---------- %14u byte -----------------",
 		uUsedCnt,
 		uUsedSize
 	);
@@ -2439,13 +2442,13 @@ MT_irand_DBL(
 	iary_print($ARGV);
 	iary_print($ARGS); // $ARGVからダブルクォーテーションを除去したもの
 */
-// v2022-04-03
+// v2022-04-29
 VOID
 iCLI_getCommandLine()
 {
 	MBS *pM = ijs_trim(GetCommandLineA());
 
-	CONST INT AryMax = 32;
+	CONST UINT AryMax = 32;
 	MBS **argv = icalloc_MBS_ary(AryMax);
 	MBS **args = icalloc_MBS_ary(AryMax);
 
@@ -3605,7 +3608,7 @@ iFchk_typePathA(
 	PL3(iFchk_Bfile("aaa.txt")); //=> FALSE
 	PL3(iFchk_Bfile("???"));     //=> FALSE (存在しないとき)
 */
-// v2019-08-15
+// v2022-04-29
 BOOL
 iFchk_Bfile(
 	MBS *Fn
@@ -3620,7 +3623,7 @@ iFchk_Bfile(
 	// 64byteでは不完全
 	while((c = getc(Fp)) != (UINT)EOF && u1 < 128)
 	{
-		if(c == 0)
+		if(!c)
 		{
 			++cnt;
 			break;
@@ -3853,7 +3856,7 @@ INT MDAYS[13] = {31, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 	idate_chk_uruu(2012); //=> TRUE
 	idate_chk_uruu(2013); //=> FALSE
 */
-// v2013-03-21
+// v2022-04-29
 BOOL
 idate_chk_uruu(
 	INT i_y // 年
@@ -3861,16 +3864,16 @@ idate_chk_uruu(
 {
 	if(i_y > (INT)(NS_AFTER[1] / 10000))
 	{
-		if((i_y % 400) == 0)
+		if(!(i_y % 400))
 		{
 			return TRUE;
 		}
-		if((i_y % 100) == 0)
+		if(!(i_y % 100))
 		{
 			return FALSE;
 		}
 	}
-	return ((i_y % 4) == 0 ? TRUE : FALSE);
+	return (!(i_y % 4) ? TRUE : FALSE);
 }
 //-------------
 // 月を正規化
@@ -4270,7 +4273,7 @@ idate_cjd_yeardays(
 	INT *ai = idate_cjd_to_iAryYmdhns(cjd);
 	INT i1 = ai[0];
 	ifree(ai);
-	return (INT)(cjd-idate_ymdhnsToCjd(i1, 1, 0, 0, 0, 0));
+	return (INT)(cjd - idate_ymdhnsToCjd(i1, 1, 0, 0, 0, 0));
 }
 //--------------------------------------
 // 日付の前後 [6] = {y, m, d, h, n, s}
