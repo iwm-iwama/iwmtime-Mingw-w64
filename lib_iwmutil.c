@@ -3425,25 +3425,25 @@ MBS
 	(Local)"c:\" => 0
 	(Network)"\\localhost\" => 0
 */
-// v2016-08-09
+// v2022-05-26
 INT
 iFinfo_depthA(
 	$struct_iFinfoA *FI
 )
 {
-	if(!FI->fullnameA)
+	if(!*FI->fullnameA)
 	{
 		return -1;
 	}
 	return ijn_searchCnt(FI->fullnameA + 2, "\\") - 1;
 }
-// v2016-08-09
+// v2022-05-26
 INT
 iFinfo_depthW(
 	$struct_iFinfoW *FI
 )
 {
-	if(!FI->fullnameW)
+	if(!*FI->fullnameW)
 	{
 		return -1;
 	}
