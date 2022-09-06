@@ -1,82 +1,117 @@
 //------------------------------------------------------------------------------
-#define  IWM_VERSION         "iwmtime_20220429"
+#define  IWM_VERSION         "iwmtime_20220905"
 #define  IWM_COPYRIGHT       "Copyright (C)2021-2022 iwm-iwama"
 //------------------------------------------------------------------------------
-#include "lib_iwmutil.h"
+#include "lib_iwmutil2.h"
 
 INT  main();
 VOID print_version();
 VOID print_help();
 
-// ÉäÉZÉbÉg
-#define  PRGB00()            P0("\033[0m")
-// ÉâÉxÉã
-#define  PRGB01()            P0("\033[38;2;255;255;0m")    // â©
-#define  PRGB02()            P0("\033[38;2;255;255;255m")  // îí
-// ì¸óÕó·Å^íç
-#define  PRGB11()            P0("\033[38;2;255;255;100m")  // â©
-#define  PRGB12()            P0("\033[38;2;255;220;150m")  // ûÚ
-#define  PRGB13()            P0("\033[38;2;100;100;255m")  // ê¬
-// ÉIÉvÉVÉáÉì
-#define  PRGB21()            P0("\033[38;2;80;255;255m")   // êÖ
-#define  PRGB22()            P0("\033[38;2;255;100;255m")  // çgéá
-// ñ{ï∂
-#define  PRGB91()            P0("\033[38;2;255;255;255m")  // îí
-#define  PRGB92()            P0("\033[38;2;200;200;200m")  // ã‚
+// „É™„Çª„ÉÉ„Éà
+#define  PRGB00()            P0("\x1b[0m")
+// „É©„Éô„É´
+#define  PRGB01()            P0("\x1b[38;2;255;255;0m")    // ÈªÑ
+#define  PRGB02()            P0("\x1b[38;2;255;255;255m")  // ÁôΩ
+// ÂÖ•Âäõ‰æãÔºèÊ≥®
+#define  PRGB11()            P0("\x1b[38;2;255;255;100m")  // ÈªÑ
+#define  PRGB12()            P0("\x1b[38;2;255;220;150m")  // Ê©ô
+#define  PRGB13()            P0("\x1b[38;2;100;100;255m")  // Èùí
+// „Ç™„Éó„Ç∑„Éß„É≥
+#define  PRGB21()            P0("\x1b[38;2;80;255;255m")   // Ê∞¥
+#define  PRGB22()            P0("\x1b[38;2;255;100;255m")  // Á¥ÖÁ¥´
+// Êú¨Êñá
+#define  PRGB91()            P0("\x1b[38;2;255;255;255m")  // ÁôΩ
+#define  PRGB92()            P0("\x1b[38;2;200;200;200m")  // ÈäÄ
 
 INT
 main()
 {
-	// lib_iwmutil èâä˙âª
-	iExecSec_init();       //=> $ExecSecBgn
-	iCLI_getCommandLine(); //=> $CMD, $ARG, $ARGC, $ARGV
+	// lib_iwmutil ÂàùÊúüÂåñ
+	iExecSec_init();            //=> $ExecSecBgn
+	iCLI_getCommandLine(65001); //=> $CMD, $ARG, $ARGC, $ARGV
 	iConsole_EscOn();
 
 	// -h | -help
-	if(! $ARGC || iCLI_getOptMatch(0, "-h", "-help"))
+	if(! $ARGC || iCLI_getOptMatch(0, L"-h", L"-help"))
 	{
 		print_help();
 		imain_end();
 	}
 
 	// -v | -version
-	if(iCLI_getOptMatch(0, "-v", "-version"))
+	if(iCLI_getOptMatch(0, L"-v", L"-version"))
 	{
 		print_version();
 		imain_end();
 	}
 
+	WCS *wp1 = 0, *wp2 = 0;
+	U8N *up1 = 0;
+
+	UINT uExecArgc = 0;
+
+	// Quiet Mode
+	BOOL bQuiet = FALSE;
+
+	// Chcp
+	UINT uChcp = $CP;
+
 	// -q | -quiet
-	INT iPosExec = (iCLI_getOptMatch(0, "-q", "-quiet") ? 1 : 0);
-	MBS *cmd = iary_njoin($ARGV, " ", iPosExec, $ARGC);
+	if(iCLI_getOptMatch(0, L"-q", L"-quiet"))
+	{
+		++uExecArgc;
+		bQuiet = TRUE;
+	}
+	// -cp | -codepage
+	else if((wp1 = iCLI_getOptValue(0, L"-cp=", L"-codepage=")))
+	{
+		++uExecArgc;
+		uChcp = (UINT)inum_wtoi(wp1);
+	}
+
+	wp1 = iwa_njoin($ARGV, L" ", uExecArgc, $ARGC);
+		U8N *opCmd = W2U(wp1);
+	ifree(wp1);
 
 	MEMORYSTATUSEX memex = { sizeof(MEMORYSTATUSEX) };
 
 	GlobalMemoryStatusEx(&memex);
 	CONST DWORDLONG iBgnEmpMem = memex.ullAvailPhys;
 
-	if(iPosExec)
+	if(bQuiet)
 	{
-		system(ims_cats(3, cmd, " > ", NULL_DEVICE));
+		up1 = ims_cats(2, opCmd, " > NUL");
+			system(up1);
+		ifree(up1);
+
 		PRGB21();
 		P2("[Quiet Mode]");
 		PRGB00();
 	}
 	else
 	{
-		system(cmd);
+		SetConsoleOutputCP(uChcp);
+		system(opCmd);
+		SetConsoleOutputCP($CP);
 	}
 
-	// åvë™èIóπ
+	// Ë®àÊ∏¨ÁµÇ‰∫Ü
 	DOUBLE dPassedSec = iExecSec_next();
 
 	PRGB91();
 	LN();
 	// Program
-	P("  Program  %s\n", cmd);
+	P("  Program  %s\n", opCmd);
 
 	// Exec
-	P("  Exec     %s sec\n", ims_addTokenNStr(ims_sprintf("%.4f", dPassedSec)));
+	wp1 = iws_sprintf(L"%.4f", dPassedSec);
+	wp2 = iws_addTokenNStr(wp1);
+	up1 = W2U(wp2);
+		P("  Exec     %s sec\n", up1);
+	ifree(up1);
+	ifree(wp2);
+	ifree(wp1);
 
 	// Memory
 	P2("  Memory   ");
@@ -86,10 +121,15 @@ main()
 	while(i1 < iLoop)
 	{
 		GlobalMemoryStatusEx(&memex);
-		P("   %4d ms %7s KB\n",
-			(iMs * i1),
-			ims_addTokenNStr(ims_sprintf("%d", ((memex.ullAvailPhys - iBgnEmpMem) / 1024)))
-		);
+
+		wp1 = iws_sprintf(L"%d", ((memex.ullAvailPhys - iBgnEmpMem) / 1024));
+		wp2 = iws_addTokenNStr(wp1);
+		up1 = W2U(wp2);
+			P("   %4d ms %7s KB\n", (iMs * i1), up1);
+		ifree(up1);
+		ifree(wp2);
+		ifree(wp1);
+
 		Sleep(iMs);
 		++i1;
 	}
@@ -100,7 +140,7 @@ main()
 	// Debug
 	/// icalloc_mapPrint(); ifree_all(); icalloc_mapPrint();
 
-	// ç≈èIèàóù
+	// ÊúÄÁµÇÂá¶ÁêÜ
 	imain_end();
 }
 
@@ -118,28 +158,38 @@ print_version()
 VOID
 print_help()
 {
+	U8N *_cmd = W2U($CMD);
+
 	print_version();
 	PRGB01();
-	P2("\033[48;2;50;50;200m ÉRÉ}ÉìÉhÇÃé¿çséûä‘Çåvë™ \033[0m");
+	P2("\x1b[48;2;50;50;200m „Ç≥„Éû„É≥„Éâ„ÅÆÂÆüË°åÊôÇÈñì„ÇíË®àÊ∏¨ \x1b[0m");
 	NL();
 	PRGB02();
-	P ("\033[48;2;200;50;50m %s [Option] [Command] \033[0m\n\n", $CMD);
+	P ("\x1b[48;2;200;50;50m %s [Option] [Command] \x1b[0m\n\n", _cmd);
 	PRGB11();
-	P0(" (ó·ÇP) ");
+	P0(" (‰æãÔºë) ");
 	PRGB91();
-	P ("%s \033[38;2;150;150;255mnotepad\n\n", $CMD);
+	P ("%s \x1b[38;2;150;150;255mnotepad\n\n", _cmd);
 	PRGB11();
-	P0(" (ó·ÇQ) ");
+	P0(" (‰æãÔºí) ");
 	PRGB91();
-	P ("%s \033[38;2;255;150;150m-quiet \033[38;2;150;150;255mdir \"..\" /b\n\n", $CMD);
+	P ("%s \x1b[38;2;255;150;150m-quiet \x1b[38;2;150;150;255mdir \"..\" /b\n\n", _cmd);
 	PRGB02();
-	P2("\033[48;2;200;50;50m [Option] \033[0m");
+	P2("\x1b[48;2;200;50;50m [Option] \x1b[0m");
 	PRGB21();
 	P2("   -quiet | -q");
 	PRGB91();
-	P2("       ÉRÉ}ÉìÉhèoóÕÇï\\é¶ÇµÇ»Ç¢");
+	P2("       „Ç≥„Éû„É≥„ÉâÂá∫Âäõ„ÇíË°®Á§∫„Åó„Å™„ÅÑ");
+	NL();
+	PRGB21();
+	P2("   -codepage=Num | -cp=Num");
+	PRGB91();
+	P ("       „Ç≥„Éû„É≥„ÉâÂá∫Âäõ„ÅÆ„Ç≥„Éº„Éâ„Éö„Éº„Ç∏„ÇíNum„Å´Â§âÊõ¥ÔºàÂàùÊúüÂÄ§Ôºö%uÔºâ\n", $CP);
+	P2("           65001 = UTF-8   932 = Shift_JIS");
 	NL();
 	PRGB92();
 	LN();
 	PRGB00();
+
+	ifree(_cmd);
 }

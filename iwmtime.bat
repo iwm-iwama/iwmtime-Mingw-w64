@@ -2,49 +2,50 @@
 	@echo off
 	cls
 
-	:: ÉtÉ@ÉCÉãñºÇÕÉ\Å[ÉXÇ∆ìØÇ∂
+	:: „Éï„Ç°„Ç§„É´Âêç„ÅØ„ÇΩ„Éº„Çπ„Å®Âêå„Åò
 	set fn=%~n0
 	set src=%fn%.c
-	set exec=%fn%.exe
+	set fn_exe=%fn%.exe
 	set cc=gcc.exe
-	set lib=lib_iwmutil.a
-	set option=-Os -Wall -lgdi32 -luser32 -lshlwapi
+	set op_link=-Os -Wall -lgdi32 -luser32 -lshlwapi
+	set lib=lib_iwmutil2.a
 
 :: Make ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 	echo --- Compile -S ------------------------------------
 	for %%s in (%src%) do (
-		%cc% %%s -S %option%
+		%cc% %%s -S %op_link%
 		echo %%~ns.s
 	)
 	echo.
 
 	echo --- Make ------------------------------------------
 	for %%s in (%src%) do (
-		%cc% %%s -c %option%
+		echo %%s
+		%cc% %%s -c -Wall %op_link%
 	)
-	%cc% *.o %lib% -o %exec% %option%
-	echo %exec%
+	%cc% *.o %lib% -o %fn_exe% %op_link%
 	echo.
 
-	:: å„èàóù
-	strip %exec%
+	:: ÂæåÂá¶ÁêÜ
+	strip %fn_exe%
 	rm *.o
 
-	:: é∏îs
-	if not exist "%exec%" goto end
+	:: Â§±Êïó
+	if not exist "%fn_exe%" goto end
 
-	:: ê¨å˜
+	:: ÊàêÂäü
 	echo.
 	pause
 
 :: Test ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+	chcp 65001
 	cls
 	set t=%time%
 	echo [%t%]
 
-	%exec%
-	%exec% sleep 1
+	%fn_exe%
+	%fn_exe% sleep 5
 
 	echo [%t%]
 	echo [%time%]
