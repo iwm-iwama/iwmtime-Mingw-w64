@@ -683,14 +683,15 @@ P(
 	}
 	QP(rtn);
 */
-// v2022-09-01
+// v2022-09-09
 VOID
 QP(
 	MBS *str // 文字列
 )
 {
+	fflush(stdout);
+	WriteFile($StdoutHandle, str, strlen(str), NULL, NULL);
 	FlushFileBuffers($StdoutHandle);
-	WriteConsole($StdoutHandle, str, strlen(str), NULL, NULL);
 }
 //-----------------------
 // EscapeSequenceへ変換
