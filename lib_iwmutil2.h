@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define  LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20220910"
+#define  LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20220914"
 #define  LIB_IWMUTIL_COPYLIGHT                   "Copyright (C)2008-2022 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -49,7 +49,7 @@ extern   UINT   $ExecSecBgn;   // 実行開始時間
 	Command Line
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-VOID     iCLI_getCommandLine(UINT codepage);
+VOID     iCLI_getCommandLine();
 WCS      *iCLI_getOptValue(UINT argc,WCS *opt1,WCS *opt2);
 BOOL     iCLI_getOptMatch(UINT argc,WCS *opt1,WCS *opt2);
 
@@ -115,10 +115,11 @@ VOID     icalloc_mapPrint2();
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
 VOID     P(MBS *format,...);
-VOID     QP(MBS *str);
-VOID     QP2(MBS *str, UINT size);
 
-#define  PL()                                    P("L%u\t",__LINE__)
+VOID     QP2(MBS *str, UINT size);
+#define  QP(str)                                 QP2(str,strlen(str))
+
+#define  PL()                                    P("[L%u]",__LINE__)
 #define  NL()                                    fputc('\n', stdout)
 #define  LN()                                    P2(LINE)
 
@@ -135,30 +136,18 @@ WCS      *iws_conv_escape(WCS *str);
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
-	MBS／WCS／U8N変換
+	WCS／U8N変換
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-WCS      *icnv_M2W(MBS *str);
-#define  M2W(str)                                (WCS*)icnv_M2W(str)
-
 U8N      *icnv_W2U(WCS *str);
 #define  W2U(str)                                (U8N*)icnv_W2U(str)
 
 WCS      *icnv_U2W(U8N *str);
 #define  U2W(str)                                (WCS*)icnv_U2W(str)
 
-MBS      *icnv_W2M(WCS *str);
-#define  W2M(str)                                (MBS*)icnv_W2M(str)
-
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
 	文字列処理
-		"p" : return Pointer
-		"s" : return String
-		1byte     MBS : imp_, ims_, imn_
-		1 & 2byte MBS : ijp_, ijs_, ijn_
-		UTF-8     U8N : iup_, ius_, iun_
-		UTF-16    WCS : iwp_, iws_, iwn_
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
 UINT     imn_len(MBS *str);
@@ -168,10 +157,13 @@ UINT     iwn_len(WCS *str);
 UINT     imn_cpy(MBS *to,MBS *from);
 UINT     iwn_cpy(WCS *to,WCS *from);
 
+UINT     imn_pcpy(MBS *to,MBS *from1,MBS *from2);
 UINT     iwn_pcpy(WCS *to,WCS *from1,WCS *from2);
 
+MBS      *ims_clone(MBS *from);
 WCS      *iws_clone(WCS *from);
 
+MBS      *ims_pclone(MBS *from1,MBS *from2);
 WCS      *iws_pclone(WCS *from1,WCS *from2);
 
 MBS      *ims_cats(UINT size,...);
@@ -260,7 +252,7 @@ VOID     iwa_print(WCS **ary);
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
-	File/Dir処理(WIN32_FIND_DATAA)
+	File/Dir処理
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
 typedef struct
