@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
-#define  IWM_VERSION         "iwmtime_20220912"
-#define  IWM_COPYRIGHT       "Copyright (C)2021-2022 iwm-iwama"
+#define   IWM_VERSION         "iwmtime_20220921"
+#define   IWM_COPYRIGHT       "Copyright (C)2021-2022 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil2.h"
 
@@ -9,20 +9,20 @@ VOID print_version();
 VOID print_help();
 
 // リセット
-#define  PRGB00()            P0("\033[0m")
+#define   PRGB00()            P1("\033[0m")
 // ラベル
-#define  PRGB01()            P0("\033[38;2;255;255;0m")    // 黄
-#define  PRGB02()            P0("\033[38;2;255;255;255m")  // 白
+#define   PRGB01()            P1("\033[38;2;255;255;0m")    // 黄
+#define   PRGB02()            P1("\033[38;2;255;255;255m")  // 白
 // 入力例／注
-#define  PRGB11()            P0("\033[38;2;255;255;100m")  // 黄
-#define  PRGB12()            P0("\033[38;2;255;220;150m")  // 橙
-#define  PRGB13()            P0("\033[38;2;100;100;255m")  // 青
+#define   PRGB11()            P1("\033[38;2;255;255;100m")  // 黄
+#define   PRGB12()            P1("\033[38;2;255;220;150m")  // 橙
+#define   PRGB13()            P1("\033[38;2;100;100;255m")  // 青
 // オプション
-#define  PRGB21()            P0("\033[38;2;80;255;255m")   // 水
-#define  PRGB22()            P0("\033[38;2;255;100;255m")  // 紅紫
+#define   PRGB21()            P1("\033[38;2;80;255;255m")   // 水
+#define   PRGB22()            P1("\033[38;2;255;100;255m")  // 紅紫
 // 本文
-#define  PRGB91()            P0("\033[38;2;255;255;255m")  // 白
-#define  PRGB92()            P0("\033[38;2;200;200;200m")  // 銀
+#define   PRGB91()            P1("\033[38;2;255;255;255m")  // 白
+#define   PRGB92()            P1("\033[38;2;200;200;200m")  // 銀
 
 INT
 main()
@@ -33,21 +33,21 @@ main()
 	iConsole_EscOn();
 
 	// -h | -help
-	if(! $ARGC || iCLI_getOptMatch(0, L"-h", L"-help"))
+	if(! $ARGC || iCLI_getOptMatch(0, L"-h", L"--help"))
 	{
 		print_help();
 		imain_end();
 	}
 
 	// -v | -version
-	if(iCLI_getOptMatch(0, L"-v", L"-version"))
+	if(iCLI_getOptMatch(0, L"-v", L"--version"))
 	{
 		print_version();
 		imain_end();
 	}
 
 	WCS *wp1 = 0, *wp2 = 0;
-	U8N *up1 = 0;
+	MBS *mp1 = 0;
 
 	UINT uExecArgc = 0;
 
@@ -71,7 +71,7 @@ main()
 	}
 
 	wp1 = iwa_njoin($ARGV, L" ", uExecArgc, $ARGC);
-		U8N *opCmd = W2U(wp1);
+		MBS *opCmd = W2U(wp1);
 	ifree(wp1);
 
 	MEMORYSTATUSEX memex = { sizeof(MEMORYSTATUSEX) };
@@ -81,9 +81,9 @@ main()
 
 	if(bQuiet)
 	{
-		up1 = ims_cats(2, opCmd, " > NUL");
-			system(up1);
-		ifree(up1);
+		mp1 = ims_cats(2, opCmd, " > NUL");
+			system(mp1);
+		ifree(mp1);
 
 		PRGB21();
 		P2("[Quiet Mode]");
@@ -107,9 +107,9 @@ main()
 	// Exec
 	wp1 = iws_sprintf(L"%.4f", dPassedSec);
 	wp2 = iws_addTokenNStr(wp1);
-	up1 = W2U(wp2);
-		P("  Exec     %s sec\n", up1);
-	ifree(up1);
+	mp1 = W2U(wp2);
+		P("  Exec     %s sec\n", mp1);
+	ifree(mp1);
 	ifree(wp2);
 	ifree(wp1);
 
@@ -124,9 +124,9 @@ main()
 
 		wp1 = iws_sprintf(L"%d", ((memex.ullAvailPhys - iBgnEmpMem) / 1024));
 		wp2 = iws_addTokenNStr(wp1);
-		up1 = W2U(wp2);
-			P("   %4d ms %7s KB\n", (iMs * i1), up1);
-		ifree(up1);
+		mp1 = W2U(wp2);
+			P("   %4d ms %7s KB\n", (iMs * i1), mp1);
+		ifree(mp1);
 		ifree(wp2);
 		ifree(wp1);
 
@@ -158,7 +158,7 @@ print_version()
 VOID
 print_help()
 {
-	U8N *_cmd = W2U($CMD);
+	MBS *_cmd = W2U($CMD);
 
 	print_version();
 	PRGB01();
@@ -167,11 +167,11 @@ print_help()
 	PRGB02();
 	P ("\033[48;2;200;50;50m %s [Option] [Command] \033[0m\n\n", _cmd);
 	PRGB11();
-	P0(" (例１) ");
+	P1(" (例１) ");
 	PRGB91();
 	P ("%s \033[38;2;150;150;255mnotepad\n\n", _cmd);
 	PRGB11();
-	P0(" (例２) ");
+	P1(" (例２) ");
 	PRGB91();
 	P ("%s \033[38;2;255;150;150m-quiet \033[38;2;150;150;255mdir \"..\" /b\n\n", _cmd);
 	PRGB02();
