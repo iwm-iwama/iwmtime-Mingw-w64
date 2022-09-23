@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20220921"
+#define   IWM_VERSION         "iwmtime_20220922"
 #define   IWM_COPYRIGHT       "Copyright (C)2021-2022 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil2.h"
@@ -67,7 +67,7 @@ main()
 	else if((wp1 = iCLI_getOptValue(0, L"-cp=", L"-codepage=")))
 	{
 		++uExecArgc;
-		uChcp = (UINT)inum_wtoi(wp1);
+		uChcp = (UINT)_wtoi(wp1);
 	}
 
 	wp1 = iwa_njoin($ARGV, L" ", uExecArgc, $ARGC);

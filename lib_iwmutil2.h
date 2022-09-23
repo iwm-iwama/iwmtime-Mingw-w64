@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20220921"
+#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20220923"
 #define   LIB_IWMUTIL_COPYLIGHT                   "Copyright (C)2008-2022 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -192,10 +192,6 @@ WCS       *iwp_searchLM(WCS *str,WCS *search,BOOL icase);
 #define   iwp_searchL(str,search)                 (WCS*)iwp_searchLM(str,search,FALSE)
 #define   iwp_searchLi(str,search)                (WCS*)iwp_searchLM(str,search,TRUE)
 
-INT       icmpOperator_extractHead(MBS *str);
-BOOL      icmpOperator_chk_INT64(INT64 i1,INT64 i2,INT operator);
-BOOL      icmpOperator_chkDBL(DOUBLE d1,DOUBLE d2,INT operator);
-
 WCS       **iwa_split(WCS *str,WCS *tokens, BOOL bRmEmpty);
 
 WCS       *iws_addTokenNStr(WCS *str);
@@ -209,23 +205,12 @@ WCS       *iws_replace(WCS *from,WCS *before,WCS *after,BOOL icase);
 	数字関係
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-#define   inum_chkM(str)                          (BOOL)((*str>='0'&&*str<='9')||*str=='+'||*str=='-'||*str=='.'?TRUE:FALSE)
-#define   inum_chk2M(str)                         (BOOL)(*str>='0'&&*str<='9'?TRUE:FALSE)
-#define   inum_chkW(str)                          (BOOL)((*str>='0'&&*str<='9')||*str=='+'||*str=='-'||*str=='.'?TRUE:FALSE)
-#define   inum_chk2W(str)                         (BOOL)(*str>='0'&&*str<='9'?TRUE:FALSE)
-INT64     inum_wtoi(WCS *str);
-DOUBLE    inum_wtof(WCS *str);
-
-/* Copyright (C) 1997 - 2002,Makoto Matsumoto and Takuji Nishimura,All rights reserved.
-	http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/CODES/mt19937ar.c
-	http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/mt.html
-*/
 VOID      MT_init(BOOL fixOn);
 UINT      MT_genrand_UINT();
 VOID      MT_free();
 
-INT64     MT_irand_INT64(INT posMin,INT posMax);
-DOUBLE    MT_irand_DBL(INT posMin,INT posMax,INT decRound);
+INT64     MT_irand_INT64(INT64 min,INT64 max);
+DOUBLE    MT_irand_DBL(INT64 min,INT64 max);
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -394,6 +379,8 @@ VOID      iConsole_EscOn();
 // LD通日から、CJD通日を返す
 #define   idate_ldToCjd(LD)                       (DOUBLE)LD+CJD_TO_LD
 #define   idate_ldToCjd_print(LD)                 P(CJD_FORMAT,idate_ldToCjd(LD))
+
+BOOL      idate_chk_ymdhnsW(WCS *str);
 
 BOOL      idate_chk_uruu(INT i_y);
 
