@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20220923"
+#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20220927"
 #define   LIB_IWMUTIL_COPYLIGHT                   "Copyright (C)2008-2022 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -132,7 +132,7 @@ VOID      QP2(MBS *str, UINT size);
 #define   PL4(num)                                PL();P4(num)
 
 VOID      P1W(WCS *str);
-#define   P2W(str)                                P1W(str);fputc('\n', stdout)
+#define   P2W(str)                                P1W(str);putchar('\n')
 #define   PL2W(str)                               PL();P2W(str)
 
 WCS       *iws_conv_escape(WCS *str);
@@ -405,8 +405,6 @@ INT       *idate_reYmdhns(INT i_y,INT i_m,INT i_d,INT i_h,INT i_n,INT i_s);
 
 INT       idate_cjd_iWday(DOUBLE cjd);
 WCS       *idate_cjd_Wday(DOUBLE cjd);
-
-FILETIME  idate_cjdToFtime(DOUBLE cjd);
 
 // 年内の通算日
 INT       idate_cjd_yeardays(DOUBLE cjd);

@@ -45,9 +45,9 @@
 		Mingw-w64においては最適化するとどちらも同じになる。
 		今後は可読性を考慮した配列型でコーディングする。
 
-[2022-09-11]
-	iwmutil2  => 入力・内部＝Unicode, 出力＝UTF-8(CP65001)
-	※iwmutil => 入力・内部・出力＝Shift_JIS(CP932)
+[2022-09-11] +[2022-09-25]
+	iwmutil2: 入力／内部＝Unicode, 出力＝UTF-8(CP65001)
+	※iwmutil: 入力／内部／出力＝Shift_JIS(CP932)
 
 */
 #include "lib_iwmutil2.h"
@@ -58,8 +58,8 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 WCS    *$CMD         = L"";   // コマンド名を格納
 UINT   $ARGC         = 0;     // 引数配列数
-WCS    **$ARGV       = { 0 }; // 引数配列
-WCS    **$ARGS       = { 0 }; // $ARGVからダブルクォーテーションを消去したもの
+WCS    **$ARGV       = 0;     // 引数配列
+WCS    **$ARGS       = 0;     // $ARGVからダブルクォーテーションを消去したもの
 UINT   $CP           = 65001; // 出力コードページ 65001=UTF-8
 HANDLE $StdoutHandle = 0;     // 画面制御用ハンドル
 UINT   $ExecSecBgn   = 0;     // 実行開始時間
@@ -78,24 +78,21 @@ UINT   $ExecSecBgn   = 0;     // 実行開始時間
 	iwa_print($ARGV);
 	iwa_print($ARGS); // $ARGVからダブルクォーテーションを除去したもの
 */
-// v2022-09-21
+// v2022-09-25
 VOID
 iCLI_getCommandLine()
 {
 	SetConsoleOutputCP($CP);
 
 	WCS *str = GetCommandLineW();
-
-	WCS **argv = icalloc_WCS_ary(1);
-	WCS **args = icalloc_WCS_ary(1);
+	$ARGV = icalloc_WCS_ary(1);
+	$ARGS = icalloc_WCS_ary(1);
+	$ARGC = 0;
 
 	WCS *pBgn = 0;
 	WCS *pEnd = 0;
-
 	WCS *wp1 = 0;
 	BOOL bArgc = FALSE;
-
-	$ARGC = 0;
 
 	for(pEnd = str; pEnd < (str + iwn_len(str)); pEnd++)
 	{
@@ -125,10 +122,10 @@ iCLI_getCommandLine()
 
 		if(bArgc)
 		{
-			argv = irealloc_WCS_ary(argv, ($ARGC + 1));
-			argv[$ARGC] = wp1;
-			args = irealloc_WCS_ary(args, ($ARGC + 1));
-			args[$ARGC] = iws_replace(wp1, L"\"", L"", FALSE);
+			$ARGV = irealloc_WCS_ary($ARGV, ($ARGC + 1));
+			$ARGV[$ARGC] = wp1;
+			$ARGS = irealloc_WCS_ary($ARGS, ($ARGC + 1));
+			$ARGS[$ARGC] = iws_replace(wp1, L"\"", L"", FALSE);
 			++$ARGC;
 		}
 		else
@@ -138,13 +135,10 @@ iCLI_getCommandLine()
 		}
 	}
 
-	if(! argv[0] || ! *argv[0])
+	if(! $ARGV[0] || ! *$ARGV[0])
 	{
 		$ARGC = 0;
 	}
-
-	$ARGV = argv;
-	$ARGS = args;
 }
 //-----------------------------------------
 // 引数 [Key]+[Value] から [Value] を取得
@@ -166,24 +160,19 @@ WCS
 	{
 		return 0;
 	}
-
 	if(! iwn_len(opt1))
 	{
 		return 0;
 	}
-
 	WCS *wp1 = $ARGS[argc];
-
 	if(iwb_cmpf(wp1, opt1))
 	{
 		return (wp1 + iwn_len(opt1));
 	}
-
 	if(iwn_len(opt2) && iwb_cmpf(wp1, opt2))
 	{
 		return (wp1 + iwn_len(opt2));
 	}
-
 	return 0;
 }
 //--------------------------
@@ -208,7 +197,6 @@ iCLI_getOptMatch(
 	{
 		return FALSE;
 	}
-
 	if(! iwn_len(opt1))
 	{
 		return FALSE;
@@ -217,15 +205,12 @@ iCLI_getOptMatch(
 	{
 		opt2 = opt1;
 	}
-
 	WCS *wp1 = $ARGV[argc];
-
 	// 完全一致
 	if(iwb_cmpp(wp1, opt1) || iwb_cmpp(wp1, opt2))
 	{
 		return TRUE;
 	}
-
 	return FALSE;
 }
 // v2022-09-17
@@ -233,15 +218,13 @@ VOID
 iCLI_VarList()
 {
 	MBS *_cmd = icnv_W2U($CMD);
-
-	P ("[$CMD]\n    %s\n", _cmd);
-	P ("[$ARGC]\n    %d\n", $ARGC);
-	P2("[$ARGV]");
-	iwa_print($ARGV);
-	P2("[$ARGS]");
-	iwa_print($ARGS);
-	NL();
-
+		P ("[$CMD]\n    %s\n", _cmd);
+		P ("[$ARGC]\n    %d\n", $ARGC);
+		P2("[$ARGV]");
+		iwa_print($ARGV);
+		P2("[$ARGS]");
+		iwa_print($ARGS);
+		NL();
 	ifree(_cmd);
 }
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -320,7 +303,6 @@ VOID
 )
 {
 	UINT size2 = sizeof($struct_icallocMap);
-
 	// 初回 $icallocMap を更新
 	if(! $icallocMapSize)
 	{
@@ -335,30 +317,23 @@ VOID
 		$icallocMap = ($struct_icallocMap*)realloc($icallocMap, ($icallocMapSize * size2));
 		icalloc_err($icallocMap);
 	}
-
 	// 引数にポインタ割当
 	UINT uSize = ceilX(n * size);
 	VOID *rtn = malloc(uSize);
 	icalloc_err(rtn);
 	memset(rtn, 0, uSize);
-
 	// ポインタ
 	($icallocMap + $icallocMapEOD)->ptr = rtn;
-
 	// 配列
 	($icallocMap + $icallocMapEOD)->ary = (aryOn ? n : 0);
-
 	// サイズ
 	($icallocMap + $icallocMapEOD)->size = uSize;
-
 	// sizeof
 	($icallocMap + $icallocMapEOD)->byte = size;
-
 	// 順番
 	++$icallocMapId;
 	($icallocMap + $icallocMapEOD)->id = $icallocMapId;
 	++$icallocMapEOD;
-
 	return rtn;
 }
 //----------
@@ -418,7 +393,7 @@ VOID
 // v2022-09-23
 VOID
 icalloc_err(
-	VOID *ptr // icalloc()ポインタ
+	VOID *ptr
 )
 {
 	if(! ptr)
@@ -426,13 +401,13 @@ icalloc_err(
 		ierr_end("[Err] Can't allocate memories!");
 	}
 }
-//----------------------------
+//---------------------------
 // ($icallocMap + n) をfree
-//----------------------------
+//---------------------------
 // v2022-09-03
 VOID
 icalloc_free(
-	VOID *ptr // icalloc()ポインタ
+	VOID *ptr
 )
 {
 	$struct_icallocMap *map = 0;
@@ -445,7 +420,7 @@ icalloc_free(
 			// 配列から先に free
 			if(map->ary)
 			{
-				// 1次元削除
+				// １次元削除
 				u2 = 0;
 				while(u2 < (map->ary))
 				{
@@ -457,9 +432,8 @@ icalloc_free(
 					++u2;
 				}
 				++$icallocMapFreeCnt;
-
 				// memset() + NULL代入 で free() の代替
-				// 2次元削除
+				// ２次元削除
 				// ポインタ配列を消去
 				memset(map->ptr, 0, map->size);
 				free(map->ptr);
@@ -479,9 +453,9 @@ icalloc_free(
 		++u1;
 	}
 }
-//---------------------
+//--------------------
 // $icallocMapをfree
-//---------------------
+//--------------------
 // v2016-01-10
 VOID
 icalloc_freeAll()
@@ -497,9 +471,9 @@ icalloc_freeAll()
 	$icallocMapSize = 0;
 	$icallocMapFreeCnt = 0;
 }
-//---------------------
+//--------------------
 // $icallocMapを掃除
-//---------------------
+//--------------------
 // v2022-09-03
 VOID
 icalloc_mapSweep()
@@ -508,14 +482,13 @@ icalloc_mapSweep()
 	UINT uSweep = 0;
 	$struct_icallocMap *map1 = 0, *map2 = 0;
 	UINT u1 = 0, u2 = 0;
-
 	// 隙間を詰める
 	while(u1 < $icallocMapEOD)
 	{
 		map1 = ($icallocMap + u1);
 		if(! (VOID**)(map1->ptr))
 		{
-			++uSweep; // sweep数
+			++uSweep;
 			u2 = u1 + 1;
 			while(u2 < $icallocMapEOD)
 			{
@@ -524,7 +497,7 @@ icalloc_mapSweep()
 				{
 					*map1 = *map2; // 構造体コピー
 					memset(map2, 0, $sizeof_icallocMap);
-					--uSweep; // sweep数
+					--uSweep;
 					break;
 				}
 				++u2;
@@ -536,9 +509,9 @@ icalloc_mapSweep()
 	$icallocMapFreeCnt -= uSweep;
 	$icallocMapEOD -= uSweep;
 }
-//---------------------------
+//--------------------------
 // $icallocMapをリスト出力
-//---------------------------
+//--------------------------
 // v2022-08-26
 VOID
 icalloc_mapPrint1()
@@ -738,7 +711,7 @@ P1W(
 // v2022-08-26
 WCS
 *iws_conv_escape(
-	WCS *str // 文字列
+	WCS *str
 )
 {
 	if(! str)
@@ -757,31 +730,24 @@ WCS
 				case('a'):
 					rtn[i1] = '\a';
 					break;
-
 				case('b'):
 					rtn[i1] = '\b';
 					break;
-
 				case('t'):
 					rtn[i1] = '\t';
 					break;
-
 				case('n'):
 					rtn[i1] = '\n';
 					break;
-
 				case('v'):
 					rtn[i1] = '\v';
 					break;
-
 				case('f'):
 					rtn[i1] = '\f';
 					break;
-
 				case('r'):
 					rtn[i1] = '\r';
 					break;
-
 				default:
 					rtn[i1] = '\\';
 					++i1;
@@ -841,10 +807,11 @@ WCS
 /////////////////////////////////////////////////////////////////////////////////////////
 /* (例)
 	MBS *mp1 = "あいうえおaiueo";
-	PL3(imn_len(mp1)); //=> 15
-	PL3(iwn_len(wp1)); //=> 10
-	MBS *mp1 = W2U(wp1);
-	PL3(iun_len(mp1)); //=> 20
+	PL3(imn_len(mp1)); //=> 20
+	PL3(iun_len(mp1)); //=> 10
+	WCS *wp1 = U2W(mp1);
+		PL3(iwn_len(wp1)); //=> 10
+	ifree(wp1);
 */
 // v2022-04-02
 UINT
@@ -901,7 +868,7 @@ iun_len(
 					}
 				}
 			}
-			/* 以下より10%前後速い
+			/* ↑以下より10%前後速い
 				c = (*str & 0xfc);
 				while(c & 0x80)
 				{
@@ -936,7 +903,7 @@ iwn_len(
 //-------------------------
 /* (例)
 	WCS *to = icalloc_WCS(100);
-	PL3(iwn_cpy(to, L"abcde")); //=> 5
+		PL3(iwn_cpy(to, L"abcde")); //=> 5
 	ifree(to);
 */
 // v2022-09-19
@@ -968,9 +935,10 @@ iwn_cpy(
 	return wcslen(from);
 }
 /* (例)
+	WCS *from = L"abcde12345";
 	WCS *to = icalloc_WCS(100);
-	WCS *wp1 = L"abcde12345";
-	PL3(iwn_pcpy(to, wp1 + 3, wp1 + 8)); //=> 5
+		*(to + iwn_pcpy(to, from + 3, from + 8)) = 0;
+		PL2W(to); //=> "de123"
 	ifree(to);
 */
 // v2022-09-13
@@ -1063,7 +1031,7 @@ WCS
 		PL2(mp1); //=> "123abcdeあいうえお"
 	ifree(mp1);
 */
-// v2022-04-02
+// v2022-09-24
 MBS
 *ims_cats(
 	UINT size, // 要素数(n+1)
@@ -1071,30 +1039,28 @@ MBS
 )
 {
 	UINT u1 = 0, u2 = 0;
-
 	va_list va;
 	va_start(va, size);
 		u1 = size;
-		while(u1--)
+		while(u1)
 		{
 			u2 += imn_len(va_arg(va, MBS*));
+			--u1;
 		}
 	va_end(va);
-
 	MBS *rtn = icalloc_MBS(u2);
 	MBS *pEnd = rtn;
-
 	va_start(va, size);
 		u1 = size;
-		while(u1--)
+		while(u1)
 		{
 			pEnd += imn_cpy(pEnd, va_arg(va, MBS*));
+			--u1;
 		}
 	va_end(va);
-
 	return rtn;
 }
-// v2022-08-20
+// v2022-09-24
 WCS
 *iws_cats(
 	UINT size, // 要素数(n+1)
@@ -1102,27 +1068,25 @@ WCS
 )
 {
 	UINT u1 = 0, u2 = 0;
-
 	va_list va;
 	va_start(va, size);
 		u1 = size;
-		while(u1--)
+		while(u1)
 		{
 			u2 += iwn_len(va_arg(va, WCS*));
+			--u1;
 		}
 	va_end(va);
-
 	WCS *rtn = icalloc_WCS(u2);
 	WCS *pEnd = rtn;
-
 	va_start(va, size);
 		u1 = size;
-		while(u1--)
+		while(u1)
 		{
 			pEnd += iwn_cpy(pEnd, va_arg(va, WCS*));
+			--u1;
 		}
 	va_end(va);
-
 	return rtn;
 }
 //--------------------
@@ -1158,7 +1122,7 @@ MBS
 	ifree(wp2);
 	ifree(wp1);
 */
-// v2022-08-21
+// v2022-09-24
 WCS
 *iws_sprintf(
 	WCS *format,
@@ -1168,9 +1132,9 @@ WCS
 	FILE *oFp = fopen("NUL", "wb");
 		va_list va;
 		va_start(va, format);
-			INT iSize = vfwprintf(oFp, format, va);
-			WCS *rtn = icalloc_WCS(iSize);
-			vswprintf(rtn, (iSize + 1), format, va);
+			UINT uSize = vfwprintf(oFp, format, va);
+			WCS *rtn = icalloc_WCS(uSize);
+			vswprintf(rtn, (uSize + 1), format, va);
 		va_end(va);
 	fclose(oFp);
 	return rtn;
@@ -1344,14 +1308,12 @@ WCS
 )
 {
 	WCS **rtn = {0};
-
 	if(! str || ! *str)
 	{
 		rtn = icalloc_WCS_ary(1);
 		rtn[0] = iws_clone(str);
 		return rtn;
 	}
-
 	if(! tokens || ! *tokens)
 	{
 		UINT u1 = 0;
@@ -1364,7 +1326,6 @@ WCS
 		}
 		return rtn;
 	}
-
 	UINT uAry = 1;
 	rtn = icalloc_WCS_ary(uAry);
 	CONST WCS *pEOD = str + iwn_len(str);
@@ -1394,13 +1355,11 @@ WCS
 	{
 		return str;
 	}
-
 	UINT u1 = iwn_len(str);
 	UINT u2 = 0;
 	WCS *rtn = icalloc_WCS(u1 * 2);
 	WCS *pRtnE = rtn;
 	WCS *wp1 = 0;
-
 	// "-000123456.7890" のとき
 	// (1) 先頭の [\S*] を探す
 	WCS *pBgn = str;
@@ -1414,7 +1373,6 @@ WCS
 		++pEnd;
 	}
 	pRtnE += iwn_pcpy(pRtnE, pBgn, pEnd);
-
 	// (2) [0-9] 間を探す => "000123456"
 	pBgn = pEnd;
 	while(*pEnd)
@@ -1425,7 +1383,6 @@ WCS
 		}
 		++pEnd;
 	}
-
 	// (2-11) 先頭は [.] か？
 	if(*pBgn == '.')
 	{
@@ -1433,7 +1390,6 @@ WCS
 		++pRtnE;
 		iwn_cpy(pRtnE, pBgn);
 	}
-
 	// (2-21) 連続する 先頭の[0] を調整 => "123456"
 	else
 	{
@@ -1449,7 +1405,6 @@ WCS
 		{
 			--pBgn;
 		}
-
 		// (2-22) ", " 付与 => "123,456"
 		wp1 = iws_pclone(pBgn, pEnd);
 			u1 = pEnd - pBgn;
@@ -1476,7 +1431,6 @@ WCS
 				pRtnE += iwn_cpy(pRtnE, wp1);
 			}
 		ifree(wp1);
-
 		// (2-23) 残り => ".7890"
 		iwn_cpy(pRtnE, pEnd);
 	}
@@ -1524,10 +1478,8 @@ WCS
 	{
 		return iws_clone(from);
 	}
-
 	WCS *fW = 0;
 	WCS *bW = 0;
-
 	if(icase)
 	{
 		fW = iws_clone(from);
@@ -1540,17 +1492,13 @@ WCS
 		fW = from;
 		bW = before;
 	}
-
 	UINT fromLen = iwn_len(from);
 	UINT beforeLen = iwn_len(before);
 	UINT afterLen = iwn_len(after);
-
 	// ゼロ長対策
 	WCS *rtn = icalloc_WCS(fromLen * (1 + (afterLen / beforeLen)));
-
 	WCS *fWB = fW;
 	WCS *rtnE = rtn;
-
 	while(*fWB)
 	{
 		if(! wcsncmp(fWB, bW, beforeLen))
@@ -1563,13 +1511,11 @@ WCS
 			*rtnE++ = *fWB++;
 		}
 	}
-
 	if(icase)
 	{
 		ifree(bW);
 		ifree(fW);
 	}
-
 	return rtn;
 }
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -1750,7 +1696,7 @@ MT_irand_DBL(
 // v2022-09-23
 UINT
 iwa_size(
-	WCS **ary // 引数列
+	WCS **ary
 )
 {
 	UINT rtn = 0;
@@ -1912,7 +1858,7 @@ WCS
 	CONST UINT uArySize = iwa_size(ary);
 	UINT u1 = 0, u2 = 0;
 	// iAryFlg 生成
-	INT *iAryFlg = icalloc_INT(uArySize); // 初期値=0
+	INT *iAryFlg = icalloc_INT(uArySize);
 	// 上位へ集約
 	u1 = 0;
 	while(u1 < uArySize)
@@ -1987,7 +1933,6 @@ WCS
 		UINT uArySize = iwa_size(wa1);
 		WCS **rtn = icalloc_WCS_ary(uArySize);
 		UINT u1 = 0, u2 = 0;
-
 		// Dir名整形／存在するDirのみ抽出
 		while(u1 < uArySize)
 		{
@@ -1999,10 +1944,8 @@ WCS
 			++u1;
 		}
 	ifree(wa1);
-
 	// 順ソート／大小文字区別しない
 	iwa_sort_iAsc(rtn);
-
 	return rtn;
 }
 //----------------
@@ -2023,7 +1966,6 @@ WCS
 	WCS **rtn = iwa_getDir(ary);
 	UINT uArySize = iwa_size(rtn);
 	UINT u1 = 0, u2 = 0;
-
 	// 上位Dirを取得
 	while(u1 < uArySize)
 	{
@@ -2043,7 +1985,6 @@ WCS
 		}
 		u1 = u2;
 	}
-
 	// 実データを前に詰める
 	u1 = 0;
 	while(u1 < uArySize)
@@ -2064,7 +2005,6 @@ WCS
 		}
 		++u1;
 	}
-
 	// 末尾の空白をNULL詰め
 	u1 = uArySize;
 	while(u1 > 0)
@@ -2075,7 +2015,6 @@ WCS
 			rtn[u1] = 0;
 		}
 	}
-
 	return rtn;
 }
 //-----------
@@ -2248,28 +2187,23 @@ iFinfo_initW(
 	FI->cjdMtime   = 0.0;
 	FI->cjdAtime   = 0.0;
 	FI->iFsize     = 0;
-
 	// "\." "\.." は除外
 	if(name && *name && iwb_cmp_leqfi(name, L".."))
 	{
 		return FALSE;
 	}
-
 	// FI->uAttr
-	FI->uAttr = (UINT)F->dwFileAttributes; // DWORD => UINT
-
+	FI->uAttr = (UINT)F->dwFileAttributes;
 	// <32768
 	if(FI->uAttr >> 15)
 	{
 		return FALSE;
 	}
-
 	// FI->fullnameW
 	// FI->uFname
 	// FI->uEnd
 	UINT dirLen  = iwn_cpy(FI->fullnameW, dir);
 	UINT nameLen = iwn_cpy((FI->fullnameW + dirLen), name);
-
 	// FI->uFtype
 	// FI->iFsize
 	if(FI->uAttr & FILE_ATTRIBUTE_DIRECTORY)
@@ -2290,7 +2224,6 @@ iFinfo_initW(
 		FI->uFname = dirLen;
 		FI->iFsize = (INT64)F->nFileSizeLow + (F->nFileSizeHigh ? (INT64)(F->nFileSizeHigh) * MAXDWORD + 1 : 0);
 	}
-
 	// JST変換
 	// FI->cftime
 	// FI->mftime
@@ -2302,7 +2235,6 @@ iFinfo_initW(
 		FI->cjdMtime = iFinfo_ftimeToCjd(ft);
 	FileTimeToLocalFileTime(&F->ftLastAccessTime, &ft);
 		FI->cjdAtime = iFinfo_ftimeToCjd(ft);
-
 	return TRUE;
 }
 // v2016-08-09
@@ -2514,7 +2446,7 @@ iFinfo_ymdhnsToFtime(
 	FILETIME ft;
 	if(reChk)
 	{
-		INT *ai = idate_reYmdhns(i_y, i_m, i_d, i_h, i_n, i_s); // 正規化
+		INT *ai = idate_reYmdhns(i_y, i_m, i_d, i_h, i_n, i_s);
 			i_y = ai[0];
 			i_m = ai[1];
 			i_d = ai[2];
@@ -2550,7 +2482,7 @@ iFinfo_ymdhnsToFtime(
 // v2022-09-12
 BOOL
 iFchk_existPathW(
-	WCS *path // ファイルパス
+	WCS *path
 )
 {
 	if(! path || ! *path)
@@ -2580,7 +2512,7 @@ iFchk_existPathW(
 // v2022-09-12
 INT
 iFchk_typePathW(
-	WCS *path // ファイルパス
+	WCS *path
 )
 {
 	if(! path || ! *path)
@@ -2640,7 +2572,7 @@ iFchk_BfileW(
 	PL2W(iFget_extPathnameW(wp1, 1)); //=> "win.ini"
 	PL2W(iFget_extPathnameW(wp1, 2)); //=> "win"
 */
-// v2022-09-05
+// v2022-09-26
 WCS
 *iFget_extPathnameW(
 	WCS *path,
@@ -2652,8 +2584,6 @@ WCS
 		return 0;
 	}
 	WCS *rtn = icalloc_WCS(iwn_len(path) + 3); // CRLF+NULL
-	WCS *pBgn = 0;
-	WCS *pEnd = 0;
 	// Dir or File ?
 	if(PathIsDirectoryW(path))
 	{
@@ -2672,14 +2602,13 @@ WCS
 				break;
 			// name + ext
 			case(1):
-				pBgn = PathFindFileNameW(path);
-				iwn_cpy(rtn, pBgn);
+				iwn_cpy(rtn, PathFindFileNameW(path));
 				break;
 			// name
 			case(2):
-				pBgn = PathFindFileNameW(path);
-				pEnd = PathFindExtensionW(pBgn);
-				iwn_pcpy(rtn, pBgn, pEnd);
+				WCS *pBgn = PathFindFileNameW(path);
+				WCS *pEnd = PathFindExtensionW(pBgn);
+				*(rtn + iwn_pcpy(rtn, pBgn, pEnd)) = 0;
 				break;
 		}
 	}
@@ -2695,7 +2624,7 @@ WCS
 // v2022-09-16
 WCS
 *iFget_ApathW(
-	WCS *path // ファイルパス
+	WCS *path
 )
 {
 	WCS *wp1 = icalloc_WCS(IMAX_PATH);
@@ -2727,7 +2656,7 @@ WCS
 // v2022-09-23
 WCS
 *iFget_RpathW(
-	WCS *path // ファイルパス
+	WCS *path
 )
 {
 	WCS *rtn = 0;
@@ -2751,7 +2680,7 @@ WCS
 // v2022-08-30
 BOOL
 imk_dirW(
-	WCS *path // ファイルパス
+	WCS *path
 )
 {
 	INT flg = 0;
@@ -2857,9 +2786,9 @@ WCS *WDAYS[8] = {L"Su", L"Mo", L"Tu", L"We", L"Th", L"Fr", L"Sa", L"**"};
 // 月末日(-1y12m - 12m)
 //-----------------------
 INT MDAYS[13] = {31, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-//--------------------------------------------------
+//---------------------------------------------------
 // yyyy/mm/dd hh:nn:ss フォーマットに類似しているか
-//--------------------------------------------------
+//---------------------------------------------------
 /* (例)
 	PL3(idate_chk_ymdhnsW(NULL));                   //=> FALSE
 	PL3(idate_chk_ymdhnsW(L""));                    //=> FALSE
@@ -3002,7 +2931,7 @@ idate_chk_month_end(
 {
 	if(reChk)
 	{
-		INT *ai1 = idate_reYmdhns(i_y, i_m, i_d, 0, 0, 0); // 正規化
+		INT *ai1 = idate_reYmdhns(i_y, i_m, i_d, 0, 0, 0);
 			i_y = ai1[0];
 			i_m = ai1[1];
 			i_d = ai1[2];
@@ -3021,13 +2950,17 @@ idate_chk_month_end(
 	}
 	ifree(ai1);
 */
-// v2022-08-25
+// v2022-09-25
 INT
 *idate_WCS_to_iAryYmdhns(
 	WCS *str // (例) "2012-03-12 13:40:00"
 )
 {
 	INT *rtn = icalloc_INT(6);
+	if(! str)
+	{
+		return rtn;
+	}
 	INT i1 = 1;
 	if(*str == '-')
 	{
@@ -3118,7 +3051,6 @@ INT
 {
 	INT *rtn = icalloc_INT(3);
 	INT i_h = 0, i_n = 0, i_s = 0;
-
 	// 小数点部分を抽出
 	//  [sec]   [補正前]  [cjd]
 	//   0 = 0   -         0.00000000000000000
@@ -3144,7 +3076,6 @@ INT
 	rtn[0] = i_h;
 	rtn[1] = i_n;
 	rtn[2] = i_s;
-
 	return rtn;
 }
 //--------------------
@@ -3153,7 +3084,7 @@ INT
 // v2021-11-15
 INT
 *idate_cjd_to_iAryYmdhns(
-	DOUBLE cjd // cjd通日
+	DOUBLE cjd
 )
 {
 	INT *rtn = icalloc_INT(6);
@@ -3193,20 +3124,6 @@ INT
 	ifree(ai2);
 	return rtn;
 }
-//----------------------
-// CJDをFILETIMEに変換
-//----------------------
-// v2021-11-15
-FILETIME
-idate_cjdToFtime(
-	DOUBLE cjd // cjd通日
-)
-{
-	INT *ai1 = idate_cjd_to_iAryYmdhns(cjd);
-	INT i_y = ai1[0], i_m = ai1[1], i_d = ai1[2], i_h = ai1[3], i_n = ai1[4], i_s = ai1[5];
-	ifree(ai1);
-	return iFinfo_ymdhnsToFtime(i_y, i_m, i_d, i_h, i_n, i_s, FALSE);
-}
 //---------
 // 再計算
 //---------
@@ -3230,18 +3147,18 @@ INT
 // v2013-03-21
 INT
 idate_cjd_iWday(
-	DOUBLE cjd // cjd通日
+	DOUBLE cjd
 )
 {
 	return (INT)((INT)cjd + 1) % 7;
 }
-//-----------------------------------------
+//------------------------------------------
 // cjd通日から 日="Su", 月="Mo", ...を返す
-//-----------------------------------------
+//------------------------------------------
 // v2022-08-20
 WCS
 *idate_cjd_Wday(
-	DOUBLE cjd // cjd通日
+	DOUBLE cjd
 )
 {
 	return WDAYS[idate_cjd_iWday(cjd)];
@@ -3252,7 +3169,7 @@ WCS
 // v2021-11-15
 INT
 idate_cjd_yeardays(
-	DOUBLE cjd // cjd通日
+	DOUBLE cjd
 )
 {
 	INT *ai = idate_cjd_to_iAryYmdhns(cjd);
@@ -3288,10 +3205,9 @@ INT
 )
 {
 	INT *ai1 = 0;
-	INT *ai2 = idate_reYmdhns(i_y, i_m, i_d, i_h, i_n, i_s); // 正規化
+	INT *ai2 = idate_reYmdhns(i_y, i_m, i_d, i_h, i_n, i_s);
 	INT i1 = 0, i2 = 0, flg = 0;
 	DOUBLE cjd = 0.0;
-
 	// 個々に計算
 	// 手を抜くと「1582-11-10 -1m, -1d」のとき、1582-10-04(期待値は1582-10-03)となる
 	if(add_y != 0 || add_m != 0)
@@ -3351,7 +3267,6 @@ INT
 		ai1 = idate_reYmdhns(ai2[0], ai2[1], ai2[2], ai2[3], ai2[4], ai2[5]);
 	}
 	ifree(ai2);
-
 	return ai1;
 }
 //-------------------------------------------------------
@@ -3393,7 +3308,6 @@ INT
 	*/
 	DOUBLE cjd1 = idate_ymdhnsToCjd(i_y1, i_m1, i_d1, i_h1, i_n1, i_s1);
 	DOUBLE cjd2 = idate_ymdhnsToCjd(i_y2, i_m2, i_d2, i_h2, i_n2, i_s2);
-
 	if(cjd1 > cjd2)
 	{
 		rtn[0] = -1; // sign(-)
@@ -3500,7 +3414,6 @@ INT
 	}
 	ifree(ai2);
 	ifree(ai1);
-
 	return rtn;
 }
 //--------------------------
@@ -3633,17 +3546,14 @@ WCS
 	{
 		return L"";
 	}
-
 	CONST UINT BufSizeMax = 512;
 	CONST UINT BufSizeDmz = 64;
 	WCS *rtn = icalloc_WCS(BufSizeMax + BufSizeDmz);
 	WCS *pEnd = rtn;
 	UINT uPos = 0;
-
 	// Ymdhns で使用
 	DOUBLE cjd = (i_days ? 0.0 : idate_ymdhnsToCjd(i_y, i_m, i_d, i_h, i_n, i_s));
 	DOUBLE jd = idate_cjdToJd(cjd);
-
 	// 符号チェック
 	if(i_y < 0)
 	{
@@ -3676,7 +3586,6 @@ WCS
 				case 'e': // 年内の通算週
 					pEnd += swprintf(pEnd, 12, L"%d", idate_cjd_yearweeks(cjd));
 					break;
-
 				// Diff
 				case 'Y': // 通算年
 					pEnd += swprintf(pEnd, 12, L"%d", i_y);
@@ -3702,7 +3611,6 @@ WCS
 				case 'w': // 通算週の余日
 					pEnd += swprintf(pEnd, 12, L"%d", (INT)(i_days % 7));
 					break;
-
 				// 共通
 				case 'g': // Sign "-" "+"
 					*pEnd = (i_sign < 0 ? '-' : '+');
@@ -3737,7 +3645,6 @@ WCS
 					*pEnd = '%';
 					++pEnd;
 					break;
-
 				default:
 					--format; // else に処理を振る
 					break;
@@ -3764,7 +3671,6 @@ WCS
 			++uPos;
 		}
 		++format;
-
 		if(BufSizeMax < uPos)
 		{
 			break;
@@ -3805,35 +3711,39 @@ WCS
 		N, n : 分
 		S, s : 秒
 */
-/*
-	"[-20d]"  "2015-12-10 00:25:00"
-	"[-20D]"  "2015-12-10 00:00:00"
-	"[-20d%]" "2015-12-10 %"
-	"[]"      "2015-12-30 00:25:00"
-	"[%]"     "2015-12-30 %"
-	"[Err]"   ""
-	"[Err%]"  ""
-*/
 /* (例)
-	WCS *str = L"date>[-1m%] and date<[1M]";
-	INT *ai1 = idate_now_to_iAryYmdhns_localtime();
-	WCS *wp1 = idate_replace_format_ymdhns(
-		str,
-		L"[", L"]",
-		L"'",
-		ai1[0], ai1[1], ai1[2], ai1[3], ai1[4], ai1[5]
-	);
-	PL2W(wp1);
-	ifree(wp1);
-	ifree(ai1);
+	WCS *str = L" 1 = []\n 2 = [%]\n 3 = [*]\n 4 = [-10d]\n 5 = [-10D]\n 6 = [-10d%]\n 7 = [-10D%]\n 8 = [0]\n 9 = [-0]\n10 = [0d]\n11 = [0%]";
+	LN();
+	P2W(str);
+	INT *ai = idate_now_to_iAryYmdhns_localtime();
+		WCS *wp1 = idate_replace_format_ymdhns(
+			str,
+			L"[", L"]",
+			L"'",
+			ai[0], ai[1], ai[2], ai[3], ai[4], ai[5]
+		);
+			LN();
+			P2W(wp1);
+			LN();
+		ifree(wp1);
+	ifree(ai);
+	// 現在時 "2022-09-25 20:30:45" のとき
+	//   "[]"      => "2022-09-25 20:30:45"
+	//   "[%]"     => "2022-09-25 %"
+	//   "[*]"     => "2022-09-25 *"
+	//   "[-10d]"  => "2022-09-15 20:30:45"
+	//   "[-10D]"  => "2022-09-15 00:00:00"
+	//   "[-10d%]" => "2022-09-15 %"
+	//   "[-10D%]" => "2022-09-15 %"
+	//   "[0]", "[-0]", "[0d]", "[0%]", ... => "0000-00-00 00:00:00"
 */
-// v2022-09-22
+// v2022-09-26
 WCS
 *idate_replace_format_ymdhns(
 	WCS *str,       // 変換対象文字列
-	WCS *quoteBgn,  // 囲文字 1文字 (例) "["
-	WCS *quoteEnd,  // 囲文字 1文字 (例) "]"
-	WCS *add_quote, // 出力文字に追加するquote (例) "'"
+	WCS *quoteBgn,  // 囲文字列 (例) "["
+	WCS *quoteEnd,  // 囲文字列 (例) "]"
+	WCS *add_quote, // 出力文字に追加する囲文字列 (例) "'"
 	INT i_y,        // ベース年
 	INT i_m,        // ベース月
 	INT i_d,        // ベース日
@@ -3842,253 +3752,226 @@ WCS
 	INT i_s         // ベース秒
 )
 {
-	if(! str)
+	if(! str || ! *str)
 	{
-		return 0;
+		return str;
 	}
-	WCS *wp1 = 0, *wp2 = 0, *wp3 = 0, *wp4 = 0, *wp5 = 0;
+	WCS *rtn = 0;
 	UINT u1 = iwn_searchCnt(str, quoteBgn);
-	WCS *rtn = icalloc_WCS(iwn_len(str) + (32 * u1));
-	WCS *pEnd = rtn;
-
-	// quoteBgn がないとき、pのクローンを返す
-	if(! u1)
+	UINT u2 = iwn_searchCnt(str, quoteEnd);
+	// quoteBgn or quoteEnd がないとき str のクローンを返す
+	if(u1 && u2)
 	{
-		iwn_cpy(rtn, str);
-		return rtn;
+		rtn = icalloc_WCS(iwn_len(str) + (20 * u1));
 	}
-
+	else
+	{
+		return iws_clone(str);
+	}
+	WCS *pRtnE = rtn;
 	// add_quoteの除外文字
 	WCS *pAddQuote = (
 		(*add_quote >= '0' && *add_quote <= '9') || *add_quote == '+' || *add_quote == '-' ?
 		L"" :
 		add_quote
 	);
-	UINT uQuote1 = iwn_len(quoteBgn), uQuote2 = iwn_len(quoteEnd);
-	INT add_y = 0, add_m = 0, add_d = 0, add_h = 0, add_n = 0, add_s = 0;
-	INT cntPercent = 0;
-	INT *ai = 0;
-	BOOL bAdd = FALSE;
-	BOOL flg = FALSE;
-	BOOL zero = FALSE;
-	WCS *ts1 = icalloc_WCS(iwn_len(str));
-
-	// quoteBgn - quoteEnd を日付に変換
-	wp1 = wp2 = str;
-	while(*wp2)
+	UINT uQuoteBgn = iwn_len(quoteBgn);
+	UINT uQuoteEnd = iwn_len(quoteEnd);
+	WCS *pDt = icalloc_WCS(iwn_len(str));
+	WCS *pDtE = 0;
+	WCS *pStrBgn = str;
+	WCS *pStrEnd = str;
+	while(*pStrEnd)
 	{
 		// "[" を探す
-		// str = "[[", quoteBgn = "["のときを想定しておく
-		if(*quoteBgn && iwb_cmpf(wp2, quoteBgn) && ! iwb_cmpf(wp2 + uQuote1, quoteBgn))
+		//   str = "[[", quoteBgn = "[" を想定しておく
+		if(*quoteBgn && iwb_cmpf(pStrEnd, quoteBgn) && ! iwb_cmpf((pStrEnd + uQuoteBgn), quoteBgn))
 		{
-			bAdd = FALSE;   // 初期化
-			wp2 += uQuote1; // quoteBgn.len
-			wp1 = wp2;
-
+			pStrEnd += uQuoteBgn;
+			pStrBgn = pStrEnd;
 			// "]" を探す
 			if(*quoteEnd)
 			{
-				wp2 = iwp_searchL(wp1, quoteEnd);
-				iwn_pcpy(ts1, wp1, wp2); // 解析用文字列
-
-				// "[]" の中に数字が含まれているか
-				u1 = 0;
-				wp3 = ts1;
-				while(*wp3)
+				pStrEnd = iwp_searchL(pStrBgn, quoteEnd);
+				// 解析用文字列
+				*(pDt + iwn_pcpy(pDt, pStrBgn, pStrEnd)) = 0;
+				// "[]" = 0 のとき 現在時
+				INT iDt = _wtoi(pDt);
+				if(iDt)
 				{
-					if(*wp3 >= '0' && *wp3 <= '9')
-					{
-						u1 = 1;
-						break;
-					}
-					++wp3;
+					pDtE = pDt;
 				}
-
-				// 例外
-				wp3 = 0;
-				switch((wp2 - wp1))
+				else
 				{
-					case(0): // "[]"
-						wp3 = L"y";
-						u1 = 1;
-						break;
-
-					case(1): // "[%]"
-						if(*ts1 == '%')
-						{
-							wp3 = L"y%";
-							u1 = 1;
-						}
-						break;
-
-					default:
-						wp3 = ts1;
-						break;
-				}
-				if(u1)
-				{
-					zero = FALSE; // "00:00:00" かどうか
-					u1 = (UINT)_wtoi(wp3); // 引数から数字を抽出
-					while(*wp3)
+					switch(*pDt)
 					{
-						switch(*wp3)
-						{
-							// 年
-							case 'Y': // "yyyy-mm-dd 00:00:00"
-								zero = TRUE;
-								[[fallthrough]];
-							case 'y': // "yyyy-mm-dd hh:nn:ss"
-								add_y = u1;
-								flg = TRUE;
-								bAdd = TRUE;
-								break;
-
-							// 月
-							case 'M': // "yyyy-mm-dd 00:00:00"
-								zero = TRUE;
-								[[fallthrough]];
-							case 'm': // "yyyy-mm-dd hh:nn:ss"
-								add_m = u1;
-								flg = TRUE;
-								bAdd = TRUE;
-								break;
-
-							// 週
-							case 'W': // "yyyy-mm-dd 00:00:00"
-								zero = TRUE;
-								[[fallthrough]];
-							case 'w': // "yyyy-mm-dd hh:nn:ss"
-								add_d = u1 * 7;
-								flg = TRUE;
-								bAdd = TRUE;
-								break;
-
-							// 日
-							case 'D': // "yyyy-mm-dd 00:00:00"
-								zero = TRUE;
-								[[fallthrough]];
-							case 'd': // "yyyy-mm-dd hh:nn:ss"
-								add_d = u1;
-								flg = TRUE;
-								bAdd = TRUE;
-								break;
-
-							// 時
-							case 'H': // "yyyy-mm-dd 00:00:00"
-								zero = TRUE;
-								[[fallthrough]];
-							case 'h': // "yyyy-mm-dd hh:nn:ss"
-								add_h = u1;
-								flg = TRUE;
-								bAdd = TRUE;
-								break;
-
-							// 分
-							case 'N': // "yyyy-mm-dd 00:00:00"
-								zero = TRUE;
-								[[fallthrough]];
-							case 'n': // "yyyy-mm-dd hh:nn:ss"
-								add_n = u1;
-								flg = TRUE;
-								bAdd = TRUE;
-								break;
-
-							// 秒
-							case 'S': // "yyyy-mm-dd 00:00:00"
-								zero = TRUE;
-								[[fallthrough]];
-							case 's': // "yyyy-mm-dd hh:nn:ss"
-								add_s = u1;
-								flg = TRUE;
-								bAdd = TRUE;
-								break;
-						}
-						// [1y6m] のようなとき [1y] で処理する
-						if(flg)
-						{
+						case('%'):
+							pDtE = L"y%";
 							break;
-						}
-						++wp3;
+						case('*'):
+							pDtE = L"y*";
+							break;
+						default:
+							// Err => "0000-00-00 00:00:00"
+							if(*pDt)
+							{
+								pDtE = L"";
+							}
+							// 現在時
+							else
+							{
+								pDtE = L"y";
+							}
+							break;
 					}
-
-					// 略記か日付か
-					cntPercent = 0;
+				}
+				INT add_y = 0, add_m = 0, add_d = 0, add_h = 0, add_n = 0, add_s = 0;
+				BOOL bHnsZero = FALSE; // TRUE = "00:00:00"
+				BOOL bAdd     = FALSE; // TRUE = "Y".."s"
+				BOOL bAddEnd  = FALSE; // TRUE = bAdd が現れたとき
+				while(*pDtE)
+				{
+					switch(*pDtE)
+					{
+						// 年
+						case 'Y': // "yyyy-mm-dd 00:00:00"
+							bHnsZero = TRUE;
+							[[fallthrough]];
+						case 'y': // "yyyy-mm-dd hh:nn:ss"
+							add_y = iDt;
+							bAddEnd = TRUE;
+							bAdd = TRUE;
+							break;
+						// 月
+						case 'M': // "yyyy-mm-dd 00:00:00"
+							bHnsZero = TRUE;
+							[[fallthrough]];
+						case 'm': // "yyyy-mm-dd hh:nn:ss"
+							add_m = iDt;
+							bAddEnd = TRUE;
+							bAdd = TRUE;
+							break;
+						// 週
+						case 'W': // "yyyy-mm-dd 00:00:00"
+							bHnsZero = TRUE;
+							[[fallthrough]];
+						case 'w': // "yyyy-mm-dd hh:nn:ss"
+							add_d = iDt * 7;
+							bAddEnd = TRUE;
+							bAdd = TRUE;
+							break;
+						// 日
+						case 'D': // "yyyy-mm-dd 00:00:00"
+							bHnsZero = TRUE;
+							[[fallthrough]];
+						case 'd': // "yyyy-mm-dd hh:nn:ss"
+							add_d = iDt;
+							bAddEnd = TRUE;
+							bAdd = TRUE;
+							break;
+						// 時
+						case 'H': // "yyyy-mm-dd 00:00:00"
+							bHnsZero = TRUE;
+							[[fallthrough]];
+						case 'h': // "yyyy-mm-dd hh:nn:ss"
+							add_h = iDt;
+							bAddEnd = TRUE;
+							bAdd = TRUE;
+							break;
+						// 分
+						case 'N': // "yyyy-mm-dd 00:00:00"
+							bHnsZero = TRUE;
+							[[fallthrough]];
+						case 'n': // "yyyy-mm-dd hh:nn:ss"
+							add_n = iDt;
+							bAddEnd = TRUE;
+							bAdd = TRUE;
+							break;
+						// 秒
+						case 'S': // "yyyy-mm-dd 00:00:00"
+							bHnsZero = TRUE;
+							[[fallthrough]];
+						case 's': // "yyyy-mm-dd hh:nn:ss"
+							add_s = iDt;
+							bAddEnd = TRUE;
+							bAdd = TRUE;
+							break;
+					}
+					// [1y6m] のようなとき [1y] で解釈する
+					if(bAddEnd)
+					{
+						break;
+					}
+					++pDtE;
+				}
+				UINT uCntPercent = 0; // str 中の "%" 個数
+				UINT uCntStar    = 0; // str 中の "*" 個数
+				INT *ai = 0;
 					if(bAdd)
 					{
-						// "Y-s" 末尾の "%" を検索
-						while(*wp3)
+						// "Y".."s" 末尾の "%" or "*" を検索
+						while(*pDtE)
 						{
-							if(*wp3 == '%')
+							if(*pDtE == '%')
 							{
-								++cntPercent;
+								++uCntPercent;
+								break;
 							}
-							++wp3;
+							else if(*pDtE == '*')
+							{
+								++uCntStar;
+								break;
+							}
+							++pDtE;
 						}
-
 						// ±日時
-						ai = idate_add(
-							i_y, i_m, i_d, i_h, i_n, i_s,
-							add_y, add_m, add_d, add_h, add_n, add_s
-						);
-						// その日時の 00:00 を求める
-						if(zero)
+						ai = idate_add(i_y, i_m, i_d, i_h, i_n, i_s, add_y, add_m, add_d, add_h, add_n, add_s);
+						// "00:00:00"
+						if(bHnsZero)
 						{
 							ai[3] = ai[4] = ai[5] = 0;
 						}
-
-						// 初期化
-						flg = FALSE;
-						add_y = add_m = add_d = add_h = add_n = add_s = 0;
 					}
 					else
 					{
-						// "%" が含まれていれば「見なし」処理する
-						wp4 = ts1;
-						while(*wp4)
-						{
-							if(*wp4 == '%')
-							{
-								++cntPercent;
-							}
-							++wp4;
-						}
-						ai = idate_WCS_to_iAryYmdhns(ts1);
+						ai = icalloc_INT(6);
 					}
-
-					// bAddの処理を引き継ぎ
-					wp5 = idate_format_ymdhns(
-						IDATE_FORMAT_STD,
-						ai[0], ai[1], ai[2], ai[3], ai[4], ai[5]
-					);
-						// "2015-12-30 00:00:00" => "2015-12-30 %"
-						if(cntPercent)
+					WCS *wp1 = idate_format_ymdhns(IDATE_FORMAT_STD, ai[0], ai[1], ai[2], ai[3], ai[4], ai[5]);
+						WCS *wp2 = 0;
+						// "yyyy-mm-dd hh:nn:ss" => "yyyy-mm-dd %", "yyyy-mm-dd *"
+						if(uCntPercent || uCntStar)
 						{
-							wp4 = wp5;
-							while(*wp4 != ' ')
+							wp2 = wp1;
+							while(*wp2 && *wp2 != ' ')
 							{
-								++wp4;
+								++wp2;
 							}
-							*(++wp4) = '%'; // SQLiteの"%"を付与
-							*(++wp4) = 0;
+							if(uCntPercent)
+							{
+								*(++wp2) = '%';
+							}
+							else if(uCntStar)
+							{
+								*(++wp2) = '*';
+							}
+							*(++wp2) = 0;
 						}
-						pEnd += iwn_cpy(pEnd, pAddQuote);
-						pEnd += iwn_cpy(pEnd, wp5);
-						pEnd += iwn_cpy(pEnd, pAddQuote);
-					ifree(wp5);
-					ifree(ai);
-				}
-				wp2 += (uQuote2); // quoteEnd.len
-				wp1 = wp2;
+						pRtnE += iwn_cpy(pRtnE, pAddQuote);
+						pRtnE += iwn_cpy(pRtnE, wp1);
+						pRtnE += iwn_cpy(pRtnE, pAddQuote);
+					ifree(wp1);
+				ifree(ai);
 			}
+			pStrEnd += uQuoteEnd;
+			pStrBgn = pStrEnd;
 		}
 		else
 		{
-			pEnd += iwn_pcpy(pEnd, wp2, wp2 + 1);
-			++wp2;
+			*pRtnE++ = *pStrEnd++;
 		}
-		add_y = add_m = add_d = add_h = add_n = add_s = 0;
 	}
-	ifree(ts1);
+	ifree(pDt);
+	*pRtnE = 0;
 	return rtn;
 }
 //---------------------
