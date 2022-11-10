@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20220927"
+#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20221110"
 #define   LIB_IWMUTIL_COPYLIGHT                   "Copyright (C)2008-2022 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -37,8 +37,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 extern    WCS    *$CMD;         // コマンド名を格納
 extern    UINT   $ARGC;         // 引数配列数
-extern    WCS    **$ARGV;       // 引数配列
-extern    WCS    **$ARGS;       // $ARGVからダブルクォーテーションを消去したもの
+extern    WCS    **$ARGV;       // 引数配列／ダブルクォーテーションを消去したもの
 extern    UINT   $CP;           // 出力コードページ
 extern    HANDLE $StdoutHandle; // 画面制御用ハンドル
 extern    UINT   $ExecSecBgn;   // 実行開始時間

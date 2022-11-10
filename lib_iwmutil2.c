@@ -58,8 +58,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 WCS    *$CMD         = L"";   // コマンド名を格納
 UINT   $ARGC         = 0;     // 引数配列数
-WCS    **$ARGV       = 0;     // 引数配列
-WCS    **$ARGS       = 0;     // $ARGVからダブルクォーテーションを消去したもの
+WCS    **$ARGV       = 0;     // 引数配列／ダブルクォーテーションを消去したもの
 UINT   $CP           = 65001; // 出力コードページ 65001=UTF-8
 HANDLE $StdoutHandle = 0;     // 画面制御用ハンドル
 UINT   $ExecSecBgn   = 0;     // 実行開始時間
@@ -76,9 +75,8 @@ UINT   $ExecSecBgn   = 0;     // 実行開始時間
 	PL2($CMD);
 	PL3($ARGC);
 	iwa_print($ARGV);
-	iwa_print($ARGS); // $ARGVからダブルクォーテーションを除去したもの
 */
-// v2022-09-25
+// v2022-11-10
 VOID
 iCLI_getCommandLine()
 {
@@ -86,7 +84,6 @@ iCLI_getCommandLine()
 
 	WCS *str = GetCommandLineW();
 	$ARGV = icalloc_WCS_ary(1);
-	$ARGS = icalloc_WCS_ary(1);
 	$ARGC = 0;
 
 	WCS *pBgn = 0;
@@ -123,9 +120,7 @@ iCLI_getCommandLine()
 		if(bArgc)
 		{
 			$ARGV = irealloc_WCS_ary($ARGV, ($ARGC + 1));
-			$ARGV[$ARGC] = wp1;
-			$ARGS = irealloc_WCS_ary($ARGS, ($ARGC + 1));
-			$ARGS[$ARGC] = iws_replace(wp1, L"\"", L"", FALSE);
+			$ARGV[$ARGC] = iws_replace(wp1, L"\"", L"", FALSE);
 			++$ARGC;
 		}
 		else
@@ -145,13 +140,13 @@ iCLI_getCommandLine()
 //-----------------------------------------
 /* (例)
 	iCLI_getCommandLine();
-	// $ARGS[0] = "-w=size <= 1000" のとき
+	// $ARGV[0] = "-w=size <= 1000" のとき
 	P2W(iCLI_getOptValue(0, L"-w=", NULL)); //=> "size <= 1000"
 */
-// v2022-08-24
+// 2022-11-10
 WCS
 *iCLI_getOptValue(
-	UINT argc, // $ARGS[argc]
+	UINT argc, // $ARGV[argc]
 	WCS *opt1, // (例) "-w="
 	WCS *opt2  // (例) "-where=", NULL
 )
@@ -164,7 +159,7 @@ WCS
 	{
 		return 0;
 	}
-	WCS *wp1 = $ARGS[argc];
+	WCS *wp1 = $ARGV[argc];
 	if(iwb_cmpf(wp1, opt1))
 	{
 		return (wp1 + iwn_len(opt1));
@@ -213,7 +208,7 @@ iCLI_getOptMatch(
 	}
 	return FALSE;
 }
-// v2022-09-17
+// v2022-11-10
 VOID
 iCLI_VarList()
 {
@@ -222,8 +217,6 @@ iCLI_VarList()
 		P ("[$ARGC]\n    %d\n", $ARGC);
 		P2("[$ARGV]");
 		iwa_print($ARGV);
-		P2("[$ARGS]");
-		iwa_print($ARGS);
 		NL();
 	ifree(_cmd);
 }
@@ -2023,7 +2016,6 @@ WCS
 /* (例)
 	// コマンドライン引数
 	iwa_print($ARGV);
-	iwa_print($ARGS);
 */
 // v2022-09-23
 VOID
@@ -2532,6 +2524,7 @@ iFchk_typePathW(
 // Binary File のときTRUEを返す
 //-------------------------------
 /* (例)
+	// "aaa.exe" は存在／"aaa.txt" は不在、と仮定
 	PL3(iFchk_BfileW(L"aaa.exe")); //=> TRUE
 	PL3(iFchk_BfileW(L"aaa.txt")); //=> FALSE
 	PL3(iFchk_BfileW(L"???"));     //=> FALSE (存在しないとき)

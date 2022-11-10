@@ -29,7 +29,7 @@ main()
 {
 	// lib_iwmutil 初期化
 	iExecSec_init();       //=> $ExecSecBgn
-	iCLI_getCommandLine(); //=> $CMD, $ARG, $ARGC, $ARGV
+	iCLI_getCommandLine(); //=> $CMD, $ARGC, $ARGV
 	iConsole_EscOn();
 
 	// -h | -help
