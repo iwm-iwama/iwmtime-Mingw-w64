@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20220922"
-#define   IWM_COPYRIGHT       "Copyright (C)2021-2022 iwm-iwama"
+#define   IWM_VERSION         "iwmtime_20220311"
+#define   IWM_COPYRIGHT       "Copyright (C)2021-2023 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil2.h"
 
@@ -8,21 +8,16 @@ INT  main();
 VOID print_version();
 VOID print_help();
 
-// リセット
-#define   PRGB00()            P1("\033[0m")
-// ラベル
-#define   PRGB01()            P1("\033[38;2;255;255;0m")    // 黄
-#define   PRGB02()            P1("\033[38;2;255;255;255m")  // 白
-// 入力例／注
-#define   PRGB11()            P1("\033[38;2;255;255;100m")  // 黄
-#define   PRGB12()            P1("\033[38;2;255;220;150m")  // 橙
-#define   PRGB13()            P1("\033[38;2;100;100;255m")  // 青
-// オプション
-#define   PRGB21()            P1("\033[38;2;80;255;255m")   // 水
-#define   PRGB22()            P1("\033[38;2;255;100;255m")  // 紅紫
-// 本文
-#define   PRGB91()            P1("\033[38;2;255;255;255m")  // 白
-#define   PRGB92()            P1("\033[38;2;200;200;200m")  // 銀
+#define   CLR_RESET           "\033[0m"
+#define   CLR_TITLE1          "\033[38;2;250;250;250m\033[104m" // 白／青
+#define   CLR_OPT1            "\033[38;2;250;150;150m"          // 赤
+#define   CLR_OPT2            "\033[38;2;150;150;250m"          // 青
+#define   CLR_OPT21           "\033[38;2;80;250;250m"           // 水
+#define   CLR_OPT22           "\033[38;2;250;100;250m"          // 紅紫
+#define   CLR_LBL1            "\033[38;2;250;250;100m"          // 黄
+#define   CLR_LBL2            "\033[38;2;100;100;250m"          // 青
+#define   CLR_STR1            "\033[38;2;225;225;225m"          // 白
+#define   CLR_STR2            "\033[38;2;175;175;175m"          // 銀
 
 INT
 main()
@@ -85,9 +80,7 @@ main()
 			system(mp1);
 		ifree(mp1);
 
-		PRGB21();
-		P2("[Quiet Mode]");
-		PRGB00();
+		P("%s[Quiet Mode]%s\n",CLR_OPT2, CLR_RESET);
 	}
 	else
 	{
@@ -99,7 +92,7 @@ main()
 	// 計測終了
 	DOUBLE dPassedSec = iExecSec_next();
 
-	PRGB91();
+	P(CLR_STR2);
 	LN();
 	// Program
 	P("  Program  %s\n", opCmd);
@@ -135,7 +128,7 @@ main()
 	}
 
 	LN();
-	PRGB00();
+	P(CLR_RESET);
 
 	// Debug
 	/// icalloc_mapPrint(); ifree_all(); icalloc_mapPrint();
@@ -147,12 +140,12 @@ main()
 VOID
 print_version()
 {
-	PRGB92();
+	P(CLR_STR2);
 	LN();
-	P (" %s\n", IWM_COPYRIGHT);
-	P ("   Ver.%s+%s\n", IWM_VERSION, LIB_IWMUTIL_VERSION);
+	P(" %s\n", IWM_COPYRIGHT);
+	P("    Ver.%s+%s\n", IWM_VERSION, LIB_IWMUTIL_VERSION);
 	LN();
-	PRGB00();
+	P(CLR_RESET);
 }
 
 VOID
@@ -161,35 +154,26 @@ print_help()
 	MBS *_cmd = W2U($CMD);
 
 	print_version();
-	PRGB01();
-	P2("\033[48;2;50;50;200m コマンドの実行時間を計測 \033[0m");
-	NL();
-	PRGB02();
-	P ("\033[48;2;200;50;50m %s [Option] [Command] \033[0m\n\n", _cmd);
-	PRGB11();
-	P1(" (例１) ");
-	PRGB91();
-	P ("%s \033[38;2;150;150;255mnotepad\n\n", _cmd);
-	PRGB11();
-	P1(" (例２) ");
-	PRGB91();
-	P ("%s \033[38;2;255;150;150m-quiet \033[38;2;150;150;255mdir \"..\" /b\n\n", _cmd);
-	PRGB02();
-	P2("\033[48;2;200;50;50m [Option] \033[0m");
-	PRGB21();
-	P2("   -quiet | -q");
-	PRGB91();
-	P2("       コマンド出力を表示しない");
-	NL();
-	PRGB21();
-	P2("   -codepage=Num | -cp=Num");
-	PRGB91();
-	P ("       コマンド出力のコードページをNumに変更（初期値：%u）\n", $CP);
-	P2("           65001 = UTF-8   932 = Shift_JIS");
-	NL();
-	PRGB92();
+	P("%s コマンドの実行時間を計測 %s\n", CLR_TITLE1, CLR_RESET);
+	P("%s    %s %s[Option] %s[Command]\n", CLR_STR1, _cmd, CLR_OPT2, CLR_OPT1);
+	P("\n");
+	P("%s (例１)\n", CLR_LBL1);
+	P("%s    %s %snotepad\n", CLR_STR1, _cmd, CLR_OPT1);
+	P("\n");
+	P("%s (例２)\n", CLR_LBL1);
+	P("%s    %s %s-quiet %sdir /b \"..\"\n", CLR_STR1, _cmd, CLR_OPT2, CLR_OPT1);
+	P("\n");
+	P("%s [Option]\n", CLR_OPT2);
+	P("%s    -quiet | -q\n", CLR_OPT21);
+	P("%s        コマンド出力を表示しない\n", CLR_STR1);
+	P("\n");
+	P("%s    -codepage=Num | -cp=Num\n", CLR_OPT21);
+	P("%s        コマンド出力のコードページをNumに変更（初期値：%u）\n", CLR_STR1, $CP);
+	P("%s            932 = Shift_JIS     65001 = UTF-8\n", CLR_STR1);
+	P("\n");
+	P(CLR_STR2);
 	LN();
-	PRGB00();
+	P(CLR_RESET);
 
 	ifree(_cmd);
 }
