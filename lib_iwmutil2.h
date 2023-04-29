@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20221110"
-#define   LIB_IWMUTIL_COPYLIGHT                   "Copyright (C)2008-2022 iwm-iwama"
+#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20230411"
+#define   LIB_IWMUTIL_COPYLIGHT                   "Copyright (C)2008-2023 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
 #include <ctype.h>
@@ -22,7 +22,7 @@
 #define   IMAX_PATH                               (((MAX_PATH>>3)<<3)+(1<<3)) // windef.h参照
 
 #define   MBS                                     CHAR  // imx_xxx() = Muliti Byte String／iux_xxx() = UTF-8N
-#define   WCS                                      WCHAR // iwx_xxx()／UTF-16／Wide Char String
+#define   WCS                                     WCHAR // iwx_xxx()／UTF-16／Wide Char String
 
 #define   ISO_FORMAT_DATETIME                     L"%.4d-%02d-%02d %02d:%02d:%02d"
 
@@ -105,7 +105,7 @@ VOID      icalloc_mapPrint1();
 VOID      icalloc_mapPrint2();
 #define   icalloc_mapPrint()                      PL();NL();icalloc_mapPrint1();icalloc_mapPrint2()
 
-#define   ierr_end(msg)                           P("Err: %s\n",msg);imain_end()
+#define   ierr_end(msg)                           P("[Err] %s\n",msg);imain_end()
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------

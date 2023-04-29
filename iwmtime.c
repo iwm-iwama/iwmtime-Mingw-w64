@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20220311"
+#define   IWM_VERSION         "iwmtime_20230429"
 #define   IWM_COPYRIGHT       "Copyright (C)2021-2023 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil2.h"
@@ -116,11 +116,9 @@ main()
 		GlobalMemoryStatusEx(&memex);
 
 		wp1 = iws_sprintf(L"%d", ((memex.ullAvailPhys - iBgnEmpMem) / 1024));
-		wp2 = iws_addTokenNStr(wp1);
-		mp1 = W2U(wp2);
+		mp1 = W2U(wp1);
 			P("   %4d ms %7s KB\n", (iMs * i1), mp1);
 		ifree(mp1);
-		ifree(wp2);
 		ifree(wp1);
 
 		Sleep(iMs);
