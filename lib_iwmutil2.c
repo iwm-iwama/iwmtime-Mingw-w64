@@ -899,7 +899,7 @@ iwn_len(
 		PL3(iwn_cpy(to, L"abcde")); //=> 5
 	ifree(to);
 */
-// v2022-09-19
+// v2023-05-07
 UINT
 imn_cpy(
 	MBS *to,
@@ -910,10 +910,11 @@ imn_cpy(
 	{
 		return 0;
 	}
-	strcpy(to, from);
-	return strlen(from);
+	UINT rtn = strlen(from);
+	memcpy(to, from, ((rtn * sizeof(MBS)) + 1));
+	return rtn;
 }
-// v2022-09-19
+// v2023-05-07
 UINT
 iwn_cpy(
 	WCS *to,
@@ -924,8 +925,9 @@ iwn_cpy(
 	{
 		return 0;
 	}
-	wcscpy(to, from);
-	return wcslen(from);
+	UINT rtn = wcslen(from);
+	memcpy(to, from, ((rtn * sizeof(WCS)) + 1));
+	return rtn;
 }
 /* (例)
 	WCS *from = L"abcde12345";
@@ -972,23 +974,25 @@ iwn_pcpy(
 /* (例)
 	PL2W(iws_clone(L"あいうえお")); //=> "あいうえお"
 */
-// v2022-09-13
+// v2023-05-07
 MBS
 *ims_clone(
 	MBS *from
 )
 {
-	MBS *to = icalloc_MBS(imn_len(from));
-	return strcpy(to, from);
+	UINT len = imn_len(from);
+	MBS *to = icalloc_MBS(len);
+	return memcpy(to, from, ((len * sizeof(MBS)) + 1));
 }
-// v2022-09-13
+// v2023-05-07
 WCS
 *iws_clone(
 	WCS *from
 )
 {
-	WCS *to = icalloc_WCS(iwn_len(from));
-	return wcscpy(to, from);
+	UINT len = iwn_len(from);
+	WCS *to = icalloc_WCS(len);
+	return memcpy(to, from, ((len * sizeof(WCS)) + 1));
 }
 /* (例)
 	WCS *from = L"あいうえお";
@@ -1510,169 +1514,6 @@ WCS
 		ifree(fW);
 	}
 	return rtn;
-}
-/////////////////////////////////////////////////////////////////////////////////////////
-/*---------------------------------------------------------------------------------------
-	数字関係
----------------------------------------------------------------------------------------*/
-/////////////////////////////////////////////////////////////////////////////////////////
-//-----------------------------------------------------------------------------------------
-// Copyright (C) 1997 - 2002, Makoto Matsumoto and Takuji Nishimura, All rights reserved.
-//  A C-program for MT19937, with initialization improved 2002/1/26.
-//  Coded by Takuji Nishimura and Makoto Matsumoto.
-//-----------------------------------------------------------------------------------------
-/*
-	http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/CODES/mt19937ar.c
-	を元に以下の関数をカスタマイズした。
-		VOID MT_init(BOOL fixOn);
-		UINT MT_genrand_UINT();
-		VOID MT_free();
-	<Mersenne Twister Home Page>
-		http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/mt.html
-*/
-#define   MT_N 624
-#define   MT_M 397
-#define   MT_MATRIX_A         0x9908b0dfUL // constant vector a
-#define   MT_UPPER_MASK       0x80000000UL // most significant w-r bits
-#define   MT_LOWER_MASK       0x7fffffffUL // least significant r bits
-UINT MT_u1 = (MT_N + 1); // MT_u1 == MT_N + 1 means ai1[MT_N] is not initialized
-UINT *MT_au1 = 0;        // the array forthe state vector
-// v2021-11-15
-VOID
-MT_init(
-	BOOL fixOn
-)
-{
-	// 二重Alloc回避
-	MT_free();
-	MT_au1 = icalloc(MT_N, sizeof(UINT), FALSE);
-	// Seed設定
-	UINT init_key[4];
-	INT *ai1 = idate_now_to_iAryYmdhns_localtime();
-		init_key[0] = ai1[3] * ai1[5];
-		init_key[1] = ai1[3] * ai1[6];
-		init_key[2] = ai1[4] * ai1[5];
-		init_key[3] = ai1[4] * ai1[6];
-	ifree(ai1);
-	// fixOn == FALSE のとき時間でシャッフル
-	if(! fixOn)
-	{
-		init_key[3] &= (INT)GetTickCount();
-	}
-	INT i = 1, j = 0, k = 4;
-	while(k)
-	{
-		MT_au1[i] = (MT_au1[i] ^ ((MT_au1[i - 1] ^ (MT_au1[i - 1] >> 30)) * 1664525UL)) + init_key[j] + j; // non linear
-		MT_au1[i] &= 0xffffffffUL; // for WORDSIZE>32 machines
-		++i, ++j;
-		if(i >= MT_N)
-		{
-			MT_au1[0] = MT_au1[MT_N - 1];
-			i = 1;
-		}
-		if(j >= MT_N)
-		{
-			j = 0;
-		}
-		--k;
-	}
-	k = MT_N - 1;
-	while(k)
-	{
-		MT_au1[i] = (MT_au1[i] ^ ((MT_au1[i - 1] ^ (MT_au1[i - 1] >> 30)) * 1566083941UL)) - i; // non linear
-		MT_au1[i] &= 0xffffffffUL; // for WORDSIZE>32 machines
-		++i;
-		if(i >= MT_N)
-		{
-			MT_au1[0] = MT_au1[MT_N - 1];
-			i = 1;
-		}
-		--k;
-	}
-	MT_au1[0] = 0x80000000UL; // MSB is 1;assuring non-zero initial array
-}
-// v2022-09-22
-UINT
-MT_genrand_UINT()
-{
-	UINT u1 = 0;
-	UINT mag01[2] = {0x0UL, MT_MATRIX_A};
-	if(MT_u1 >= MT_N)
-	{
-		// generate N words at one time
-		INT kk = 0;
-		while(kk < MT_N - MT_M)
-		{
-			u1 = (MT_au1[kk] & MT_UPPER_MASK) | (MT_au1[kk + 1] & MT_LOWER_MASK);
-			MT_au1[kk] = MT_au1[kk + MT_M] ^ (u1 >> 1) ^ mag01[u1 & 0x1UL];
-			++kk;
-		}
-		while(kk < MT_N - 1)
-		{
-			u1 = (MT_au1[kk] & MT_UPPER_MASK) | (MT_au1[kk + 1] & MT_LOWER_MASK);
-			MT_au1[kk] = MT_au1[kk + (MT_M - MT_N)] ^ (u1 >> 1) ^ mag01[u1 & 0x1UL];
-			++kk;
-		}
-		u1 = (MT_au1[MT_N - 1] & MT_UPPER_MASK) | (MT_au1[0] & MT_LOWER_MASK);
-		MT_au1[MT_N - 1] = MT_au1[MT_M - 1] ^ (u1 >> 1) ^ mag01[u1 & 0x1UL];
-		MT_u1 = 0;
-	}
-	u1 = MT_au1[++MT_u1];
-	// Tempering
-	u1 ^= (u1 >> 11);
-	u1 ^= (u1 <<  7) & 0x9d2c5680UL;
-	u1 ^= (u1 << 15) & 0xefc60000UL;
-	u1 ^= (u1 >> 18);
-	return u1;
-}
-// v2015-11-15
-VOID
-MT_free()
-{
-	ifree(MT_au1);
-}
-//----------------
-// INT乱数を発生
-//----------------
-/* (例)
-	MT_init(TRUE);
-		PL3(MT_irand_INT64(-5, 5));
-	MT_free();
-*/
-// v2022-09-22
-INT64
-MT_irand_INT64(
-	INT64 min,
-	INT64 max
-)
-{
-	if(min > max)
-	{
-		return 0;
-	}
-	return ((INT64)MT_genrand_UINT() % (max - min + 1)) + min;
-}
-//-------------------
-// DOUBLE乱数を発生
-//-------------------
-/* (例)
-	MT_init(TRUE);
-		PL4(MT_irand_DBL(-5, 5));
-	MT_free();
-*/
-// v2022-09-22
-DOUBLE
-MT_irand_DBL(
-	INT64 min,
-	INT64 max
-)
-{
-	if(min > max)
-	{
-		return 0.0;
-	}
-	// %.8f
-	return (DOUBLE)MT_irand_INT64(min, (max - 1)) + ((DOUBLE)MT_irand_INT64(0, 99999999) / 100000000);
 }
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -3415,8 +3256,23 @@ INT
 /* (例) 西暦1年から2000年迄のサンプル100例について評価
 	idate_diff_checker(1, 2000, 100);
 */
-// v2022-08-26
+// v2023-06-23
 /*
+VOID
+irand_init()
+{
+	srand((UINT)time(NULL));
+}
+
+INT
+irand_INT(
+	INT min,
+	INT max
+)
+{
+	return (min + (INT)(rand() * (max - min + 1.0) / (1.0 + RAND_MAX)));
+}
+
 VOID
 idate_diff_checker(
 	INT from_year, // 何年から
@@ -3435,16 +3291,16 @@ idate_diff_checker(
 	INT y1 = 0, y2 = 0, m1 = 0, m2 = 0, d1 = 0, d2 = 0;
 	MBS s1[16] = "", s2[16] = "";
 	MBS *err = 0;
-	P2("\033[94m--Cnt----From----------To------------[Sign,    Y,  M,  D]----DateAdd-------Chk----\033[39m");
-	MT_init(TRUE);
+	P2("\033[94m--Cnt----From----------To------------[Sign,    Y,  M,  D]----DateAdd-------Chk----\033[0m");
+	irand_init();
 	for(INT i1 = 1; i1 <= uSample; i1++)
 	{
-		y1 = from_year + (INT)MT_irand_INT64(0, rnd_y);
-		y2 = from_year + (INT)MT_irand_INT64(0, rnd_y);
-		m1 = 1 + (INT)MT_irand_INT64(0, 11);
-		m2 = 1 + (INT)MT_irand_INT64(0, 11);
-		d1 = 1 + (INT)MT_irand_INT64(0, 30);
-		d2 = 1 + (INT)MT_irand_INT64(0, 30);
+		y1 = from_year + irand_INT(0, rnd_y);
+		y2 = from_year + irand_INT(0, rnd_y);
+		m1 = 1 + irand_INT(0, 11);
+		m2 = 1 + irand_INT(0, 11);
+		d1 = 1 + irand_INT(0, 30);
+		d2 = 1 + irand_INT(0, 30);
 		// 再計算
 		ai1 = idate_reYmdhns(y1, m1, d1, 0, 0, 0);
 		ai2 = idate_reYmdhns(y2, m2, d2, 0, 0, 0);
@@ -3458,9 +3314,9 @@ idate_diff_checker(
 		// 計算結果の照合
 		sprintf(s1, "%d%02d%02d", ai2[0], ai2[1], ai2[2]);
 		sprintf(s2, "%d%02d%02d", ai4[0], ai4[1], ai4[2]);
-		err = (strcmp(s1, s2) ? "\033[95mNG\033[39m" : "ok");
+		err = (strcmp(s1, s2) ? "\033[91mNG\033[0m" : "\033[93mok\033[0m");
 		P(
-			"%5d   %5d-%02d-%02d   \033[96m%5d-%02d-%02d\033[39m    [%4d, %4d, %2d, %2d]   \033[96m%5d-%02d-%02d\033[39m    %s\n",
+			"%5d   %5d-%02d-%02d   \033[96m%5d-%02d-%02d\033[0m    [%4d, %4d, %2d, %2d]   \033[96m%5d-%02d-%02d\033[0m    %s\n",
 			i1,
 			ai1[0], ai1[1], ai1[2], ai2[0], ai2[1], ai2[2],
 			ai3[0], ai3[1], ai3[2], ai3[3], ai4[0], ai4[1], ai4[2],
@@ -3471,7 +3327,6 @@ idate_diff_checker(
 		ifree(ai2);
 		ifree(ai1);
 	}
-	MT_free();
 }
 */
 /*
