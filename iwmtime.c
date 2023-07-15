@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20230429"
+#define   IWM_VERSION         "iwmtime_20230711"
 #define   IWM_COPYRIGHT       "Copyright (C)2021-2023 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil2.h"
@@ -66,7 +66,7 @@ main()
 	}
 
 	wp1 = iwa_njoin($ARGV, L" ", uExecArgc, $ARGC);
-		MBS *opCmd = W2U(wp1);
+		MBS *opCmd = W2M(wp1);
 	ifree(wp1);
 
 	MEMORYSTATUSEX memex = { sizeof(MEMORYSTATUSEX) };
@@ -100,7 +100,7 @@ main()
 	// Exec
 	wp1 = iws_sprintf(L"%.4f", dPassedSec);
 	wp2 = iws_addTokenNStr(wp1);
-	mp1 = W2U(wp2);
+	mp1 = W2M(wp2);
 		P("  Exec     %s sec\n", mp1);
 	ifree(mp1);
 	ifree(wp2);
@@ -116,7 +116,7 @@ main()
 		GlobalMemoryStatusEx(&memex);
 
 		wp1 = iws_sprintf(L"%d", ((memex.ullAvailPhys - iBgnEmpMem) / 1024));
-		mp1 = W2U(wp1);
+		mp1 = W2M(wp1);
 			P("   %4d ms %7s KB\n", (iMs * i1), mp1);
 		ifree(mp1);
 		ifree(wp1);
@@ -149,7 +149,7 @@ print_version()
 VOID
 print_help()
 {
-	MBS *_cmd = W2U($CMD);
+	MBS *_cmd = W2M($CMD);
 
 	print_version();
 	P("%s コマンドの実行時間を計測 %s\n", CLR_TITLE1, CLR_RESET);
@@ -166,8 +166,9 @@ print_help()
 	P("%s        コマンド出力を表示しない\n", CLR_STR1);
 	P("\n");
 	P("%s    -codepage=Num | -cp=Num\n", CLR_OPT21);
-	P("%s        コマンド出力のコードページをNumに変更（初期値：%u）\n", CLR_STR1, $CP);
-	P("%s            932 = Shift_JIS     65001 = UTF-8\n", CLR_STR1);
+	P("%s        コマンド出力のコードページを Num に変更（初期値：%u）\n", CLR_STR1, $CP);
+	P("%s            65001 = UTF-8\n", CLR_STR1);
+	P("%s            932   = Shift_JIS\n", CLR_STR1);
 	P("\n");
 	P(CLR_STR2);
 	LN();

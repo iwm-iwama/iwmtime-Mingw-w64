@@ -4,37 +4,30 @@
 	知り得ている危険に手を抜いてはいけない。たとえ、コード量が増加しようとも。
 	『安全』と『速度』は反比例しない。
 
-[2013-01-31] +[2022-09-03]
+[2013-01-31] + [2022-09-03]
 	マクロで複雑な関数を書くな。デバッグが難しくなる。
 	「コードの短さ」より「コードの生産性」を優先する。
 
-[2014-01-03] +[2022-09-03]
+[2014-01-03] + [2022-09-03]
 	今更ながら・・・、
 	自作関数の返り値は以下のルールに拠る。
-		NULL   : NULL
-		エラー : 新規ポインタ（空データ）
-		成功   : 新規ポインタ
+		NULL   => NULL
+		エラー => 新規ポインタ（空データ）
+		成功   => 新規ポインタ
 	元の引数ポインタを引用して返すのはエラーの元凶。
 
-[2014-01-03] +[2022-09-03]
-	動的メモリ確保と初期化／解放をこまめに行えば、
+[2014-01-03] + [2023-07-10]
+	動的メモリの確保／初期化／解放をこまめに行えば、
 	十分な『安全』と『速度』を今時のハードウェアは提供する。
 
-[2014-02-13] +[2022-09-03]
-	使用する変数／Minqw-w64
-		INT    : 負値を返す関数
-		UINT   : NTFS関連
-		INT64  : ファイルサイズ
-		DOUBLE : 暦
-
-[2016-08-19] +[2022-09-04]
+[2016-08-19] + [2022-09-04]
 	大域変数・定数表記
-		大域変数    : １文字目は "$"
+		大域変数 => １文字目は "$"
 			$ARGV, $icallocMap など
-		#define定数 : 全大文字
+		#define定数 => 全大文字
 			IMAX_PATH, WCS など
 
-[2016-01-27] +[2022-09-17]
+[2016-01-27] + [2022-09-17]
 	基本関数名ルール
 		i = iwm-iwama
 		m = MBS(1byte) | u = MBS(UTF-8) | w = WCS(UTF-16) | v = VOID
@@ -44,10 +37,6 @@
 	ポインタ *(p + n) と配列 p[n] どちらが速い？
 		Mingw-w64においては最適化するとどちらも同じになる。
 		今後は可読性を考慮した配列型でコーディングする。
-
-[2022-09-11] +[2022-09-25]
-	iwmutil2: 入力／内部＝Unicode, 出力＝UTF-8(CP65001)
-	※iwmutil: 入力／内部／出力＝Shift_JIS(CP932)
 
 */
 #include "lib_iwmutil2.h"
@@ -208,11 +197,11 @@ iCLI_getOptMatch(
 	}
 	return FALSE;
 }
-// v2022-11-10
+// v2023-07-11
 VOID
 iCLI_VarList()
 {
-	MBS *_cmd = icnv_W2U($CMD);
+	MBS *_cmd = icnv_W2M($CMD);
 		P ("[$CMD]\n    %s\n", _cmd);
 		P ("[$ARGC]\n    %d\n", $ARGC);
 		P2("[$ARGV]");
@@ -259,26 +248,27 @@ iExecSec(
 	icalloc() 用に確保される配列
 	IcallocDiv は必要に応じて変更
 */
+// v2023-07-10
 typedef struct
 {
-	VOID *ptr; // ポインタ位置
-	UINT ary;  // 配列個数（配列以外=0）
-	UINT size; // アロケート長
-	UINT byte; // sizeof
-	UINT id;   // 順番
+	VOID *ptr;    // ポインタ位置
+	UINT uAry;    // 配列個数（配列以外=0）
+	UINT uAlloc;  // アロケート長
+	UINT uSizeOf; // sizeof
+	UINT id;      // 順番
 }
 $struct_icallocMap;
 
-$struct_icallocMap *$icallocMap; // 可変長
-UINT $icallocMapSize = 0;        // *$icallocMap のサイズ＋1
-UINT $icallocMapEOD = 0;         // *$icallocMap の現在位置＋1
-UINT $icallocMapFreeCnt = 0;     // *$icallocMap 中の空白領域
-UINT $icallocMapId = 0;          // *$icallocMap の順番
+$struct_icallocMap *$icallocMap = 0; // 可変長
+UINT $icallocMapSize = 0;            // *$icallocMap のサイズ＋1
+UINT $icallocMapEOD = 0;             // *$icallocMap の現在位置＋1
+UINT $icallocMapFreeCnt = 0;         // *$icallocMap 中の空白領域
+UINT $icallocMapId = 0;              // *$icallocMap の順番
 CONST UINT $sizeof_icallocMap = sizeof($struct_icallocMap);
-// *$icallocMap の基本区画サイズ(適宜変更 > 0)
-#define   IcallocDiv          (1 << 5)
-// 確保したメモリ後方に最低4byte以上の空白を確保
-#define   ceilX(n)            ((((n - 5) >> 3) << 3) + (1 << 4))
+// *$icallocMap の基本区画サイズ
+#define   IcallocDiv          (1<<4)
+// 8個余分
+#define   MemX(n, size)       ((n+8)*size)
 
 //---------
 // calloc
@@ -287,11 +277,11 @@ CONST UINT $sizeof_icallocMap = sizeof($struct_icallocMap);
 	WCS *wp1 = icalloc_WCS(100);
 	INT *ai1 = icalloc_INT(100);
 */
-// v2022-08-26
+// v2023-07-13
 VOID
 *icalloc(
 	UINT n,    // 個数
-	UINT size, // 型サイズ sizeof()
+	UINT size, // sizeof
 	BOOL aryOn // TRUE=配列
 )
 {
@@ -311,18 +301,14 @@ VOID
 		icalloc_err($icallocMap);
 	}
 	// 引数にポインタ割当
-	UINT uSize = ceilX(n * size);
-	VOID *rtn = malloc(uSize);
+	UINT uAlloc = MemX(n, size);
+	VOID *rtn = malloc(uAlloc);
 	icalloc_err(rtn);
-	memset(rtn, 0, uSize);
-	// ポインタ
+	memset(rtn, 0, uAlloc);
 	($icallocMap + $icallocMapEOD)->ptr = rtn;
-	// 配列
-	($icallocMap + $icallocMapEOD)->ary = (aryOn ? n : 0);
-	// サイズ
-	($icallocMap + $icallocMapEOD)->size = uSize;
-	// sizeof
-	($icallocMap + $icallocMapEOD)->byte = size;
+	($icallocMap + $icallocMapEOD)->uAry = (aryOn ? n : 0);
+	($icallocMap + $icallocMapEOD)->uAlloc = uAlloc;
+	($icallocMap + $icallocMapEOD)->uSizeOf = size;
 	// 順番
 	++$icallocMapId;
 	($icallocMap + $icallocMapEOD)->id = $icallocMapId;
@@ -332,40 +318,40 @@ VOID
 //----------
 // realloc
 //----------
-// v2022-09-14
+// v2023-07-13
 VOID
 *irealloc(
 	VOID *ptr, // icalloc()ポインタ
 	UINT n,    // 個数
-	UINT size  // 型サイズ sizeof()
+	UINT size  // sizeof
 )
 {
 	// 該当なしのときは ptr を返す
 	VOID *rtn = ptr;
-	UINT uSize = ceilX(n * size);
+	UINT uAlloc = MemX(n, size);
 	// $icallocMap を更新
 	UINT u1 = 0;
 	while(u1 < $icallocMapEOD)
 	{
 		if(ptr == ($icallocMap + u1)->ptr)
 		{
-			if(($icallocMap + u1)->ary)
+			if(($icallocMap + u1)->uAry)
 			{
-				($icallocMap + u1)->ary = n;
+				($icallocMap + u1)->uAry = n;
 			}
-			if(($icallocMap + u1)->size < uSize)
+			if(($icallocMap + u1)->uAlloc < uAlloc)
 			{
 				// reallocの初期化版
-				uSize *= 2; // 次回以降の処理を省略するため２倍確保
-				rtn = (VOID*)malloc(uSize);
+				uAlloc *= 2; // 次回以降の処理を省略するため２倍確保
+				rtn = (VOID*)malloc(uAlloc);
 				icalloc_err(rtn);
-				memset(rtn, 0, uSize);
-				memcpy(rtn, ptr, ($icallocMap + u1)->size);
-				memset(ptr, 0, ($icallocMap + u1)->size);
+				memset(rtn, 0, uAlloc);
+				memcpy(rtn, ptr, ($icallocMap + u1)->uAlloc);
+				memset(ptr, 0, ($icallocMap + u1)->uAlloc);
 				free(ptr);
 				ptr = 0;
 				($icallocMap + u1)->ptr = rtn;
-				($icallocMap + u1)->size = uSize;
+				($icallocMap + u1)->uAlloc = uAlloc;
 				break;
 			}
 		}
@@ -397,7 +383,7 @@ icalloc_err(
 //---------------------------
 // ($icallocMap + n) をfree
 //---------------------------
-// v2022-09-03
+// v2023-07-10
 VOID
 icalloc_free(
 	VOID *ptr
@@ -411,11 +397,11 @@ icalloc_free(
 		if(ptr == (map->ptr))
 		{
 			// 配列から先に free
-			if(map->ary)
+			if(map->uAry)
 			{
 				// １次元削除
 				u2 = 0;
-				while(u2 < (map->ary))
+				while(u2 < (map->uAry))
 				{
 					if(! (*((VOID**)(map->ptr) + u2)))
 					{
@@ -428,7 +414,7 @@ icalloc_free(
 				// memset() + NULL代入 で free() の代替
 				// ２次元削除
 				// ポインタ配列を消去
-				memset(map->ptr, 0, map->size);
+				memset(map->ptr, 0, map->uAlloc);
 				free(map->ptr);
 				map->ptr = 0;
 				memset(map, 0, $sizeof_icallocMap);
@@ -505,100 +491,58 @@ icalloc_mapSweep()
 //--------------------------
 // $icallocMapをリスト出力
 //--------------------------
-// v2022-08-26
+// v2023-07-11
 VOID
 icalloc_mapPrint1()
 {
-	if(! $icallocMapSize)
-	{
-		return;
-	}
-
 	iConsole_EscOn();
 
 	P1("\033[38;2;100;100;255m");
-	P1("-1-------------8--------------16--------------24--------------32--------");
-	P2("\033[38;2;50;255;50m");
-
-	CONST UINT rowsCnt = 32;
-	UINT uRowsCnt = rowsCnt;
-	UINT u1 = 0, u2 = 0;
-	while(u1 < $icallocMapSize)
-	{
-		while(u1 < uRowsCnt)
-		{
-			P1("\033[49m ");
-			if(($icallocMap + u1)->ptr)
-			{
-				P1("\033[48;2;50;255;50m ");
-				++u2;
-			}
-			else
-			{
-				P1("\033[48;2;50;75;50m ");
-			}
-			++u1;
-		}
-		P("\033[49m ");
-		if(u1 > u2)
-		{
-			P("\033[38;2;50;255;50m%7u", u2);
-		}
-		else
-		{
-			P1("\033[38;2;100;100;255m      *");
-		}
-		P(" \033[38;2;100;100;255m%u\n", u1);
-		uRowsCnt += rowsCnt;
-	}
-	P1("\033[0m");
-}
-// v2022-09-14
-VOID
-icalloc_mapPrint2()
-{
-	iConsole_EscOn();
-
-	P1("\033[38;2;100;100;255m");
-	P1("------- id ---- pointer -------- array ----- size - byte ---------------");
+	P1("- count - id ---- pointer -------- array ----- size - sizeof -------------------");
 	P2("\033[38;2;255;255;255m");
 
 	$struct_icallocMap *map = 0;
-	INT64 iUsedSize = 0;
+	UINT uAllocUsed = 0;
 	UINT u1 = 0;
 	while(u1 < $icallocMapEOD)
 	{
 		map = ($icallocMap + u1);
 		if((map->ptr))
 		{
-			iUsedSize += (map->size);
+			uAllocUsed += (map->uAlloc);
 
-			if((map->ary))
+			if((map->uAry))
 			{
 				// 背景色変更
-				P1("\033[48;2;150;0;0m");
+				P1("\033[48;2;150;150;255m");
 			}
 
 			P(
-				"%-7u %07u %p %5u %10u %6u",
+				"  %-7u %07u %p %5u %10u %8u",
 				(u1 + 1),
 				(map->id),
 				(map->ptr),
-				(map->ary),
-				(map->size),
-				(map->byte)
+				(map->uAry),
+				(map->uAlloc),
+				(map->uSizeOf)
 			);
 
-			if(! (map->ary))
+			if(! (map->uAry))
 			{
 				P1(" ");
-				if((map->byte) == sizeof(WCS))
+
+				switch(map->uSizeOf)
 				{
-					P1W(map->ptr);
-				}
-				else
-				{
-					P1(map->ptr);
+					case sizeof(WCS):
+						P1W(map->ptr);
+						break;
+
+					case sizeof(MBS):
+						P1(map->ptr);
+						break;
+
+					default:
+						break;
 				}
 			}
 
@@ -610,8 +554,8 @@ icalloc_mapPrint2()
 
 	P1("\033[38;2;100;100;255m");
 	P(
-		"-------------------------------- %16lld ----------------------",
-		iUsedSize
+		"---------------------------------- %16lld byte -----------------------",
+		uAllocUsed
 	);
 	P2("\033[0m");
 	NL();
@@ -681,13 +625,13 @@ QP2(
 	WriteFile($StdoutHandle, str, (DWORD)size, NULL, NULL);
 	FlushFileBuffers($StdoutHandle);
 }
-// v2022-09-16
+// v2023-07-11
 VOID
 P1W(
 	WCS *str
 )
 {
-	MBS *mp1 = W2U(str);
+	MBS *mp1 = icnv_W2M(str);
 		fputs(mp1, stdout);
 	ifree(mp1);
 }
@@ -763,9 +707,9 @@ WCS
 	UTF-16／UTF-8変換
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-// v2022-09-17
+// v2023-07-11
 MBS
-*icnv_W2U(
+*icnv_W2M(
 	WCS *str
 )
 {
@@ -778,9 +722,9 @@ MBS
 	WideCharToMultiByte(CP_UTF8, 0, str, -1, mp1, uU, NULL, NULL);
 	return mp1;
 }
-// v2022-09-17
+// v2023-07-11
 WCS
-*icnv_U2W(
+*icnv_M2W(
 	MBS *str
 )
 {
@@ -1871,7 +1815,7 @@ iwa_print(
 	UINT u1 = 0;
 	while(*ary)
 	{
-		MBS *mp1 = icnv_W2U(*ary);
+		MBS *mp1 = icnv_W2M(*ary);
 			P(" %4u) %s\n", ++u1, mp1);
 		ifree(mp1);
 		++ary;
@@ -2777,16 +2721,16 @@ idate_chk_month_end(
 // strを年月日に分割(int)
 //-------------------------
 /* (例)
-	INT *ai1 = idate_WCS_to_iAryYmdhns(L"-2012-8-12 12:45:00");
+	INT *ai1 = idate_WCSToiAryYmdhns(L"-2012-8-12 12:45:00");
 	for(INT i1 = 0; i1 < 6; i1++)
 	{
 		PL3(ai1[i1]); //=> -2012, 8, 12, 12, 45, 0
 	}
 	ifree(ai1);
 */
-// v2022-09-25
+// v2023-07-13
 INT
-*idate_WCS_to_iAryYmdhns(
+*idate_WCSToiAryYmdhns(
 	WCS *str // (例) "2012-03-12 13:40:00"
 )
 {
@@ -2877,9 +2821,9 @@ idate_ymdhnsToCjd(
 //--------------------
 // CJDを時分秒に変換
 //--------------------
-// v2021-11-15
+// v2023-07-13
 INT
-*idate_cjd_to_iAryHhs(
+*idate_cjdToiAryHhs(
 	DOUBLE cjd
 )
 {
@@ -2915,9 +2859,9 @@ INT
 //--------------------
 // CJDをYMDHNSに変換
 //--------------------
-// v2021-11-15
+// v2023-07-13
 INT
-*idate_cjd_to_iAryYmdhns(
+*idate_cjdToiAryYmdhns(
 	DOUBLE cjd
 )
 {
@@ -2948,7 +2892,7 @@ INT
 		i_y = i2 - 4715;
 	}
 	// h, n, s
-	INT *ai2 = idate_cjd_to_iAryHhs(cjd);
+	INT *ai2 = idate_cjdToiAryHhs(cjd);
 		rtn[0] = i_y;
 		rtn[1] = i_m;
 		rtn[2] = i_d;
@@ -2961,7 +2905,7 @@ INT
 //---------
 // 再計算
 //---------
-// v2013-03-21
+// v2023-07-13
 INT
 *idate_reYmdhns(
 	INT i_y, // 年
@@ -2973,7 +2917,7 @@ INT
 )
 {
 	DOUBLE cjd = idate_ymdhnsToCjd(i_y, i_m, i_d, i_h, i_n, i_s);
-	return idate_cjd_to_iAryYmdhns(cjd);
+	return idate_cjdToiAryYmdhns(cjd);
 }
 //-------------------------------------------
 // cjd通日から曜日(日 = 0, 月 = 1...)を返す
@@ -3000,13 +2944,13 @@ WCS
 //------------------------------
 // cjd通日から年内の通日を返す
 //------------------------------
-// v2021-11-15
+// v2023-07-13
 INT
 idate_cjd_yeardays(
 	DOUBLE cjd
 )
 {
-	INT *ai = idate_cjd_to_iAryYmdhns(cjd);
+	INT *ai = idate_cjdToiAryYmdhns(cjd);
 	INT i1 = ai[0];
 	ifree(ai);
 	return (INT)(cjd - idate_ymdhnsToCjd(i1, 1, 0, 0, 0, 0));
@@ -3021,7 +2965,7 @@ idate_cjd_yeardays(
 		PL3(ai[i1]); //=> 2012, 2, 29, 0, 0, 0
 	}
 */
-// v2021-11-15
+// v2023-07-13
 INT
 *idate_add(
 	INT i_y,   // 年
@@ -3064,7 +3008,7 @@ INT
 	if(add_d != 0)
 	{
 		cjd = idate_ymdhnsToCjd(ai2[0], ai2[1], ai2[2], ai2[3], ai2[4], ai2[5]);
-		ai1 = idate_cjd_to_iAryYmdhns(cjd + add_d);
+		ai1 = idate_cjdToiAryYmdhns(cjd + add_d);
 		i2 = 0;
 		while(i2 < 6)
 		{
@@ -3117,7 +3061,7 @@ INT
 		PL3(ai[i1]); //=> 2012, 2, 29, 0, 0, 0, 29
 	}
 */
-// v2021-11-15
+// v2023-07-13
 INT
 *idate_diff(
 	INT i_y1, // 年1
@@ -3160,8 +3104,8 @@ INT
 	/*
 		正規化2
 	*/
-	INT *ai1 = idate_cjd_to_iAryYmdhns(cjd1);
-	INT *ai2 = idate_cjd_to_iAryYmdhns(cjd2);
+	INT *ai1 = idate_cjdToiAryYmdhns(cjd1);
+	INT *ai2 = idate_cjdToiAryYmdhns(cjd2);
 	/*
 		ymdhns
 	*/
@@ -3256,7 +3200,7 @@ INT
 /* (例) 西暦1年から2000年迄のサンプル100例について評価
 	idate_diff_checker(1, 2000, 100);
 */
-// v2023-06-23
+// v2023-07-10
 /*
 VOID
 irand_init()
@@ -3277,7 +3221,7 @@ VOID
 idate_diff_checker(
 	INT from_year, // 何年から
 	INT to_year,   // 何年まで
-	UINT uSample   // サンプル抽出数
+	INT iSample    // サンプル抽出数
 )
 {
 	if(from_year > to_year)
@@ -3293,7 +3237,7 @@ idate_diff_checker(
 	MBS *err = 0;
 	P2("\033[94m--Cnt----From----------To------------[Sign,    Y,  M,  D]----DateAdd-------Chk----\033[0m");
 	irand_init();
-	for(INT i1 = 1; i1 <= uSample; i1++)
+	for(INT i1 = 1; i1 <= iSample; i1++)
 	{
 		y1 = from_year + irand_INT(0, rnd_y);
 		y2 = from_year + irand_INT(0, rnd_y);
@@ -3529,7 +3473,7 @@ WCS
 /* (例)
 	PL2W(idate_format_cjdToW(NULL, idate_nowToCjd_localtime()));
 */
-// v2022-09-02
+// v2023-07-13
 WCS
 *idate_format_cjdToW(
 	WCS *format, // NULL=IDATE_FORMAT_STD
@@ -3540,7 +3484,7 @@ WCS
 	{
 		format = IDATE_FORMAT_STD;
 	}
-	INT *ai1 = idate_cjd_to_iAryYmdhns(cjd);
+	INT *ai1 = idate_cjdToiAryYmdhns(cjd);
 	WCS *rtn = idate_format_ymdhns(format, ai1[0], ai1[1], ai1[2], ai1[3], ai1[4], ai1[5]);
 	ifree(ai1);
 	return rtn;
@@ -3563,7 +3507,7 @@ WCS
 	WCS *str = L" 1 = []\n 2 = [%]\n 3 = [*]\n 4 = [-10d]\n 5 = [-10D]\n 6 = [-10d%]\n 7 = [-10D%]\n 8 = [0]\n 9 = [-0]\n10 = [0d]\n11 = [0%]";
 	LN();
 	P2W(str);
-	INT *ai = idate_now_to_iAryYmdhns_localtime();
+	INT *ai = idate_nowToiAryYmdhns_localtime();
 		WCS *wp1 = idate_replace_format_ymdhns(
 			str,
 			L"[", L"]",
@@ -3827,12 +3771,12 @@ WCS
 //---------------------
 /* (例)
 	// 今日 = 2012-06-19 00:00:00 のとき、
-	idate_now_to_iAryYmdhns(0); // System(-9h) => 2012, 6, 18, 15, 0, 0
-	idate_now_to_iAryYmdhns(1); // Local       => 2012, 6, 19,  0, 0, 0
+	idate_nowToiAryYmdhns(0); // System(-9h) => 2012, 6, 18, 15, 0, 0
+	idate_nowToiAryYmdhns(1); // Local       => 2012, 6, 19,  0, 0, 0
 */
-// v2021-11-15
+// v2023-07-13
 INT
-*idate_now_to_iAryYmdhns(
+*idate_nowToiAryYmdhns(
 	BOOL area // TRUE=LOCAL／FALSE=SYSTEM
 )
 {
@@ -3869,13 +3813,13 @@ INT
 	idate_nowToCjd(0); // System(-9h)
 	idate_nowToCjd(1); // Local
 */
-// v2021-11-15
+// v2023-07-13
 DOUBLE
 idate_nowToCjd(
 	BOOL area // TRUE=LOCAL／FALSE=SYSTEM
 )
 {
-	INT *ai = idate_now_to_iAryYmdhns(area);
+	INT *ai = idate_nowToiAryYmdhns(area);
 	INT y = ai[0], m = ai[1], d = ai[2], h = ai[3], n = ai[4], s = ai[5];
 	ifree(ai);
 	return idate_ymdhnsToCjd(y, m, d, h, n, s);

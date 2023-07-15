@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////////////
-#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20230623"
+#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20230714"
 #define   LIB_IWMUTIL_COPYLIGHT                   "Copyright (C)2008-2023 iwm-iwama"
 /////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -102,8 +102,7 @@ VOID      icalloc_mapSweep();
 #define   imain_end()                             ifree_all();exit(EXIT_SUCCESS)
 
 VOID      icalloc_mapPrint1();
-VOID      icalloc_mapPrint2();
-#define   icalloc_mapPrint()                      PL();NL();icalloc_mapPrint1();icalloc_mapPrint2()
+#define   icalloc_mapPrint()                      PL();NL();icalloc_mapPrint1()
 
 #define   ierr_end(msg)                           P("[Err] %s\n",msg);imain_end()
 
@@ -141,11 +140,11 @@ WCS       *iws_conv_escape(WCS *str);
 	UTF-16／UTF-8変換
 ---------------------------------------------------------------------------------------*/
 /////////////////////////////////////////////////////////////////////////////////////////
-MBS       *icnv_W2U(WCS *str);
-#define   W2U(str)                                (MBS*)icnv_W2U(str)
+MBS       *icnv_W2M(WCS *str);
+#define   W2M(str)                                (MBS*)icnv_W2M(str)
 
-WCS       *icnv_U2W(MBS *str);
-#define   U2W(str)                                (WCS*)icnv_U2W(str)
+WCS       *icnv_M2W(MBS *str);
+#define   M2W(str)                                (WCS*)icnv_M2W(str)
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /*---------------------------------------------------------------------------------------
@@ -380,13 +379,13 @@ INT       *idate_cnv_month(INT i_y,INT i_m,INT from_m,INT to_m);
 INT       idate_month_end(INT i_y,INT i_m);
 BOOL      idate_chk_month_end(INT i_y,INT i_m,INT i_d,BOOL reChk);
 
-INT       *idate_WCS_to_iAryYmdhns(WCS *str);
+INT       *idate_WCSToiAryYmdhns(WCS *str);
 
 INT       idate_ymd_num(INT i_y,INT i_m,INT i_d);
 DOUBLE    idate_ymdhnsToCjd(INT i_y,INT i_m,INT i_d,INT i_h,INT i_n,INT i_s);
 
-INT       *idate_cjd_to_iAryHns(DOUBLE cjd);
-INT       *idate_cjd_to_iAryYmdhns(DOUBLE cjd);
+INT       *idate_cjdToiAryHns(DOUBLE cjd);
+INT       *idate_cjdToiAryYmdhns(DOUBLE cjd);
 
 INT       *idate_reYmdhns(INT i_y,INT i_m,INT i_d,INT i_h,INT i_n,INT i_s);
 
@@ -451,12 +450,12 @@ WCS       *idate_format_cjdToW(WCS *format,DOUBLE cjd);
 WCS       *idate_replace_format_ymdhns(WCS *str,WCS *quote1,WCS *quote2,WCS *add_quote,INT i_y,INT i_m,INT i_d,INT i_h,INT i_n,INT i_s);
 #define   idate_format_nowToYmdhns(i_y,i_m,i_d,i_h,i_n,i_s)           (WCS*)idate_replace_format_ymdhns(L"[]",L"[",L"]","",i_y,i_m,i_d,i_h,i_n,i_s)
 
-INT       *idate_now_to_iAryYmdhns(BOOL area);
-#define   idate_now_to_iAryYmdhns_localtime()     (INT*)idate_now_to_iAryYmdhns(TRUE)
-#define   idate_now_to_iAryYmdhns_systemtime()    (INT*)idate_now_to_iAryYmdhns(FALSE)
+INT       *idate_nowToiAryYmdhns(BOOL area);
+#define   idate_nowToiAryYmdhns_localtime()       (INT*)idate_nowToiAryYmdhns(TRUE)
+#define   idate_nowToiAryYmdhns_systemtime()      (INT*)idate_nowToiAryYmdhns(FALSE)
 
 DOUBLE    idate_nowToCjd(BOOL area);
-#define   idate_nowToCjd_localtime()              (DOUBLE)idate_nowToCjd(TRUE)
-#define   idate_nowToCjd_systemtime()             (DOUBLE)idate_nowToCjd(FALSE)
+#define   CJD_NOW_LOCAL()                         (DOUBLE)idate_nowToCjd(TRUE)
+#define   CJD_NOW_SYSTEM()                        (DOUBLE)idate_nowToCjd(FALSE)
 
-#define   idate_cjd_sec(cjd)                      (DOUBLE)(cjd)*86400.0
+#define   CJD_SEC(cjd)                            (DOUBLE)(cjd*86400.0)
