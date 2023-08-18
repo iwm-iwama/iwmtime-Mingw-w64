@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////////////////////////////////////
-#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20230809"
+#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20230815"
 #define   LIB_IWMUTIL_COPYLIGHT                   "Copyright (C)2008-2023 iwm-iwama"
 //////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -33,7 +33,8 @@ typedef   WCHAR     WS; // iwx_xxx()／UTF-16／Wide Char String
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
 #define   imain_begin()                           iExecSec(0);iCLI_getCommandLine();iConsole_EscOn();
-#define   imain_end()                             ifree_all();exit(EXIT_SUCCESS)
+#define   imain_end()                             P1(ICLR_RESET);ifree_all();exit(EXIT_SUCCESS)
+#define   imain_err()                             P1(ICLR_RESET);ifree_all();exit(EXIT_FAILURE)
 
 extern    WS        *$CMD;         // コマンド名を格納
 extern    UINT      $ARGC;         // 引数配列数
@@ -103,8 +104,6 @@ VOID      icalloc_mapSweep();
 
 VOID      icalloc_mapPrint1();
 #define   icalloc_mapPrint()                      PL();NL();icalloc_mapPrint1()
-
-#define   ierr_end(msg)                           P("[Err] %s\n",msg);imain_end()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------

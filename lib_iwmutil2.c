@@ -64,13 +64,12 @@ UINT64 $ExecSecBgn   = 0;     // 実行開始時間
 //-------------------------
 // コマンド名／引数を取得
 //-------------------------
-// v2023-08-08
+// v2023-08-13
 VOID
 iCLI_signal()
 {
-	P2("\033[0m");
-	ifree_all();
-	exit(EXIT_FAILURE);
+	P2(ICLR_RESET);
+	imain_err();
 }
 // v2023-08-08
 VOID
@@ -206,7 +205,7 @@ iCLI_getOptMatch(
 VOID
 iCLI_VarList()
 {
-	MS *_cmd = icnv_W2M($CMD);
+	MS *_cmd = W2M($CMD);
 		P("[$CMD]\n    %s\n", _cmd);
 		P("[$ARGC]\n    %d\n", $ARGC);
 		P2("[$ARGV]");
@@ -370,7 +369,7 @@ VOID
 	MS *p1 = NULL;
 	icalloc_err(p1);
 */
-// v2022-09-23
+// v2023-08-13
 VOID
 icalloc_err(
 	VOID *ptr
@@ -378,7 +377,10 @@ icalloc_err(
 {
 	if(! ptr)
 	{
-		ierr_end("[Err] Can't allocate memories!");
+		P1(ICLR_ERR1);
+		P2("[Err] Can't allocate memories!");
+		P1(ICLR_RESET);
+		imain_err();
 	}
 }
 //---------------------------
@@ -570,13 +572,14 @@ icalloc_mapPrint1()
 // printf()
 //-----------
 /* (例)
-	P("abc");         //=> "abc"
+	P("abc\n");       //=> "abc\n"
 	P("%s\n", "abc"); //=> "abc\n"
 
 	// printf()系は遅い。可能であれば P1(), P2() を使用する。
-	P1("abc");   //=> "abc"
-	P2("abc");   //=> "abc\n"
-	QP1("abc\n"); //=> "abc\n"
+	P1("abc\n");      //=> "abc\n"
+	P2("abc");        //=> "abc\n"
+	QP1("abc\n");     //=> "abc\n"
+	QP2("abc");       //=> "abc\n"
 */
 // v2015-01-24
 VOID
@@ -594,26 +597,25 @@ P(
 // Quick Print
 //--------------
 /* (例)
-	iConsole_EscOn();
-
-	INT iMax = 100;
-	MS *rtn = icalloc_MS(10 * iMax);
-	MS *pEnd = rtn;
+	INT BufSize = 10 * 100;
+	MS *Buf = icalloc_MS(BufSize);
+	MS *BufEnd = Buf;
 	INT iCnt = 0;
 
-	for(INT i1 = 1; i1 <= iMax; i1++)
+	for(INT _i1 = 1; _i1 <= 100; _i1++)
 	{
-		pEnd += sprintf(pEnd, "%d\n", i1);
+		BufEnd += sprintf(BufEnd, "%d\n", _i1);
 		++iCnt;
-		if(iCnt == 30)
+		if(iCnt >= 30)
 		{
 			iCnt = 0;
-			QP1(rtn);
-			pEnd = rtn;
+			QP(Buf, (BufEnd - Buf));
 			Sleep(2000);
+			*Buf = 0;
+			BufEnd = Buf;
 		}
 	}
-	QP1(rtn);
+	QP(Buf, (BufEnd - Buf));
 */
 // v2023-07-28
 VOID
@@ -632,7 +634,7 @@ P1W(
 	WS *str
 )
 {
-	MS *p1 = icnv_W2M(str);
+	MS *p1 = W2M(str);
 		fputs(p1, stdout);
 	ifree(p1);
 }
@@ -1012,65 +1014,56 @@ WS
 	return wcsncpy(to, from1, u1);
 }
 /* (例)
-	// 要素を呼び出す度 irealloc する方がスマートだが速度に不安があるので icalloc １回で済ませる。
-	MS *p1 = ims_cats(3, "123", "abcde", "あいうえお");
-		PL2(p1); //=> "123abcdeあいうえお"
-	ifree(p1);
+	MS *mp1 = ims_cats(5, "123", NULL, "abcde", "", "あいうえお");
+		PL2(mp1); //=> "123abcdeあいうえお"
+	ifree(mp1);
 */
-// v2022-09-24
+// v2023-08-15
 MS
 *ims_cats(
 	UINT size, // 要素数(n+1)
 	...        // ary[0..n]
 )
 {
-	UINT u1 = 0, u2 = 0;
 	va_list va;
+	UINT rtnSize = 0;
+	MS *rtn = icalloc_MS(rtnSize);
+	UINT rtnEnd = 0;
 	va_start(va, size);
-		u1 = size;
-		while(u1)
+		while(size--)
 		{
-			u2 += imn_len(va_arg(va, MS*));
-			--u1;
-		}
-	va_end(va);
-	MS *rtn = icalloc_MS(u2);
-	MS *pEnd = rtn;
-	va_start(va, size);
-		u1 = size;
-		while(u1)
-		{
-			pEnd += imn_cpy(pEnd, va_arg(va, MS*));
-			--u1;
+			MS *_mp1 = va_arg(va, MS*);
+			if(_mp1 && *_mp1)
+			{
+				rtnSize += strlen(_mp1);
+				rtn = irealloc_MS(rtn, rtnSize);
+				rtnEnd += imn_cpy((rtn + rtnEnd), _mp1);
+			}
 		}
 	va_end(va);
 	return rtn;
 }
-// v2022-09-24
+// v2023-08-15
 WS
 *iws_cats(
 	UINT size, // 要素数(n+1)
 	...        // ary[0..n]
 )
 {
-	UINT u1 = 0, u2 = 0;
 	va_list va;
+	UINT rtnSize = 0;
+	WS *rtn = icalloc_WS(rtnSize);
+	UINT rtnEnd = 0;
 	va_start(va, size);
-		u1 = size;
-		while(u1)
+		while(size--)
 		{
-			u2 += iwn_len(va_arg(va, WS*));
-			--u1;
-		}
-	va_end(va);
-	WS *rtn = icalloc_WS(u2);
-	WS *pEnd = rtn;
-	va_start(va, size);
-		u1 = size;
-		while(u1)
-		{
-			pEnd += iwn_cpy(pEnd, va_arg(va, WS*));
-			--u1;
+			WS *_wp1 = va_arg(va, WS*);
+			if(_wp1 && *_wp1)
+			{
+				rtnSize += wcslen(_wp1);
+				rtn = irealloc_WS(rtn, rtnSize);
+				rtnEnd += iwn_cpy((rtn + rtnEnd), _wp1);
+			}
 		}
 	va_end(va);
 	return rtn;
@@ -1859,7 +1852,7 @@ iwav_print(
 	UINT u1 = 0;
 	while(*ary)
 	{
-		MS *p1 = icnv_W2M(*ary);
+		MS *p1 = W2M(*ary);
 			P(" %4u) %s\n", ++u1, p1);
 		ifree(p1);
 		++ary;
@@ -2624,7 +2617,7 @@ WS
 			mp1 = irealloc_MS(mp1, mp1Size);
 		}
 	}
-	WS *rtn = icnv_M2W(mp1);
+	WS *rtn = M2W(mp1);
 	ifree(mp1);
 	return rtn;
 }
