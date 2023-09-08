@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////////////////////////////////////
-#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20230815"
+#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20230903"
 #define   LIB_IWMUTIL_COPYLIGHT                   "Copyright (C)2008-2023 iwm-iwama"
 //////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -23,7 +23,8 @@
 typedef   CHAR      MS; // imx_xxx() = Muliti Byte String／iux_xxx() = UTF-8N
 typedef   WCHAR     WS; // iwx_xxx()／UTF-16／Wide Char String
 
-#define   IMAX_PATH                               ((MAX_PATH>>3)<<4) // windef.h参照
+#define   IMAX_PATH                               32768 // Unicode API を使用する場合に限る
+
 #define   ISO_FORMAT_DATETIME                     L"%.4d-%02d-%02d %02d:%02d:%02d"
 #define   IDATE_FORMAT_STD                        L"%G%y-%m-%d %h:%n:%s"
 
@@ -33,8 +34,8 @@ typedef   WCHAR     WS; // iwx_xxx()／UTF-16／Wide Char String
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
 #define   imain_begin()                           iExecSec(0);iCLI_getCommandLine();iConsole_EscOn();
-#define   imain_end()                             P1(ICLR_RESET);ifree_all();exit(EXIT_SUCCESS)
-#define   imain_err()                             P1(ICLR_RESET);ifree_all();exit(EXIT_FAILURE)
+#define   imain_end()                             P1(IESC_RESET);P1(IESC_CURSOR_ON);ifree_all();exit(EXIT_SUCCESS)
+#define   imain_err()                             P1(IESC_RESET);P1(IESC_CURSOR_ON);ifree_all();exit(EXIT_FAILURE)
 
 extern    WS        *$CMD;         // コマンド名を格納
 extern    UINT      $ARGC;         // 引数配列数
@@ -166,7 +167,6 @@ UINT64    iwn_pcpy(WS *to,WS *from1,WS *from2);
 MS        *ims_clone(MS *from);
 WS        *iws_clone(WS *from);
 
-MS        *ims_pclone(MS *from1,MS *from2);
 WS        *iws_pclone(WS *from1,WS *from2);
 
 MS        *ims_cats(UINT size,...);
@@ -187,10 +187,6 @@ BOOL      iwb_cmp(WS *str,WS *search,BOOL perfect,BOOL icase);
 UINT64    iwn_searchCntW(WS *str,WS *search,BOOL icase);
 #define   iwn_searchCnt(str,search)               (UINT)iwn_searchCntW(str,search,FALSE)
 #define   iwn_searchCnti(str,search)              (UINT)iwn_searchCntW(str,search,TRUE)
-
-WS        *iwp_searchLM(WS *str,WS *search,BOOL icase);
-#define   iwp_searchL(str,search)                 (WS*)iwp_searchLM(str,search,FALSE)
-#define   iwp_searchLi(str,search)                (WS*)iwp_searchLM(str,search,TRUE)
 
 WS        **iwaa_split(WS *str,WS *tokens, BOOL bRmEmpty);
 
@@ -234,14 +230,14 @@ VOID      iwav_print(WS **ary);
 //////////////////////////////////////////////////////////////////////////////////////////
 typedef struct
 {
-	WS     fullnameW[IMAX_PATH]; // フルパス
-	UINT   uFname;               // ファイル名開始位置
-	UINT   uAttr;                // 属性
-	BOOL   bType;                // TRUE=Dir／FALSE=File
-	DOUBLE cjdCtime;             // 作成時間
-	DOUBLE cjdMtime;             // 更新時間
-	DOUBLE cjdAtime;             // アクセス時間
-	UINT64 uFsize;               // ファイルサイズ
+	WS     sPathW[IMAX_PATH]; // フルパス
+	UINT   uFname;            // ファイル名開始位置
+	UINT   uAttr;             // 属性
+	BOOL   bType;             // TRUE=Dir／FALSE=File
+	DOUBLE cjdCtime;          // 作成時間
+	DOUBLE cjdMtime;          // 更新時間
+	DOUBLE cjdAtime;          // アクセス時間
+	UINT64 uFsize;            // ファイルサイズ
 }
 $struct_iFinfoW;
 
@@ -251,11 +247,7 @@ BOOL      iFinfo_initW($struct_iFinfoW *FI,WIN32_FIND_DATAW *F,WS *dir,WS *name)
 VOID      iFinfo_freeW($struct_iFinfoW *FI);
 
 WS        *iFinfo_attrToW(UINT uAttr);
-INT       iFinfo_attrWtoINT(WS *sAttr);
-
-WS        *iFinfo_ftypeToW(INT iFtype);
-
-INT       iFinfo_depthW($struct_iFinfoW *FI);
+UINT      iFinfo_attrWtoINT(WS *sAttr);
 
 WS        *iFinfo_ftimeToW(FILETIME ftime);
 DOUBLE    iFinfo_ftimeToCjd(FILETIME ftime);
@@ -281,7 +273,7 @@ WS        *iFget_extPathnameW(WS *path,INT option);
 WS        *iFget_ApathW(WS *path);
 WS        *iFget_RpathW(WS *path);
 
-BOOL      imk_dirW(WS *path);
+UINT      imk_dirW(WS *path);
 BOOL      imv_trashW(WS *path);
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -289,17 +281,20 @@ BOOL      imv_trashW(WS *path);
 	Console
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-#define   ICLR_RESET                              "\033[0m"
-#define   ICLR_TITLE1                             "\033[38;2;250;250;250m\033[104m" // 白／青
-#define   ICLR_OPT1                               "\033[38;2;250;150;150m"          // 赤
-#define   ICLR_OPT2                               "\033[38;2;150;150;250m"          // 青
-#define   ICLR_OPT21                              "\033[38;2;80;250;250m"           // 水
-#define   ICLR_OPT22                              "\033[38;2;250;100;250m"          // 紅紫
-#define   ICLR_LBL1                               "\033[38;2;250;250;100m"          // 黄
-#define   ICLR_LBL2                               "\033[38;2;100;100;250m"          // 青
-#define   ICLR_STR1                               "\033[38;2;225;225;225m"          // 白
-#define   ICLR_STR2                               "\033[38;2;175;175;175m"          // 銀
-#define   ICLR_ERR1                               "\033[38;2;200;0;0m"              // 紅
+#define   IESC_CLEAR                              "\033[H;\033[2J"
+#define   IESC_CURSOR_ON                          "\033[?25h"
+#define   IESC_CURSOR_OFF                         "\033[?25l"
+#define   IESC_RESET                              "\033[0m"
+#define   IESC_TITLE1                             "\033[38;2;250;250;250m\033[104m" // 白／青
+#define   IESC_OPT1                               "\033[38;2;250;150;150m"          // 赤
+#define   IESC_OPT2                               "\033[38;2;150;150;250m"          // 青
+#define   IESC_OPT21                              "\033[38;2;80;250;250m"           // 水
+#define   IESC_OPT22                              "\033[38;2;250;100;250m"          // 紅紫
+#define   IESC_LBL1                               "\033[38;2;250;250;100m"          // 黄
+#define   IESC_LBL2                               "\033[38;2;100;100;250m"          // 青
+#define   IESC_STR1                               "\033[38;2;225;225;225m"          // 白
+#define   IESC_STR2                               "\033[38;2;175;175;175m"          // 銀
+#define   IESC_ERR1                               "\033[38;2;200;0;0m"              // 紅
 
 #define   iConsole_setTitleW(str)                 (VOID)SetConsoleTitleW(str)
 

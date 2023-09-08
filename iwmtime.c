@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20230809"
+#define   IWM_VERSION         "iwmtime_20230830"
 #define   IWM_COPYRIGHT       "Copyright (C)2021-2023 iwm-iwama"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil2.h"
@@ -49,8 +49,9 @@ main()
 
 	MEMORYSTATUSEX memex = { sizeof(MEMORYSTATUSEX) };
 
+	// 処理前のメモリ値
 	GlobalMemoryStatusEx(&memex);
-	CONST DWORDLONG iBgnEmpMem = memex.ullAvailPhys;
+	CONST UINT64 uBaseMem = memex.ullAvailPhys;
 
 	if(bQuiet)
 	{
@@ -58,7 +59,10 @@ main()
 			system(mp1);
 		ifree(mp1);
 
-		P("%s[Quiet Mode]%s\n",ICLR_OPT2, ICLR_RESET);
+		P2(
+			IESC_OPT2	"[Quiet Mode]"
+			IESC_RESET
+		);
 	}
 	else
 	{
@@ -68,35 +72,42 @@ main()
 	// 計測終了
 	DOUBLE dPassedSec = iExecSec_next();
 
-	P(ICLR_STR2);
+	P1(IESC_STR2);
 	LN(80);
+
 	// Program
-	P("  Program  %s\n", opCmd);
+	P(
+		"  Program  %s\n"
+		, opCmd
+	);
 
 	// Exec
 	mp1 = ims_DblToMs(dPassedSec, 3);
-		P("  Exec     %s sec\n", mp1);
+		P(
+			"  Exec     %s sec\n"
+			, mp1
+		);
 	ifree(mp1);
 
 	// Memory
-	P2("  Memory   ");
-	CONST INT iMs = 500;
-	CONST INT iLoop = 5;
+	P2("  Memory");
+
+	CONST INT Ms = 500;
+	CONST INT Loop = 5;
 	INT i1 = 0;
-	while(i1 < iLoop)
+	while(i1 < Loop)
 	{
 		GlobalMemoryStatusEx(&memex);
-
-		mp1 = ims_sprintf("%d", ((memex.ullAvailPhys - iBgnEmpMem) / 1024));
-			P("   %4d ms %7s KB\n", (iMs * i1), mp1);
-		ifree(mp1);
-
-		Sleep(iMs);
+		P(
+			"   %4d ms %8lld KB\n"
+			, (Ms * i1), ((INT64)(memex.ullAvailPhys - uBaseMem) / 1024)
+		);
+		Sleep(Ms);
 		++i1;
 	}
 
 	LN(80);
-	P(ICLR_RESET);
+	P1(IESC_RESET);
 
 	// Debug
 	/// icalloc_mapPrint(); ifree_all(); icalloc_mapPrint();
@@ -108,12 +119,15 @@ main()
 VOID
 print_version()
 {
-	P(ICLR_STR2);
+	P1(IESC_STR2);
 	LN(80);
-	P(" %s\n", IWM_COPYRIGHT);
-	P("    Ver.%s+%s\n", IWM_VERSION, LIB_IWMUTIL_VERSION);
+	P(
+		" %s\n"
+		"    Ver.%s+%s\n"
+		, IWM_COPYRIGHT, IWM_VERSION, LIB_IWMUTIL_VERSION
+	);
 	LN(80);
-	P(ICLR_RESET);
+	P1(IESC_RESET);
 }
 
 VOID
@@ -122,22 +136,29 @@ print_help()
 	MS *_cmd = W2M($CMD);
 
 	print_version();
-	P("%s コマンドの実行時間を計測 %s\n", ICLR_TITLE1, ICLR_RESET);
-	P("%s    %s %s[Option] %s[Command]\n", ICLR_STR1, _cmd, ICLR_OPT2, ICLR_OPT1);
-	P("\n");
-	P("%s (例１)\n", ICLR_LBL1);
-	P("%s    %s %snotepad\n", ICLR_STR1, _cmd, ICLR_OPT1);
-	P("\n");
-	P("%s (例２)\n", ICLR_LBL1);
-	P("%s    %s %s-quiet %sdir /b \"..\"\n", ICLR_STR1, _cmd, ICLR_OPT2, ICLR_OPT1);
-	P("\n");
-	P("%s [Option]\n", ICLR_OPT2);
-	P("%s    -quiet | -q\n", ICLR_OPT21);
-	P("%s        コマンド出力を表示しない\n", ICLR_STR1);
-	P("\n");
-	P(ICLR_STR2);
+	P(
+		IESC_TITLE1	" コマンドの実行時間を計測 "
+		IESC_RESET	"\n"
+		IESC_STR1	"    %s"
+		IESC_OPT2	" [Option]"
+		IESC_OPT1	" [Command]\n\n"
+		IESC_LBL1	" (例１)\n"
+		IESC_STR1	"    %s"
+		IESC_OPT1	" notepad.exe\n\n"
+		IESC_LBL1	" (例２)\n"
+		IESC_STR1	"    %s"
+		IESC_OPT2	" -quiet"
+		IESC_OPT1	" dir /b \"..\"\n\n"
+		, _cmd, _cmd, _cmd
+	);
+	P1(
+		IESC_OPT2	" [Option]\n"
+		IESC_OPT21	"    -quiet | -q\n"
+		IESC_STR1	"        コマンド出力を表示しない\n\n"
+	);
+	P1(IESC_STR2);
 	LN(80);
-	P(ICLR_RESET);
+	P1(IESC_RESET);
 
 	ifree(_cmd);
 }
