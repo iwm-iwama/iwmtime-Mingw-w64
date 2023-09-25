@@ -1664,19 +1664,20 @@ WS
 	ifree(iAryFlg);
 	return rtn;
 }
-//------------
-// Dirを抽出
-//------------
+//----------------------------
+// ARGS から Dir／Fileを抽出
+//----------------------------
 /* (例)
-	WS *args[] = {L"", L"D:", L"C:\\Windows\\", L"a:", L"c:", L"d:\\TMP", NULL};
-	WS **wa1 = iwaa_getDir(args);
-		iwav_print(wa1); //=> 'C:\' 'C:\Windows\' 'D:\' 'd:\TMP\'
+	WS *args[] = {L"", L"D:", L"C:\\Windows\\", L"a:", L"c:", L"c:\\foo", NULL};
+	WS **wa1 = iwaa_getDirFile(args, 1);
+		iwav_print(wa1); //=> 'c:\' 'C:\Windows\' 'D:\'
 	ifree(wa1);
 */
-// v2023-08-31
+// v2023-09-18
 WS
-**iwaa_getDir(
-	WS **ary
+**iwaa_getDirFile(
+	WS **ary,
+	INT iType // 0=Dir&File／2=Dir／3=File
 )
 {
 	// 重複排除
@@ -1687,10 +1688,23 @@ WS
 		// Dir名整形／存在するDirのみ抽出
 		while(u1 < uArySize)
 		{
-			if(PathIsDirectoryW(wa1[u1]))
+			if(iType == 0 || iType == 1)
 			{
-				rtn[u2] = iFget_ApathW(wa1[u1]);
-				++u2;
+				if(iFchk_DirNameW(wa1[u1]) && PathFileExistsW(wa1[u1]))
+				{
+					rtn[u2] = iFget_ApathW(wa1[u1]);
+					++u2;
+				}
+			}
+			if(iType == 0 || iType == 2)
+			{
+				if(! iFchk_DirNameW(wa1[u1]) && PathFileExistsW(wa1[u1]))
+				{
+					WS *_wp1 = icalloc_WS(IMAX_PATH);
+					_wfullpath(_wp1, wa1[u1], IMAX_PATH);
+					rtn[u2] = _wp1;
+					++u2;
+				}
 			}
 			++u1;
 		}
@@ -1708,13 +1722,13 @@ WS
 		iwav_print(wa1); //=> 'c:\' 'D:\'
 	ifree(wa1);
 */
-// v2023-07-27
+// v2023-09-18
 WS
 **iwaa_higherDir(
 	WS **ary
 )
 {
-	WS **rtn = iwaa_getDir(ary);
+	WS **rtn = iwaa_getDirFile(ary, 1);
 	UINT uArySize = iwan_size(rtn);
 	UINT u1 = 0, u2 = 0;
 	// 上位Dirを取得
@@ -2208,39 +2222,26 @@ iFchk_existPathW(
 	}
 	return PathFileExistsW(path);
 }
-//---------------------------------
-// Dir／File が実在するかチェック
-//---------------------------------
+//------------------------------------------------------------
+// Dir名として使用可能なとき実在の有無にかかわらずTRUEを返す
+//------------------------------------------------------------
 /* (例)
-	// 返り値
-	//  Err  : 0
-	//  Dir  : 1
-	//  File : 2
-	//
-	// 存在チェックはしない
-	// 必要に応じて iFchk_existPathM() で前処理
-	PL3(iFchk_typePathW(L"\\\\Network\\"));           //=> 0 (不在)
-	PL3(iFchk_typePathW(L"."));                       //=> 1
-	PL3(iFchk_typePathW(L".."));                      //=> 1
-	PL3(iFchk_typePathW(L"\\"));                      //=> 1
-	PL3(iFchk_typePathW(L"c:\\windows\\"));           //=> 1
-	PL3(iFchk_typePathW(L"c:\\windows\\system.ini")); //=> 2
+	PL3(iFchk_DirNameW(L"."));    //=> 1
+	PL3(iFchk_DirNameW(L""));     //=> 0
+	PL3(iFchk_DirNameW(L"\\"));   //=> 1
+	PL3(iFchk_DirNameW(L"\\\\")); //=> 1
 */
-// v2023-08-31
-INT
-iFchk_typePathW(
+// v2023-09-17
+BOOL
+iFchk_DirNameW(
 	WS *path
 )
 {
 	if(! path || ! *path)
 	{
-		return 0;
+		return FALSE;
 	}
-	if(PathIsDirectoryW(path))
-	{
-		return 1;
-	}
-	return (PathFileExistsW(path) ? 2 : 0);
+	return (GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY ? TRUE : FALSE);
 }
 //-------------------------------
 // Binary File のときTRUEを返す
@@ -2280,14 +2281,12 @@ iFchk_BfileW(
 // ファイル名等を抽出
 //---------------------
 /* (例)
-	// 存在しなくても機械的に抽出
-	// 必要に応じて iFchk_existPathM() で前処理
 	WS *p1 = L"c:\\windows\\win.ini";
 	PL2W(iFget_extPathnameW(p1, 0)); //=> "c:\windows\win.ini"
 	PL2W(iFget_extPathnameW(p1, 1)); //=> "win.ini"
 	PL2W(iFget_extPathnameW(p1, 2)); //=> "win"
 */
-// v2023-08-31
+// v2023-09-17
 WS
 *iFget_extPathnameW(
 	WS *path,
@@ -2300,7 +2299,7 @@ WS
 	}
 	WS *rtn = icalloc_WS(wcslen(path));
 	// Dir or File ?
-	if(PathIsDirectoryW(path))
+	if(iFchk_DirNameW(path))
 	{
 		if(option == 0)
 		{
@@ -2336,7 +2335,7 @@ WS
 	// "." = "d:\foo" のとき
 	PL2W(iFget_ApathW(L".")); //=> "d:\foo\"
 */
-// v2023-08-31
+// v2023-09-17
 WS
 *iFget_ApathW(
 	WS *path
@@ -2349,18 +2348,16 @@ WS
 	WS *rtn = 0;
 	WS *p1 = iws_cutYenR(path);
 	// "c:" のような表記は特別処理
-	if(p1[1] == ':' && wcslen(p1) == 2 && PathIsDirectoryW(p1))
+	if(p1[1] == ':' && wcslen(p1) == 2 && iFchk_DirNameW(p1))
 	{
 		rtn = iws_cats(2, p1 , L"\\");
 	}
 	else
 	{
 		rtn = icalloc_WS(IMAX_PATH);
-		if(_wfullpath(rtn, p1, IMAX_PATH) && PathIsDirectoryW(p1))
+		if(iFchk_DirNameW(p1) && _wfullpath(rtn, p1, IMAX_PATH))
 		{
-			UINT u1 = wcslen(rtn);
-			rtn[u1] = L'\\';
-			rtn[u1 + 1] = 0;
+			wcscat(rtn, L"\\");
 		}
 	}
 	ifree(p1);
@@ -2372,7 +2369,7 @@ WS
 /* (例)
 	PL2W(iFget_RpathW(L".")); //=> ".\"
 */
-// v2023-08-31
+// v2023-09-17
 WS
 *iFget_RpathW(
 	WS *path
@@ -2383,11 +2380,9 @@ WS
 		return icalloc_WS(0);
 	}
 	WS *rtn = iws_cutYenR(path);
-	if(PathIsDirectoryW(path))
+	if(iFchk_DirNameW(path))
 	{
-		UINT u1 = wcslen(rtn);
-		rtn[u1] = L'\\';
-		rtn[u1 + 1] = 0;
+		wcscat(rtn, L"\\");
 	}
 	return rtn;
 }

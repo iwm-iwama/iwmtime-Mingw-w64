@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////////////////////////////////////
-#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20230903"
+#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20230918"
 #define   LIB_IWMUTIL_COPYLIGHT                   "Copyright (C)2008-2023 iwm-iwama"
 //////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
@@ -218,7 +218,7 @@ WS        *iwas_njoin(WS **ary,WS *token,UINT start,UINT count);
 #define   iwas_join(ary,token)                    (WS*)iwas_njoin(ary,token,0,iwan_size(ary))
 
 WS        **iwaa_simplify(WS **ary,BOOL icase);
-WS        **iwaa_getDir(WS **ary);
+WS        **iwaa_getDirFile(WS **ary,INT iType);
 WS        **iwaa_higherDir(WS **ary);
 
 VOID      iwav_print(WS **ary);
@@ -261,10 +261,9 @@ FILETIME  iFinfo_ymdhnsToFtime(INT wYear,INT wMonth,INT wDay,INT wHour,INT wMinu
 //////////////////////////////////////////////////////////////////////////////////////////
 BOOL      iFchk_existPathW(WS *path);
 
-INT       iFchk_typePathW(WS *path);
+BOOL      iFchk_DirNameW(WS *path);
 
 BOOL      iFchk_BfileW(WS *fn);
-#define   iFchk_TfileW(fn)                        (BOOL)(iFchk_typePathW(fn) == 2 && !iFchk_BfileW(fn) ? TRUE : FALSE)
 
 #define   ichk_attrDirFile(attr)                  (INT)(((INT)attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 2)
 
