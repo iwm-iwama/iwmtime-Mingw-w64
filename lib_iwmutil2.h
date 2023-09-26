@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////////////////////////////////////
-#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20230918"
+#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20230926"
 #define   LIB_IWMUTIL_COPYLIGHT                   "Copyright (C)2008-2023 iwm-iwama"
 //////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>

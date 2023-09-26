@@ -1343,7 +1343,7 @@ WS
 		PL2(p1);
 	ifree(p1);
 */
-// v2023-07-29
+// v2023-09-26
 MS
 *ims_IntToMs(
 	INT64 num // 正数
@@ -1375,8 +1375,15 @@ MS
 	u1 -= u2;
 	while(u1 > 0)
 	{
-		*pEnd = ',';
-		++pEnd;
+		if(u2)
+		{
+			*pEnd = ',';
+			++pEnd;
+		}
+		else
+		{
+			u2 = 1;
+		}
 		pEnd += imn_pcpy(pEnd, p1, (p1 + 3));
 		p1 += 3;
 		u1 -= 3;
