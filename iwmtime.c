@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
-#define   IWM_VERSION         "iwmtime_20230830"
-#define   IWM_COPYRIGHT       "Copyright (C)2021-2023 iwm-iwama"
+#define   IWM_COPYRIGHT       "(C)2021-2023 iwm-iwama"
+#define   IWM_VERSION         "iwmtime_20231225"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil2.h"
 
@@ -14,38 +14,47 @@ main()
 	// lib_iwmutil2 初期化
 	imain_begin();
 
-	// -h | -help
+	///iCLI_VarList();
+
+	// -h | --help
 	if(! $ARGC || iCLI_getOptMatch(0, L"-h", L"--help"))
 	{
 		print_help();
 		imain_end();
 	}
 
-	// -v | -version
+	// -v | --version
 	if(iCLI_getOptMatch(0, L"-v", L"--version"))
 	{
 		print_version();
 		imain_end();
 	}
 
-	WS *wp1 = 0;
 	MS *mp1 = 0;
 
-	UINT uExecArgc = 0;
-
-	// Quiet Mode
-	BOOL bQuiet = FALSE;
+	WS *pARG = $ARG;
+	BOOL bOutput = TRUE;
 
 	// -q | -quiet
 	if(iCLI_getOptMatch(0, L"-q", L"-quiet"))
 	{
-		++uExecArgc;
-		bQuiet = TRUE;
-	}
+		P2(
+			IESC_OPT2	"[Quiet Mode]"
+			IESC_RESET
+		);
 
-	wp1 = iwas_njoin($ARGV, L" ", uExecArgc, $ARGC);
-		MS *opCmd = W2M(wp1);
-	ifree(wp1);
+		// 末尾の空白忘れずに
+		if(iwb_cmpf(pARG, L"-q "))
+		{
+			pARG += 3;
+		}
+		else if(iwb_cmpf(pARG, L"-quiet "))
+		{
+			pARG += 7;
+		}
+
+		bOutput = FALSE;
+	}
 
 	MEMORYSTATUSEX memex = { sizeof(MEMORYSTATUSEX) };
 
@@ -53,21 +62,8 @@ main()
 	GlobalMemoryStatusEx(&memex);
 	CONST UINT64 uBaseMem = memex.ullAvailPhys;
 
-	if(bQuiet)
-	{
-		mp1 = ims_cats(2, opCmd, " > NUL");
-			system(mp1);
-		ifree(mp1);
-
-		P2(
-			IESC_OPT2	"[Quiet Mode]"
-			IESC_RESET
-		);
-	}
-	else
-	{
-		system(opCmd);
-	}
+	// 実行
+	imv_system(pARG, bOutput);
 
 	// 計測終了
 	DOUBLE dPassedSec = iExecSec_next();
@@ -76,10 +72,12 @@ main()
 	LN(80);
 
 	// Program
-	P(
-		"  Program  %s\n"
-		, opCmd
-	);
+	mp1 = W2M(pARG);
+		P(
+			"  Program  %s\n"
+			, mp1
+		);
+	ifree(mp1);
 
 	// Exec
 	mp1 = ims_DblToMs(dPassedSec, 3);
@@ -109,8 +107,7 @@ main()
 	LN(80);
 	P1(IESC_RESET);
 
-	// Debug
-	/// icalloc_mapPrint(); ifree_all(); icalloc_mapPrint();
+	///icalloc_mapPrint(); ifree_all(); icalloc_mapPrint();
 
 	// 最終処理
 	imain_end();
@@ -123,7 +120,7 @@ print_version()
 	LN(80);
 	P(
 		" %s\n"
-		"    Ver.%s+%s\n"
+		"    %s+%s\n"
 		, IWM_COPYRIGHT, IWM_VERSION, LIB_IWMUTIL_VERSION
 	);
 	LN(80);

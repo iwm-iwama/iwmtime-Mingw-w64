@@ -50,10 +50,9 @@
 	imain_end();
 */
 WS     *$CMD         = L"";   // コマンド名を格納
+WS     *$ARG         = 0;     // 引数からコマンド名を消去したもの
 UINT   $ARGC         = 0;     // 引数配列数
 WS     **$ARGV       = 0;     // 引数配列／ダブルクォーテーションを消去したもの
-UINT   $CP_STDIN     = 0;     // 入力コードページ／不定
-UINT   $CP_STDOUT    = 65001; // 出力コードページ
 HANDLE $StdoutHandle = 0;     // 画面制御用ハンドル
 UINT64 $ExecSecBgn   = 0;     // 実行開始時間
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -70,20 +69,20 @@ iCLI_signal()
 {
 	imain_err();
 }
-// v2023-08-08
+// v2023-12-22
 VOID
-iCLI_getCommandLine()
+iCLI_begin()
 {
 	// [Ctrl]+[C]
 	signal(SIGINT, iCLI_signal);
 
-	// STDIN CP65001 | CP932
-	$CP_STDIN = GetConsoleOutputCP();
-
-	// STDOUT CP65001
-	SetConsoleOutputCP($CP_STDOUT);
+	// CodePage
+	SetConsoleCP(65001);
+	SetConsoleOutputCP(65001);
 
 	WS *str = GetCommandLineW();
+	$ARG = icalloc_WS(1);
+	UINT uArgSize = 0;
 	$ARGV = icalloc_WS_ary(1);
 	$ARGC = 0;
 
@@ -120,9 +119,21 @@ iCLI_getCommandLine()
 
 		if(bArgc)
 		{
+			uArgSize += wcslen(p1) + 2;
+			$ARG = irealloc_WS($ARG, uArgSize);
+			UINT u1 = wcslen($ARG);
+			if(u1)
+			{
+				wcscpy(($ARG + u1), L" ");
+				++u1;
+			}
+			wcscpy(($ARG + u1), p1);
+
 			$ARGV = irealloc_WS_ary($ARGV, ($ARGC + 1));
 			$ARGV[$ARGC] = iws_replace(p1, L"\"", L"", FALSE);
 			++$ARGC;
+
+			ifree(p1);
 		}
 		else
 		{
@@ -136,11 +147,22 @@ iCLI_getCommandLine()
 		$ARGC = 0;
 	}
 }
+// v2023-12-19
+VOID
+iCLI_end(
+	INT exitStatus
+)
+{
+	// CodePage
+	SetConsoleOutputCP(GetACP());
+
+	exit(exitStatus);
+}
 //-----------------------------------------
 // 引数 [Key]+[Value] から [Value] を取得
 //-----------------------------------------
 /* (例)
-	iCLI_getCommandLine();
+	iCLI_begin();
 	// $ARGV[0] = "-w=size <= 1000" のとき
 	P2W(iCLI_getOptValue(0, L"-w=", NULL)); //=> "size <= 1000"
 */
@@ -171,7 +193,7 @@ WS
 // 引数 [Key] と一致するか
 //--------------------------
 /* (例)
-	iCLI_getCommandLine();
+	iCLI_begin();
 	// $ARGV[0] => "-repeat"
 	P3(iCLI_getOptMatch(0, L"-repeat", NULL)); //=> TRUE
 	// $ARGV[0] => "-w=size <= 1000"
@@ -200,20 +222,34 @@ iCLI_getOptMatch(
 	}
 	return FALSE;
 }
-// v2023-08-30
+// v2023-12-16
 VOID
 iCLI_VarList()
 {
-	MS *_cmd = W2M($CMD);
+	P1("\033[97m");
+	MS *p1 = 0;
+	p1 = W2M($CMD);
 		P(
-			"[$CMD]\n    %s\n"
-			"[$ARGC]\n    %d\n"
-			"[$ARGV]\n"
-			, _cmd, $ARGC
+			"\033[44m $CMD \033[49m\n"
+			"    %s\n",
+			p1
 		);
+	ifree(p1);
+	p1 = W2M($ARG);
+		P(
+			"\033[44m $ARG \033[49m\n"
+			"    %s\n",
+			p1
+		);
+	ifree(p1);
+		P(
+			"\033[44m $ARGC \033[49m\n"
+			"    %d\n",
+			$ARGC
+		);
+		P1("\033[44m $ARGV \033[49m\n");
 		iwav_print($ARGV);
-		NL();
-	ifree(_cmd);
+	P2("\033[0m");
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -371,7 +407,7 @@ VOID
 	MS *p1 = NULL;
 	icalloc_err(p1);
 */
-// v2023-08-30
+// v2023-12-22
 VOID
 icalloc_err(
 	VOID *ptr
@@ -380,7 +416,7 @@ icalloc_err(
 	if(! ptr)
 	{
 		P2(
-			IESC_ERR1	"[Err] Can't allocate memories!"
+			IESC_FALSE1 "[Err] Can't allocate memories!"
 			IESC_RESET
 		);
 		imain_err();
@@ -497,15 +533,14 @@ icalloc_mapSweep()
 //--------------------------
 // $icallocMapをリスト出力
 //--------------------------
-// v2023-08-30
+// v2023-12-11
 VOID
 icalloc_mapPrint1()
 {
 	iConsole_EscOn();
 	P2(
-		"\033[38;2;100;100;255m"
+		"\033[94m"
 		"- count - id ---- pointer -------- array ----- size - sizeof -------------------"
-		"\033[38;2;255;255;255m"
 	);
 	$struct_icallocMap *map = 0;
 	UINT uAllocUsed = 0;
@@ -518,11 +553,11 @@ icalloc_mapPrint1()
 			uAllocUsed += (map->uAlloc);
 			if((map->uAry))
 			{
-				// 背景色変更
-				P1("\033[48;2;150;150;255m");
+				P1("\033[44m");
 			}
 			P(
-				"  %-7u %07u %p %5u %10u %8u",
+				"\033[97m"
+				"  %-7u %07u %p %5u %10u %8u ",
 				(u1 + 1),
 				(map->id),
 				(map->ptr),
@@ -532,7 +567,7 @@ icalloc_mapPrint1()
 			);
 			if(! (map->uAry))
 			{
-				P1(" ");
+				P1("\033[37m");
 				switch(map->uSizeOf)
 				{
 					case sizeof(WS):
@@ -545,18 +580,16 @@ icalloc_mapPrint1()
 						break;
 				}
 			}
-			// 背景色リセット
-			P2("\033[49m");
+			P2("\033[97;49m");
 		}
 		++u1;
 	}
 	P(
-		"\033[38;2;100;100;255m"
+		"\033[94m"
 		"---------------------------------- %16lld byte -----------------------"
-		"\033[0m\n"
+		"\033[0m\n\n"
 		, uAllocUsed
 	);
-	NL();
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -655,20 +688,20 @@ PR1(
 	P1(rtn);
 	ifree(rtn);
 }
-//-----------------------
-// EscapeSequenceへ変換
-//-----------------------
+//-------------------------
+// Escape Sequence へ変換
+//-------------------------
 /* (例)
 	WS *wp1 = L"A\\nB\\rC";
-	WS *wp2 = iws_conv_escape9(wp1);
+	WS *wp2 = iws_cnv_escape(wp1);
 		PL2W(wp1); //=> "A\\nB\\rC"
 		PL2W(wp2); //=> "A\nC"
 	ifree(wp2);
 	ifree(wp1);
 */
-// v2023-08-29
+// v2023-12-20
 WS
-*iws_conv_escape(
+*iws_cnv_escape(
 	WS *str
 )
 {
@@ -690,6 +723,9 @@ WS
 					break;
 				case('b'):
 					*rtnEnd = '\b';
+					break;
+				case('e'):
+					*rtnEnd = '\e';
 					break;
 				case('t'):
 					*rtnEnd = '\t';
@@ -720,6 +756,83 @@ WS
 		++rtnEnd;
 		++str;
 	}
+	// \033[
+	WS *wp1 = rtn;
+		rtn = iws_replace(wp1, L"\\033[", L"\033[", TRUE);
+	ifree(wp1);
+	return rtn;
+}
+//---------------------
+// コマンド実行／出力
+//---------------------
+/* (例)
+	imv_system(L"dir", TRUE);
+	imv_system(L"dir", FALSE);
+)
+*/
+// v2023-12-18
+VOID
+imv_system(
+	WS *cmd,
+	BOOL bOutput // FALSE=実行のみ／出力しない
+)
+{
+	if(bOutput)
+	{
+		_wsystem(cmd);
+	}
+	else
+	{
+		WS *wp1 = iws_cats(2, cmd, L" > NUL");
+			_wsystem(wp1);
+		ifree(wp1);
+	}
+}
+//---------------
+// コマンド実行
+//---------------
+/* (例)
+	WS *wp1 = 0;
+
+	wp1 = iws_popen($ARG);
+		P1W(wp1);
+	ifree(wp1);
+
+	wp1 = iws_popen(L"dir /b");
+		P1W(wp1); //=> コマンドの実行結果
+	ifree(wp1);
+*/
+// v2023-12-23
+WS
+*iws_popen(
+	WS *cmd
+)
+{
+	WS *rtn = 0;
+	MS *mCmd = W2M(cmd);
+		FILE *fp = popen(mCmd, "rt");
+			UINT uSize = 16;
+			MS *mp1 = icalloc_MS(uSize);
+				UINT uPos = 0;
+				INT c = 0;
+				while((c = fgetc(fp)) != EOF)
+				{
+					mp1[uPos] = (MS)c;
+					++uPos;
+					if(uPos >= uSize)
+					{
+						uSize *= 2;
+						mp1 = irealloc_MS(mp1, uSize);
+					}
+				}
+				mp1[uPos] = 0;
+				///PL3(imn_Codepage(mp1));
+				rtn = icnv_M2W(mp1, imn_Codepage(mp1));
+			ifree(mp1);
+		pclose(fp);
+	ifree(mCmd);
+	// CodePage
+	SetConsoleOutputCP(65001);
 	return rtn;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -727,36 +840,36 @@ WS
 	UTF-16／UTF-8変換
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-// v2023-08-07
+// v2023-12-22
 MS
 *icnv_W2M(
-	WS *str
+	WS *str,
+	UINT uCP
 )
 {
 	if(! str || ! *str)
 	{
 		return icalloc_MS(0);
 	}
-	// SetConsoleOutputCP($CP_STDOUT) でコンソール出力設定
-	UINT64 u1 = WideCharToMultiByte($CP_STDOUT, 0, str, -1, NULL, 0, NULL, NULL);
+	UINT64 u1 = WideCharToMultiByte(uCP, 0, str, -1, NULL, 0, NULL, NULL);
 	MS *rtn = icalloc_MS(u1);
-	WideCharToMultiByte($CP_STDOUT, 0, str, -1, rtn, u1, NULL, NULL);
+	WideCharToMultiByte(uCP, 0, str, -1, rtn, u1, NULL, NULL);
 	return rtn;
 }
-// v2023-08-07
+// v2023-12-22
 WS
 *icnv_M2W(
-	MS *str
+	MS *str,
+	UINT uCP
 )
 {
 	if(! str || ! *str)
 	{
 		return icalloc_WS(0);
 	}
-	// $CP_STDIN = GetConsoleOutputCP() で取得
-	UINT64 u1 = MultiByteToWideChar($CP_STDIN, 0, str, -1, NULL, 0);
+	UINT64 u1 = MultiByteToWideChar(uCP, 0, str, -1, NULL, 0);
 	WS *rtn = icalloc_WS(u1);
-	MultiByteToWideChar($CP_STDIN, 0, str, -1, rtn, u1);
+	MultiByteToWideChar(uCP, 0, str, -1, rtn, u1);
 	return rtn;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -764,6 +877,9 @@ WS
 	文字列処理
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
+//---------------
+// 文字長を返す
+//---------------
 /* (例)
 	MS *p1 = NULL;
 	// strlen(NULL) => NG
@@ -793,7 +909,7 @@ iwn_len(
 	}
 	return wcslen(str);
 }
-// v2023-07-29
+// v2023-12-14
 UINT64
 iun_len(
 	MS *str
@@ -803,56 +919,83 @@ iun_len(
 	{
 		return 0;
 	}
-	UINT64 rtn = 0;
-	// BOMを読み飛ばす(UTF-8N は該当しない)
-	if(*str == (CHAR)0xEF && str[1] == (CHAR)0xBB && str[2] == (CHAR)0xBF)
+	// BOM
+	if(strlen(str) >= 3 && str[0] == (CHAR)0xEF && str[1] == (CHAR)0xBB && str[2] == (CHAR)0xBF)
 	{
 		str += 3;
 	}
-	INT c = 0;
+	UINT64 rtn = 0;
 	while(*str)
 	{
-		// 多バイト文字
-		if(*str & 0x80)
+		// 1byte
+		if((*str & 0x80) == 0x00)
 		{
-			// [0]
-			c = (*str & 0xfc);
-			c <<= 1;
-			++str;
-			// [1]
-			if(c & 0x80)
-			{
-				c <<= 1;
-				++str;
-				// [2]
-				if(c & 0x80)
-				{
-					c <<= 1;
-					++str;
-					// [3]
-					if(c & 0x80)
-					{
-						++str;
-					}
-				}
-			}
-			/* ↑以下より10%前後速い
-				c = (*str & 0xfc);
-				while(c & 0x80)
-				{
-					++str;
-					c <<= 1;
-				}
-			*/
+			str += 1;
+			++rtn;
 		}
-		// 1バイト文字
+		// 2byte
+		else if((*str & 0xE0) == 0xC0)
+		{
+			str += 2;
+			++rtn;
+		}
+		// 3byte
+		else if((*str & 0xF0) == 0xE0)
+		{
+			str += 3;
+			++rtn;
+		}
+		// 4byte
+		else if((*str & 0xF8) == 0xF0)
+		{
+			str += 4;
+			++rtn;
+		}
 		else
 		{
-			++str;
+			return rtn;
 		}
-		++rtn;
 	}
 	return rtn;
+}
+//-----------
+// Codepage
+//-----------
+UINT
+imn_Codepage(
+	MS *str
+)
+{
+	if(! str || ! *str)
+	{
+		return 0;
+	}
+	// UTF-8 BOM
+	if(strlen(str) >= 3 && str[0] == (CHAR)0xEF && str[1] == (CHAR)0xBB && str[2] == (CHAR)0xBF)
+	{
+		return 65001;
+	}
+	// UTF-8 NoBOM
+	while(*str)
+	{
+		// 1byte
+		if((*str & 0x80) == 0x00)
+		{
+		}
+		// 2..4byte
+		else if((*str & 0xE0) == 0xC0 || (*str & 0xF0) == 0xE0 || (*str & 0xF8) == 0xF0)
+		{
+			return 65001;
+		}
+		// Shift_JIS
+		else if ((*str & 0xE0) == 0x80 || (*str & 0xE0) == 0xE0)
+		{
+			return 932;
+		}
+		++str;
+	}
+	// ASCII
+	return 20127;
 }
 //-------------------------
 // コピーした文字長を返す
@@ -1440,7 +1583,7 @@ WS
 // 配列サイズを取得
 //-------------------
 /* (例)
-	iCLI_getCommandLine();
+	iCLI_begin();
 	PL3(iwan_size($ARGV));
 */
 // v2023-07-29
@@ -1461,7 +1604,7 @@ iwan_size(
 // 配列の合計長を取得
 //---------------------
 /* (例)
-	iCLI_getCommandLine();
+	iCLI_begin();
 	PL3(iwan_strlen($ARGV));
 */
 // v2023-07-29
@@ -2147,7 +2290,7 @@ WS
 	{
 		wsprintfW(
 			rtn,
-			ISO_FORMAT_DATETIME,
+			DATETIME_FORMAT,
 			st.wYear,
 			st.wMonth,
 			st.wDay,
@@ -2506,15 +2649,16 @@ iConsole_EscOn()
 		ifree(wp1);
 	}
 */
-// v2023-08-08
+// v2023-12-23
 WS
 *iCLI_GetStdin()
 {
 	UINT64 mp1Size = 100;
 	UINT64 mp1End = 0;
 	MS *mp1 = icalloc_MS(mp1Size);
+
 	INT c = 0;
-	while((c = getc(stdin)) != EOF)
+	while((c = getchar()) != EOF)
 	{
 		// [Ctrl]+[Z] ↵ で入力終了
 		mp1[mp1End] = (MS)c;
@@ -2525,8 +2669,18 @@ WS
 			mp1 = irealloc_MS(mp1, mp1Size);
 		}
 	}
-	WS *rtn = M2W(mp1);
+	mp1[mp1End] = 0;
+
+	///PL3(imn_Codepage(mp1));
+	///PL3(GetConsoleCP());
+	///PL3(GetConsoleOutputCP());
+	///PL3(GetACP());
+	WS *rtn = icnv_M2W(mp1, imn_Codepage(mp1));
 	ifree(mp1);
+
+	// CodePage
+	SetConsoleOutputCP(65001);
+
 	return rtn;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -3304,7 +3458,7 @@ idate_diff_checker(
 	ifree(p1);
 	ifree(ai1);
 */
-// v2023-07-25
+// v2023-12-22
 WS
 *idate_format_diff(
 	WS *format,  //
@@ -3322,14 +3476,13 @@ WS
 	{
 		return icalloc_WS(0);
 	}
-	CONST UINT BufSizeMax = 512;
-	CONST UINT BufSizeDmz = 64;
-	WS *rtn = icalloc_WS(BufSizeMax + BufSizeDmz);
+	CONST UINT BufSizeMax = 1024;
+	WS *rtn = icalloc_WS(BufSizeMax);
 	WS *pEnd = rtn;
 	UINT uPos = 0;
 	// Ymdhns で使用
 	DOUBLE cjd = (i_days ? 0.0 : idate_ymdhnsToCjd(i_y, i_m, i_d, i_h, i_n, i_s));
-	DOUBLE jd = idate_cjdToJd(cjd);
+	DOUBLE jd = cjd - CJD_TO_JD;
 	// 符号チェック
 	if(i_y < 0)
 	{
@@ -3348,44 +3501,44 @@ WS
 					pEnd += iwn_cpy(pEnd, idate_cjd_Wday(cjd));
 					break;
 				case 'A': // 曜日数
-					pEnd += swprintf(pEnd, 12, L"%d", idate_cjd_iWday(cjd));
+					pEnd += swprintf(pEnd, BufSizeMax, L"%d", idate_cjd_iWday(cjd));
 					break;
 				case 'c': // 年内の通算日
-					pEnd += swprintf(pEnd, 12, L"%d", idate_cjd_yeardays(cjd));
+					pEnd += swprintf(pEnd, BufSizeMax, L"%d", idate_cjd_yeardays(cjd));
 					break;
 				case 'C': // CJD通算日
-					pEnd += swprintf(pEnd, 12, CJD_FORMAT, cjd);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%.8f", cjd);
 					break;
 				case 'J': // JD通算日
-					pEnd += swprintf(pEnd, 12, CJD_FORMAT, jd);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%.8f", jd);
 					break;
 				case 'e': // 年内の通算週
-					pEnd += swprintf(pEnd, 12, L"%d", idate_cjd_yearweeks(cjd));
+					pEnd += swprintf(pEnd, BufSizeMax, L"%d", idate_cjd_yearweeks(cjd));
 					break;
 				// Diff
 				case 'Y': // 通算年
-					pEnd += swprintf(pEnd, 12, L"%d", i_y);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%d", i_y);
 					break;
 				case 'M': // 通算月
-					pEnd += swprintf(pEnd, 12, L"%d", (i_y * 12) + i_m);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%d", (i_y * 12) + i_m);
 					break;
 				case 'D': // 通算日
-					pEnd += swprintf(pEnd, 12, L"%lld", i_days);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%lld", i_days);
 					break;
 				case 'H': // 通算時
-					pEnd += swprintf(pEnd, 12, L"%lld", (i_days * 24) + i_h);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%lld", (i_days * 24) + i_h);
 					break;
 				case 'N': // 通算分
-					pEnd += swprintf(pEnd, 12, L"%lld", (i_days * 24 * 60) + (i_h * 60) + i_n);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%lld", (i_days * 24 * 60) + (i_h * 60) + i_n);
 					break;
 				case 'S': // 通算秒
-					pEnd += swprintf(pEnd, 12, L"%lld", (i_days * 24 * 60 * 60) + (i_h * 60 * 60) + (i_n * 60) + i_s);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%lld", (i_days * 24 * 60 * 60) + (i_h * 60 * 60) + (i_n * 60) + i_s);
 					break;
 				case 'W': // 通算週
-					pEnd += swprintf(pEnd, 12, L"%lld", (i_days / 7));
+					pEnd += swprintf(pEnd, BufSizeMax, L"%lld", (i_days / 7));
 					break;
 				case 'w': // 通算週の余日
-					pEnd += swprintf(pEnd, 12, L"%d", (INT)(i_days % 7));
+					pEnd += swprintf(pEnd, BufSizeMax, L"%d", (INT)(i_days % 7));
 					break;
 				// 共通
 				case 'g': // Sign "-" "+"
@@ -3400,22 +3553,22 @@ WS
 					}
 					break;
 				case 'y': // 年
-					pEnd += swprintf(pEnd, 12, L"%04d", i_y);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%04d", i_y);
 					break;
 				case 'm': // 月
-					pEnd += swprintf(pEnd, 12, L"%02d", i_m);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%02d", i_m);
 					break;
 				case 'd': // 日
-					pEnd += swprintf(pEnd, 12, L"%02d", i_d);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%02d", i_d);
 					break;
 				case 'h': // 時
-					pEnd += swprintf(pEnd, 12, L"%02d", i_h);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%02d", i_h);
 					break;
 				case 'n': // 分
-					pEnd += swprintf(pEnd, 12, L"%02d", i_n);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%02d", i_n);
 					break;
 				case 's': // 秒
-					pEnd += swprintf(pEnd, 12, L"%02d", i_s);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%02d", i_s);
 					break;
 				case '%':
 					*pEnd = '%';

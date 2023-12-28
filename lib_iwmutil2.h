@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////////////////
-#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20230926"
-#define   LIB_IWMUTIL_COPYLIGHT                   "Copyright (C)2008-2023 iwm-iwama"
+#define   LIB_IWMUTIL_COPYLIGHT                   "(C)2008-2023 iwm-iwama"
+#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20231223"
 //////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
 #include <ctype.h>
@@ -25,7 +25,7 @@ typedef   WCHAR     WS; // iwx_xxx()／UTF-16／Wide Char String
 
 #define   IMAX_PATH                               32768 // Unicode API を使用する場合に限る
 
-#define   ISO_FORMAT_DATETIME                     L"%.4d-%02d-%02d %02d:%02d:%02d"
+#define   DATETIME_FORMAT                         L"%.4d-%02d-%02d %02d:%02d:%02d"
 #define   IDATE_FORMAT_STD                        L"%G%y-%m-%d %h:%n:%s"
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -33,15 +33,14 @@ typedef   WCHAR     WS; // iwx_xxx()／UTF-16／Wide Char String
 	大域変数
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-#define   imain_begin()                           iExecSec(0);iCLI_getCommandLine();iConsole_EscOn();
-#define   imain_end()                             P1(IESC_RESET);P1(IESC_CURSOR_ON);ifree_all();exit(EXIT_SUCCESS)
-#define   imain_err()                             P1(IESC_RESET);P1(IESC_CURSOR_ON);ifree_all();exit(EXIT_FAILURE)
+#define   imain_begin()                           iExecSec(0);iCLI_begin();iConsole_EscOn()
+#define   imain_end()                             ifree_all();iCLI_end(EXIT_SUCCESS)
+#define   imain_err()                             P1(IESC_RESET);ifree_all();iCLI_end(EXIT_FAILURE)
 
 extern    WS        *$CMD;         // コマンド名を格納
+extern    WS        *$ARG;         // 引数からコマンド名を消去したもの
 extern    UINT      $ARGC;         // 引数配列数
 extern    WS        **$ARGV;       // 引数配列／ダブルクォーテーションを消去したもの
-extern    UINT      $CP_STDIN;     // 入力コードページ／不定
-extern    UINT      $CP_STDOUT;    // 出力コードページ
 extern    HANDLE    $StdoutHandle; // 画面制御用ハンドル
 extern    UINT64    $ExecSecBgn;   // 実行開始時間
 
@@ -50,7 +49,9 @@ extern    UINT64    $ExecSecBgn;   // 実行開始時間
 	Command Line
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-VOID      iCLI_getCommandLine();
+VOID      iCLI_begin();
+VOID      iCLI_end(INT exitStatus);
+
 WS        *iCLI_getOptValue(UINT argc,WS *opt1,WS *opt2);
 BOOL      iCLI_getOptMatch(UINT argc,WS *opt1,WS *opt2);
 
@@ -136,18 +137,21 @@ VOID      P1W(WS *str);
 VOID      PR1(MS *str, UINT iRepeat);
 #define   LN(iRepeat)                             PR1("-",iRepeat);NL();
 
-WS        *iws_conv_escape(WS *str);
+WS        *iws_cnv_escape(WS *str);
+
+VOID      imv_system(WS *wCmd, BOOL bOutput);
+WS        *iws_popen(WS *cmd);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
 	UTF-16／UTF-8変換
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-MS        *icnv_W2M(WS *str);
-#define   W2M(str)                                (MS*)icnv_W2M(str)
+MS        *icnv_W2M(WS *str,UINT uCP);
+#define   W2M(str)                                (MS*)icnv_W2M(str,65001)
 
-WS        *icnv_M2W(MS *str);
-#define   M2W(str)                                (WS*)icnv_M2W(str)
+WS        *icnv_M2W(MS *str,UINT uCP);
+#define   M2W(str)                                (WS*)icnv_M2W(str,65001)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -157,6 +161,8 @@ WS        *icnv_M2W(MS *str);
 UINT64    imn_len(MS *str);
 UINT64    iwn_len(WS *str);
 UINT64    iun_len(MS *str);
+
+UINT      imn_Codepage(MS *str);
 
 UINT64    imn_cpy(MS *to,MS *from);
 UINT64    iwn_cpy(WS *to,WS *from);
@@ -281,19 +287,18 @@ BOOL      imv_trashW(WS *path);
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
 #define   IESC_CLEAR                              "\033[H;\033[2J"
-#define   IESC_CURSOR_ON                          "\033[?25h"
-#define   IESC_CURSOR_OFF                         "\033[?25l"
 #define   IESC_RESET                              "\033[0m"
 #define   IESC_TITLE1                             "\033[38;2;250;250;250m\033[104m" // 白／青
 #define   IESC_OPT1                               "\033[38;2;250;150;150m"          // 赤
 #define   IESC_OPT2                               "\033[38;2;150;150;250m"          // 青
-#define   IESC_OPT21                              "\033[38;2;80;250;250m"           // 水
+#define   IESC_OPT21                              "\033[38;2;25;225;235m"           // 水
 #define   IESC_OPT22                              "\033[38;2;250;100;250m"          // 紅紫
 #define   IESC_LBL1                               "\033[38;2;250;250;100m"          // 黄
 #define   IESC_LBL2                               "\033[38;2;100;100;250m"          // 青
 #define   IESC_STR1                               "\033[38;2;225;225;225m"          // 白
 #define   IESC_STR2                               "\033[38;2;175;175;175m"          // 銀
-#define   IESC_ERR1                               "\033[38;2;200;0;0m"              // 紅
+#define   IESC_TRUE1                              "\033[38;2;0;250;250m"            // 水
+#define   IESC_FALSE1                             "\033[38;2;250;50;50m"            // 紅
 
 #define   iConsole_setTitleW(str)                 (VOID)SetConsoleTitleW(str)
 
@@ -333,8 +338,6 @@ WS        *iCLI_GetStdin();
 #define   CJD_TO_MJD                              (DOUBLE)(2400000.5-CJD_TO_JD)
 #define   CJD_TO_LD                               (DOUBLE)(2299159.5-CJD_TO_JD)
 
-#define   CJD_FORMAT                              L"%.8f"
-
 /*
 	CJD暦(=JD暦-0.5)の最終日 NS_before[]
 	NS暦 (=GD暦)    の開始日 NS_after[]
@@ -352,33 +355,6 @@ WS        *iCLI_GetStdin();
 		CJD:2361221	YMD:1752-09-02
 		CJD:2361222	YMD:1752-09-14
 */
-
-// CJD通日
-#define   idate_cjd_print(CJD)                    P(CJD_FORMAT,CJD)
-
-// CJD通日から、JD通日を返す
-#define   idate_cjdToJd(CJD)                      (DOUBLE)CJD-CJD_TO_JD
-#define   idate_cjdToJd_print(CJD)                P(CJD_FORMAT,idate_cjdToJd(CJD))
-
-// JD通日から、CJD通日を返す
-#define   idate_jdToCjd(JD)                       (DOUBLE)JD+CJD_TO_JD
-#define   idate_jdToCjd_print(JD)                 P(CJD_FORMAT,idate_jdToCjd(JD))
-
-// CJD通日から、MJD通日を返す
-#define   idate_cjdToMjd(CJD)                     (DOUBLE)CJD-CJD_TO_MJD
-#define   idate_cjdToMjd_print(CJD)               P(CJD_FORMAT,idate_cjdToMjd(CJD))
-
-// MJD通日から、CJD通日を返す
-#define   idate_mjdToCjd(MJD)                     (DOUBLE)MJD+CJD_TO_MJD
-#define   idate_mjdToCjd_print(MJD)               P(CJD_FORMAT,idate_mjdToCjd(MJD))
-
-// CJD通日から、LD通日を返す
-#define   idate_cjdToLd(CJD)                      (DOUBLE)CJD-CJD_TO_LD
-#define   idate_cjdToLd_print(CJD)                P(CJD_FORMAT,idate_cjdToLd(CJD))
-
-// LD通日から、CJD通日を返す
-#define   idate_ldToCjd(LD)                       (DOUBLE)LD+CJD_TO_LD
-#define   idate_ldToCjd_print(LD)                 P(CJD_FORMAT,idate_ldToCjd(LD))
 
 BOOL      idate_chk_ymdhnsW(WS *str);
 
