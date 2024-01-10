@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////////////////
-#define   LIB_IWMUTIL_COPYLIGHT                   "(C)2008-2023 iwm-iwama"
-#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20231223"
+#define   LIB_IWMUTIL_COPYLIGHT                   "(C)2008-2024 iwm-iwama"
+#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20240106"
 //////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
 #include <ctype.h>
@@ -23,7 +23,7 @@
 typedef   CHAR      MS; // imx_xxx() = Muliti Byte String／iux_xxx() = UTF-8N
 typedef   WCHAR     WS; // iwx_xxx()／UTF-16／Wide Char String
 
-#define   IMAX_PATH                               32768 // Unicode API を使用する場合に限る
+#define   IMAX_PATH                               ((MAX_PATH*4)+1) // UTF-8 = (Max)4byte
 
 #define   DATETIME_FORMAT                         L"%.4d-%02d-%02d %02d:%02d:%02d"
 #define   IDATE_FORMAT_STD                        L"%G%y-%m-%d %h:%n:%s"
@@ -237,7 +237,7 @@ VOID      iwav_print(WS **ary);
 typedef struct
 {
 	WS     sPathW[IMAX_PATH]; // フルパス
-	UINT   uFname;            // ファイル名開始位置
+	UINT   uFnPosW;           // ファイル名開始位置
 	UINT   uAttr;             // 属性
 	BOOL   bType;             // TRUE=Dir／FALSE=File
 	DOUBLE cjdCtime;          // 作成時間
@@ -249,13 +249,14 @@ $struct_iFinfoW;
 
 $struct_iFinfoW *iFinfo_allocW();
 
-BOOL      iFinfo_initW($struct_iFinfoW *FI,WIN32_FIND_DATAW *F,WS *dir,WS *name);
+BOOL      iFinfo_initW($struct_iFinfoW *FI,WIN32_FIND_DATAW *F,WS *dir,WS *fname);
 VOID      iFinfo_freeW($struct_iFinfoW *FI);
 
-WS        *iFinfo_attrToW(UINT uAttr);
+WS        *iFinfo_attrToWS(UINT uAttr);
 UINT      iFinfo_attrWtoINT(WS *sAttr);
 
-WS        *iFinfo_ftimeToW(FILETIME ftime);
+WS        *iFinfo_ftimeToWS(FILETIME ftime);
+INT64     iFinfo_ftimeToI64(FILETIME ftime);
 DOUBLE    iFinfo_ftimeToCjd(FILETIME ftime);
 
 FILETIME  iFinfo_ymdhnsToFtime(INT wYear,INT wMonth,INT wDay,INT wHour,INT wMinute,INT wSecond,BOOL reChk);
@@ -435,7 +436,7 @@ INT       *idate_diff(INT i_y1,INT i_m1,INT i_d1,INT i_h1,INT i_n1,INT i_s1,INT 
 WS        *idate_format_diff(WS *format,INT i_sign,INT i_y,INT i_m,INT i_d,INT i_h,INT i_n,INT i_s,INT64 i_days);
 #define   idate_format_ymdhns(format,i_y,i_m,i_d,i_h,i_n,i_s)         (WS*)idate_format_diff(format,0,i_y,i_m,i_d,i_h,i_n,i_s,0)
 
-WS        *idate_format_cjdToW(WS *format,DOUBLE cjd);
+WS        *idate_format_cjdToWS(WS *format,DOUBLE cjd);
 
 WS        *idate_replace_format_ymdhns(WS *str,WS *quote1,WS *quote2,WS *add_quote,INT i_y,INT i_m,INT i_d,INT i_h,INT i_n,INT i_s);
 #define   idate_format_nowToYmdhns(i_y,i_m,i_d,i_h,i_n,i_s)           (WS*)idate_replace_format_ymdhns(L"[]",L"[",L"]","",i_y,i_m,i_d,i_h,i_n,i_s)

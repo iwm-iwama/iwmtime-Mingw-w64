@@ -1,8 +1,12 @@
 //------------------------------------------------------------------------------
-#define   IWM_COPYRIGHT       "(C)2021-2023 iwm-iwama"
-#define   IWM_VERSION         "iwmtime_20231225"
+#define   IWM_COPYRIGHT       "(C)2021-2024 iwm-iwama"
+#define   IWM_VERSION         "iwmtime_20240109"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil2.h"
+#include <psapi.h>
+
+#define   MB                  (DOUBLE)(1024*1024)
+#define   NANO100             (DOUBLE)10000000
 
 INT       main();
 VOID      print_version();
@@ -30,82 +34,70 @@ main()
 		imain_end();
 	}
 
-	MS *mp1 = 0;
-
 	WS *pARG = $ARG;
-	BOOL bOutput = TRUE;
+	WS *wpCmd = 0;
 
-	// -q | -quiet
-	if(iCLI_getOptMatch(0, L"-q", L"-quiet"))
+	// -c | -cmd
+	if(iCLI_getOptMatch(0, L"-c", L"-cmd"))
 	{
-		P2(
-			IESC_OPT2	"[Quiet Mode]"
-			IESC_RESET
-		);
-
 		// 末尾の空白忘れずに
-		if(iwb_cmpf(pARG, L"-q "))
+		if(iwb_cmpf(pARG, L"-c "))
 		{
 			pARG += 3;
 		}
-		else if(iwb_cmpf(pARG, L"-quiet "))
+		else if(iwb_cmpf(pARG, L"-cmd "))
 		{
-			pARG += 7;
+			pARG += 5;
 		}
-
-		bOutput = FALSE;
+		wpCmd = iws_cats(2, L"cmd.exe /c ", pARG);
 	}
-
-	MEMORYSTATUSEX memex = { sizeof(MEMORYSTATUSEX) };
-
-	// 処理前のメモリ値
-	GlobalMemoryStatusEx(&memex);
-	CONST UINT64 uBaseMem = memex.ullAvailPhys;
-
-	// 実行
-	imv_system(pARG, bOutput);
-
-	// 計測終了
-	DOUBLE dPassedSec = iExecSec_next();
-
-	P1(IESC_STR2);
-	LN(80);
-
-	// Program
-	mp1 = W2M(pARG);
-		P(
-			"  Program  %s\n"
-			, mp1
-		);
-	ifree(mp1);
-
-	// Exec
-	mp1 = ims_DblToMs(dPassedSec, 3);
-		P(
-			"  Exec     %s sec\n"
-			, mp1
-		);
-	ifree(mp1);
-
-	// Memory
-	P2("  Memory");
-
-	CONST INT Ms = 500;
-	CONST INT Loop = 5;
-	INT i1 = 0;
-	while(i1 < Loop)
+	else
 	{
-		GlobalMemoryStatusEx(&memex);
-		P(
-			"   %4d ms %8lld KB\n"
-			, (Ms * i1), ((INT64)(memex.ullAvailPhys - uBaseMem) / 1024)
-		);
-		Sleep(Ms);
-		++i1;
+		wpCmd = iws_clone(pARG);
 	}
 
-	LN(80);
-	P1(IESC_RESET);
+	STARTUPINFOW si;
+		ZeroMemory(&si, sizeof(si));
+		si.cb = sizeof(si);
+	PROCESS_INFORMATION pi;
+		ZeroMemory(&pi, sizeof(pi));
+
+	if(CreateProcessW(NULL, wpCmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+	{
+		WaitForSingleObject(pi.hProcess, INFINITE);
+
+		HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pi.dwProcessId);
+			FILETIME creationTime, exitTime, kernelTime, userTime;
+			GetProcessTimes(hProcess, &creationTime, &exitTime, &kernelTime, &userTime);
+			PROCESS_MEMORY_COUNTERS pmc;
+			GetProcessMemoryInfo(hProcess, &pmc, sizeof(pmc));
+			MS *mpCmd = W2M(wpCmd);
+				SetConsoleOutputCP(65001);
+				P1("\033[92m");
+				LN(80);
+				P(
+					"\033[92m"	"  Program"	"\033[96m"	"  %s\n"
+					"\033[92m"	"  Execute"	"\033[96m"	"  %.3f sec\n"
+					"\033[92m"	"  Memory "	"\033[96m"	"  %.3f MB\n"
+					,
+					mpCmd,
+					((iFinfo_ftimeToI64(exitTime) - iFinfo_ftimeToI64(creationTime)) / NANO100),
+					(pmc.PeakPagefileUsage / MB)
+				);
+				P1("\033[92m");
+				LN(80);
+				P2(IESC_RESET);
+			ifree(mpCmd);
+		CloseHandle(hProcess);
+	}
+	else
+	{
+		P2(IESC_FALSE1 "[Err] コマンドを確認してください!" IESC_RESET);
+	}
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+
+	ifree(wpCmd);
 
 	///icalloc_mapPrint(); ifree_all(); icalloc_mapPrint();
 
@@ -121,7 +113,10 @@ print_version()
 	P(
 		" %s\n"
 		"    %s+%s\n"
-		, IWM_COPYRIGHT, IWM_VERSION, LIB_IWMUTIL_VERSION
+		,
+		IWM_COPYRIGHT,
+		IWM_VERSION,
+		LIB_IWMUTIL_VERSION
 	);
 	LN(80);
 	P1(IESC_RESET);
@@ -130,7 +125,7 @@ print_version()
 VOID
 print_help()
 {
-	MS *_cmd = W2M($CMD);
+	MS *_cmd = "iwmtime.exe";
 
 	print_version();
 	P(
@@ -144,18 +139,20 @@ print_help()
 		IESC_OPT1	" notepad.exe\n\n"
 		IESC_LBL1	" (例２)\n"
 		IESC_STR1	"    %s"
-		IESC_OPT2	" -quiet"
-		IESC_OPT1	" dir /b \"..\"\n\n"
-		, _cmd, _cmd, _cmd
+		IESC_OPT2	" -cmd"
+		IESC_OPT1	" dir /b\n\n"
+		,
+		_cmd,
+		_cmd,
+		_cmd
 	);
 	P1(
 		IESC_OPT2	" [Option]\n"
-		IESC_OPT21	"    -quiet | -q\n"
-		IESC_STR1	"        コマンド出力を表示しない\n\n"
+		IESC_OPT21	"    -cmd | -c\n"
+		IESC_OPT1	"        cmd.exe /c [Command]"
+		IESC_STR1	" を実行\n\n"
 	);
 	P1(IESC_STR2);
 	LN(80);
 	P1(IESC_RESET);
-
-	ifree(_cmd);
 }
