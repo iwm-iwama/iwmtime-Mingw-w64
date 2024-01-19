@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////////////////
 #define   LIB_IWMUTIL_COPYLIGHT                   "(C)2008-2024 iwm-iwama"
-#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20240106"
+#define   LIB_IWMUTIL_VERSION                     "lib_iwmutil2_20240118"
 //////////////////////////////////////////////////////////////////////////////////////////
 #include <conio.h>
 #include <ctype.h>
@@ -74,26 +74,25 @@ UINT64    iExecSec(CONST UINT64 microSec);
 VOID      *icalloc(UINT64 n,UINT64 size,BOOL aryOn);
 VOID      *irealloc(VOID *ptr,UINT64 n,UINT64 size);
 
+// MS 文字列
 #define   icalloc_MS(n)                           (MS*)icalloc(n,sizeof(MS),FALSE)
 #define   irealloc_MS(str,n)                      (MS*)irealloc(str,n,sizeof(MS))
 
+// MS 配列
 #define   icalloc_MS_ary(n)                       (MS**)icalloc(n,sizeof(MS*),TRUE)
 #define   irealloc_MS_ary(str,n)                  (MS**)irealloc(str,n,sizeof(MS*))
 
+// WS 文字列
 #define   icalloc_WS(n)                           (WS*)icalloc(n,sizeof(WS),FALSE)
 #define   irealloc_WS(str,n)                      (WS*)irealloc(str,n,sizeof(WS))
 
+// WS 配列
 #define   icalloc_WS_ary(n)                       (WS**)icalloc(n,sizeof(WS*),TRUE)
 #define   irealloc_WS_ary(str,n)                  (WS**)irealloc(str,n,sizeof(WS*))
 
+// INT 配列
 #define   icalloc_INT(n)                          (INT*)icalloc(n,sizeof(INT),FALSE)
 #define   irealloc_INT(ptr,n)                     (INT*)irealloc(ptr,n,sizeof(INT))
-
-#define   icalloc_INT64(n)                        (INT64*)icalloc(n,sizeof(INT64),FALSE)
-#define   irealloc_INT64(ptr,n)                   (INT64*)irealloc(ptr,n,sizeof(INT64))
-
-#define   icalloc_DBL(n)                          (DOUBLE*)icalloc(n,sizeof(DOUBLE),FALSE)
-#define   irealloc_DBL(ptr,n)                     (DOUBLE*)irealloc(ptr,n,sizeof(DOUBLE))
 
 VOID      icalloc_err(VOID *ptr);
 
@@ -101,8 +100,8 @@ VOID      icalloc_free(VOID *ptr);
 VOID      icalloc_freeAll();
 VOID      icalloc_mapSweep();
 
-#define   ifree(ptr)                              (VOID)icalloc_free(ptr);(VOID)icalloc_mapSweep();
-#define   ifree_all()                             (VOID)icalloc_freeAll()
+#define   ifree(ptr)                              icalloc_free(ptr);icalloc_mapSweep();
+#define   ifree_all()                             icalloc_freeAll()
 
 VOID      icalloc_mapPrint1();
 #define   icalloc_mapPrint()                      PL();NL();icalloc_mapPrint1()
@@ -190,9 +189,9 @@ BOOL      iwb_cmp(WS *str,WS *search,BOOL perfect,BOOL icase);
 #define   iwb_cmp_leqf(str,search)                (BOOL)iwb_cmp_leq(str,search,FALSE)
 #define   iwb_cmp_leqfi(str,search)               (BOOL)iwb_cmp_leq(str,search,TRUE)
 
-UINT64    iwn_searchCntW(WS *str,WS *search,BOOL icase);
-#define   iwn_searchCnt(str,search)               (UINT)iwn_searchCntW(str,search,FALSE)
-#define   iwn_searchCnti(str,search)              (UINT)iwn_searchCntW(str,search,TRUE)
+UINT64    iwn_searchCnt(WS *str,WS *search,BOOL icase);
+#define   iwn_search(str,search)                  (UINT)iwn_searchCnt(str,search,FALSE)
+#define   iwn_searchi(str,search)                 (UINT)iwn_searchCnt(str,search,TRUE)
 
 WS        **iwaa_split(WS *str,WS *tokens, BOOL bRmEmpty);
 
@@ -200,6 +199,11 @@ WS        *iws_replace(WS *from,WS *before,WS *after,BOOL icase);
 
 MS        *ims_IntToMs(INT64 num);
 MS        *ims_DblToMs(DOUBLE num,INT iDigit);
+
+WS        *iws_strip(WS *str,BOOL bStripLeft,BOOL bStripRight);
+#define   iws_trim(str)                           (WS*)iws_strip(str,TRUE,TRUE)
+#define   iws_trimL(str)                          (WS*)iws_strip(str,TRUE,FALSE)
+#define   iws_trimR(str)                          (WS*)iws_strip(str,FALSE,TRUE)
 
 WS        *iws_cutYenR(WS *path);
 
@@ -215,19 +219,60 @@ INT       iwan_sort_Asc(CONST VOID *arg1,CONST VOID *arg2);
 INT       iwan_sort_iAsc(CONST VOID *arg1,CONST VOID *arg2);
 INT       iwan_sort_Desc(CONST VOID *arg1,CONST VOID *arg2);
 INT       iwan_sort_iDesc(CONST VOID *arg1,CONST VOID *arg2);
-#define   iwav_sort_Asc(ary)                      (VOID)qsort(ary,iwan_size(ary),sizeof(WS*),iwan_sort_Asc)
-#define   iwav_sort_iAsc(ary)                     (VOID)qsort(ary,iwan_size(ary),sizeof(WS*),iwan_sort_iAsc)
-#define   iwav_sort_Desc(ary)                     (VOID)qsort(ary,iwan_size(ary),sizeof(WS*),iwan_sort_Desc)
-#define   iwav_sort_iDesc(ary)                    (VOID)qsort(ary,iwan_size(ary),sizeof(WS*),iwan_sort_iDesc)
+#define   iwav_sort_Asc(ary)                      qsort(ary,iwan_size(ary),sizeof(WS*),iwan_sort_Asc)
+#define   iwav_sort_iAsc(ary)                     qsort(ary,iwan_size(ary),sizeof(WS*),iwan_sort_iAsc)
+#define   iwav_sort_Desc(ary)                     qsort(ary,iwan_size(ary),sizeof(WS*),iwan_sort_Desc)
+#define   iwav_sort_iDesc(ary)                    qsort(ary,iwan_size(ary),sizeof(WS*),iwan_sort_iDesc)
 
 WS        *iwas_njoin(WS **ary,WS *token,UINT start,UINT count);
 #define   iwas_join(ary,token)                    (WS*)iwas_njoin(ary,token,0,iwan_size(ary))
 
-WS        **iwaa_simplify(WS **ary,BOOL icase);
+WS        **iwaa_uniq(WS **ary,BOOL icase);
 WS        **iwaa_getDirFile(WS **ary,INT iType);
 WS        **iwaa_higherDir(WS **ary);
 
 VOID      iwav_print(WS **ary);
+VOID      iwav_print2(WS **ary,WS *sLeft,WS *sRight);
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/*----------------------------------------------------------------------------------------
+	Variable Buffer
+----------------------------------------------------------------------------------------*/
+//////////////////////////////////////////////////////////////////////////////////////////
+typedef struct
+{
+	UINT64 size;   // Buffers Size
+	VOID   *str;   // String Pointer
+	UINT64 length; // String Length
+}
+$struct_iVBStr,
+$struct_iVBM,
+$struct_iVBW;
+
+$struct_iVBStr      *iVBStr_alloc(UINT64 startSize,INT sizeOfChar);
+VOID      *iVBStr_add($struct_iVBStr *IBS,VOID *str,UINT64 strLen,INT sizeOfChar);
+
+// MS
+#define   iVBM_alloc()                            iVBStr_alloc(256,sizeof(MS))
+#define   iVBM_alloc2(startSize)                  iVBStr_alloc(startSize,sizeof(MS))
+#define   iVBM_add(IVBM,str)                      (MS*)iVBStr_add(IVBM,str,strlen(str),sizeof(MS))
+#define   iVBM_add2(IVBM,str,strLen)              (MS*)iVBStr_add(IVBM,str,strLen,sizeof(MS))
+#define   iVBM_clear(IVBM)                        memset(IVBM->str,0,sizeof(MS));IVBM->length=0
+#define   iVBM_getStr(IVBM)                       (MS*)(IVBM->str)
+#define   iVBM_getLength(IVBM)                    (UINT64)(IVBM->length)
+#define   iVBM_getSize(IVBM)                      (UINT64)(IVBM->size)
+#define   iVBM_free(IVBM)                         IVBM->size=0;IVBM->length=0;ifree(IVBM->str);ifree(IVBM)
+
+// WS
+#define   iVBW_alloc()                            iVBStr_alloc(256,sizeof(WS))
+#define   iVBW_alloc2(startSize)                  iVBStr_alloc(startSize,sizeof(WS))
+#define   iVBW_add(IVBW,str)                      (WS*)iVBStr_add(IVBW,str,wcslen(str),sizeof(WS))
+#define   iVBW_add2(IVBW,str,strLen)              (WS*)iVBStr_add(IVBW,str,strLen,sizeof(WS))
+#define   iVBW_clear(IVBW)                        memset(IVBW->str,0,sizeof(WS));IVBW->length=0
+#define   iVBW_getStr(IVBW)                       (WS*)(IVBW->str)
+#define   iVBW_getLength(IVBW)                    (UINT64)(IVBW->length)
+#define   iVBW_getSize(IVBW)                      (UINT64)(IVBW->size)
+#define   iVBW_free(IVBW)                         IVBW->size=0;IVBW->length=0;ifree(IVBW->str);ifree(IVBW)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -236,27 +281,27 @@ VOID      iwav_print(WS **ary);
 //////////////////////////////////////////////////////////////////////////////////////////
 typedef struct
 {
-	WS     sPathW[IMAX_PATH]; // フルパス
-	UINT   uFnPosW;           // ファイル名開始位置
-	UINT   uAttr;             // 属性
-	BOOL   bType;             // TRUE=Dir／FALSE=File
-	DOUBLE cjdCtime;          // 作成時間
-	DOUBLE cjdMtime;          // 更新時間
-	DOUBLE cjdAtime;          // アクセス時間
-	UINT64 uFsize;            // ファイルサイズ
+	WS     sPath[IMAX_PATH]; // フルパス
+	UINT   uFnPos;           // ファイル名開始位置
+	UINT   uAttr;            // 属性
+	BOOL   bType;            // TRUE=Dir／FALSE=File
+	DOUBLE cjdCtime;         // 作成時間
+	DOUBLE cjdMtime;         // 更新時間
+	DOUBLE cjdAtime;         // アクセス時間
+	UINT64 uFsize;           // ファイルサイズ
 }
-$struct_iFinfoW;
+$struct_iFinfo;
 
-$struct_iFinfoW *iFinfo_allocW();
+$struct_iFinfo      *iFinfo_alloc();
 
-BOOL      iFinfo_initW($struct_iFinfoW *FI,WIN32_FIND_DATAW *F,WS *dir,WS *fname);
-VOID      iFinfo_freeW($struct_iFinfoW *FI);
+BOOL      iFinfo_init($struct_iFinfo *FI,WIN32_FIND_DATAW *F,WS *dir,WS *fname);
+VOID      iFinfo_free($struct_iFinfo *FI);
 
 WS        *iFinfo_attrToWS(UINT uAttr);
-UINT      iFinfo_attrWtoINT(WS *sAttr);
+UINT      iFinfo_attrToINT(WS *sAttr);
 
 WS        *iFinfo_ftimeToWS(FILETIME ftime);
-INT64     iFinfo_ftimeToI64(FILETIME ftime);
+INT64     iFinfo_ftimeToINT64(FILETIME ftime);
 DOUBLE    iFinfo_ftimeToCjd(FILETIME ftime);
 
 FILETIME  iFinfo_ymdhnsToFtime(INT wYear,INT wMonth,INT wDay,INT wHour,INT wMinute,INT wSecond,BOOL reChk);
@@ -266,21 +311,20 @@ FILETIME  iFinfo_ymdhnsToFtime(INT wYear,INT wMonth,INT wDay,INT wHour,INT wMinu
 	File/Dir処理
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-BOOL      iFchk_existPathW(WS *path);
+#define   iFchk_existPath(path)                   (BOOL)PathFileExistsW(path)
+#define   iFchk_DirName(path)                     (BOOL)(GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY ? TRUE : FALSE)
 
-BOOL      iFchk_DirNameW(WS *path);
+#define   iFchk_attrDirFile(attr)                 (INT)(((INT)attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 2)
 
-BOOL      iFchk_BfileW(WS *fn);
+BOOL      iFchk_Binfile(WS *fn);
 
-#define   ichk_attrDirFile(attr)                  (INT)(((INT)attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 2)
+WS        *iFget_extPathname(WS *path,INT option);
 
-WS        *iFget_extPathnameW(WS *path,INT option);
+WS        *iFget_APath(WS *path);
+WS        *iFget_RPath(WS *path);
 
-WS        *iFget_ApathW(WS *path);
-WS        *iFget_RpathW(WS *path);
-
-UINT      imk_dirW(WS *path);
-BOOL      imv_trashW(WS *path);
+UINT      iF_mkdir(WS *path);
+WS        **iF_trash(WS *path);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -301,7 +345,7 @@ BOOL      imv_trashW(WS *path);
 #define   IESC_TRUE1                              "\033[38;2;0;250;250m"            // 水
 #define   IESC_FALSE1                             "\033[38;2;250;50;50m"            // 紅
 
-#define   iConsole_setTitleW(str)                 (VOID)SetConsoleTitleW(str)
+#define   iConsole_setTitle(str)                  SetConsoleTitleW(str)
 
 VOID      iConsole_EscOn();
 

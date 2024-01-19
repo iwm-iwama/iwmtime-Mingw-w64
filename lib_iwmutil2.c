@@ -243,20 +243,23 @@ iCLI_VarList()
 	p1 = W2M($CMD);
 		P(
 			"\033[44m $CMD \033[49m\n"
-			"    %s\n",
+			"    %s\n"
+			,
 			p1
 		);
 	ifree(p1);
 	p1 = W2M($ARG);
 		P(
 			"\033[44m $ARG \033[49m\n"
-			"    %s\n",
+			"    %s\n"
+			,
 			p1
 		);
 	ifree(p1);
 		P(
 			"\033[44m $ARGC \033[49m\n"
-			"    %d\n",
+			"    %d\n"
+			,
 			$ARGC
 		);
 		P1("\033[44m $ARGV \033[49m\n");
@@ -323,12 +326,16 @@ CONST UINT $sizeof_icallocMap = sizeof($struct_icallocMap);
 // calloc
 //---------
 /* (例)
-	WS *pBuf = icalloc_WS(100);
-	UINT64 u1 = iwn_cpy(pBuf, L"12345");
-	iwn_cpy((pBuf + u1), L"ABCDE");
-	PL2W(pBuf);        //=> "12345ABCDE"
-	pBuf = irealloc_WS(pBuf, 200);
-	PL2W((pBuf + u1)); //=> "ABCDE"
+	WS *wp1 = 0;
+	UINT wp1Pos = 0;
+	wp1 = icalloc_WS(100);
+		wp1Pos += iwn_cpy((wp1 + wp1Pos), L"12345");
+		wp1Pos += iwn_cpy((wp1 + wp1Pos), L"ABCDE");
+		PL2W(wp1); //=> "12345ABCDE"
+	wp1 = irealloc_WS(wp1, 200);
+		wp1Pos += iwn_cpy((wp1 + wp1Pos), L"あいうえお");
+		PL2W(wp1); //=> "12345ABCDEあいうえお"
+	ifree(wp1);
 */
 // v2023-07-29
 VOID
@@ -569,7 +576,8 @@ icalloc_mapPrint1()
 			}
 			P(
 				"\033[97m"
-				"  %-7u %07u %p %5u %10u %8u ",
+				"  %-7u %07u %p %5u %10u %8u "
+				,
 				(u1 + 1),
 				(map->id),
 				(map->ptr),
@@ -600,7 +608,8 @@ icalloc_mapPrint1()
 		"\033[94m"
 		"---------------------------------- %16lld byte -----------------------"
 		"\033[0m\n\n"
-		, uAllocUsed
+		,
+		uAllocUsed
 	);
 }
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -637,25 +646,27 @@ P(
 // Quick Print
 //--------------
 /* (例)
-	INT BufSize = 10 * 100;
-	MS *Buf = icalloc_MS(BufSize);
-	MS *BufEnd = Buf;
-	INT iCnt = 0;
+	UINT BufSize = 10 * 100;
+	MS *pBgn = icalloc_MS(BufSize);
+	MS *pEnd = pBgn;
+	UINT uCnt = 0;
 
-	for(INT _i1 = 1; _i1 <= 100; _i1++)
+	for(UINT _u1 = 1; _u1 <= 100; _u1++)
 	{
-		BufEnd += sprintf(BufEnd, "%d\n", _i1);
-		++iCnt;
-		if(iCnt >= 30)
+		pEnd += sprintf(pEnd, "%d ", _u1);
+		++uCnt;
+		if(uCnt >= 15)
 		{
-			iCnt = 0;
-			QP(Buf, (BufEnd - Buf));
-			Sleep(2000);
-			*Buf = 0;
-			BufEnd = Buf;
+			uCnt = 0;
+			QP(pBgn, (pEnd - pBgn));
+			NL();
+			*pBgn = 0;
+			pEnd = pBgn;
 		}
 	}
-	QP(Buf, (BufEnd - Buf));
+
+	QP(pBgn, (pEnd - pBgn));
+	NL();
 */
 // v2023-07-28
 VOID
@@ -678,7 +689,7 @@ P1W(
 		fputs(p1, stdout);
 	ifree(p1);
 }
-// v2023-07-30
+// v2024-01-18
 VOID
 PR1(
 	MS *str,
@@ -689,16 +700,10 @@ PR1(
 	{
 		return;
 	}
-	CONST UINT64 uLen = strlen(str);
-	MS *rtn = icalloc_MS(uLen * uRepeat);
-	MS *p1 = rtn;
-	for(UINT _u1 = 0; _u1 < uRepeat; _u1++)
+	while((uRepeat--) > 0)
 	{
-		strcpy(p1, str);
-		p1 += uLen;
+		P1(str);
 	}
-	P1(rtn);
-	ifree(rtn);
 }
 //-------------------------
 // Escape Sequence へ変換
@@ -722,7 +727,7 @@ WS
 		return icalloc_WS(0);
 	}
 	WS *rtn = icalloc_WS(wcslen(str));
-	WS *rtnEnd = rtn;
+	WS *pEnd = rtn;
 	while(*str)
 	{
 		if(*str == '\\')
@@ -731,41 +736,41 @@ WS
 			switch(*str)
 			{
 				case('a'):
-					*rtnEnd = '\a';
+					*pEnd = '\a';
 					break;
 				case('b'):
-					*rtnEnd = '\b';
+					*pEnd = '\b';
 					break;
 				case('e'):
-					*rtnEnd = '\e';
+					*pEnd = '\e';
 					break;
 				case('t'):
-					*rtnEnd = '\t';
+					*pEnd = '\t';
 					break;
 				case('n'):
-					*rtnEnd = '\n';
+					*pEnd = '\n';
 					break;
 				case('v'):
-					*rtnEnd = '\v';
+					*pEnd = '\v';
 					break;
 				case('f'):
-					*rtnEnd = '\f';
+					*pEnd = '\f';
 					break;
 				case('r'):
-					*rtnEnd = '\r';
+					*pEnd = '\r';
 					break;
 				default:
-					*rtnEnd = '\\';
-					++rtnEnd;
-					*rtnEnd = *str;
+					*pEnd = '\\';
+					++pEnd;
+					*pEnd = *str;
 					break;
 			}
 		}
 		else
 		{
-			*rtnEnd = *str;
+			*pEnd = *str;
 		}
-		++rtnEnd;
+		++pEnd;
 		++str;
 	}
 	// \033[
@@ -1152,7 +1157,7 @@ MS
 	va_list va;
 	UINT rtnSize = 0;
 	MS *rtn = icalloc_MS(rtnSize);
-	UINT rtnEnd = 0;
+	UINT pEnd = 0;
 	va_start(va, size);
 		while(size--)
 		{
@@ -1161,7 +1166,7 @@ MS
 			{
 				rtnSize += strlen(_mp1);
 				rtn = irealloc_MS(rtn, rtnSize);
-				rtnEnd += imn_cpy((rtn + rtnEnd), _mp1);
+				pEnd += imn_cpy((rtn + pEnd), _mp1);
 			}
 		}
 	va_end(va);
@@ -1177,7 +1182,7 @@ WS
 	va_list va;
 	UINT rtnSize = 0;
 	WS *rtn = icalloc_WS(rtnSize);
-	UINT rtnEnd = 0;
+	UINT pEnd = 0;
 	va_start(va, size);
 		while(size--)
 		{
@@ -1186,7 +1191,7 @@ WS
 			{
 				rtnSize += wcslen(_wp1);
 				rtn = irealloc_WS(rtn, rtnSize);
-				rtnEnd += iwn_cpy((rtn + rtnEnd), _wp1);
+				pEnd += iwn_cpy((rtn + pEnd), _wp1);
 			}
 		}
 	va_end(va);
@@ -1326,7 +1331,7 @@ iwb_cmp(
 }
 // v2023-07-30
 UINT64
-iwn_searchCntW(
+iwn_searchCnt(
 	WS *str,    // 文字列
 	WS *search, // 検索文字列
 	BOOL icase  // TRUE=大文字小文字区別しない
@@ -1568,6 +1573,42 @@ MS
 	ifree(format);
 	return rtn;
 }
+//------------------------------------------------------------
+// 文字列前後の空白 ' ' L'　' '\t' '\r' '\n' '\0' を消去する
+//------------------------------------------------------------
+// v2024-01-16
+WS
+*iws_strip(
+	WS *str,
+	BOOL bStripLeft,
+	BOOL bStripRight
+)
+{
+	UINT uRight = iwn_len(str);
+	if(! uRight)
+	{
+		return str;
+	}
+	UINT uLeft = 0;
+	if(bStripLeft)
+	{
+		while(str[uLeft] == ' ' || str[uLeft] == L'　' || str[uLeft] == '\t' || str[uLeft] == '\n' || str[uLeft] == '\r' || str[uLeft] == '\f' || str[uLeft] == '\v')
+		{
+			++uLeft;
+		}
+	}
+	if(bStripRight)
+	{
+		while(str[uRight] == '\0' || str[uRight] == '\n' || str[uRight] == '\r' || str[uRight] == ' ' || str[uRight] == L'　' || str[uRight] == '\t' || str[uLeft] == '\f' || str[uLeft] == '\v')
+		{
+			if(! --uRight)
+			{
+				break;
+			}
+		}
+	}
+	return iws_pclone((str + uLeft), (str + uRight + 1));
+}
 //---------------------------
 // Dir末尾の "\" を消去する
 //---------------------------
@@ -1740,7 +1781,7 @@ WS
 	//
 	// TRUE=大小文字区別しない
 	//
-	wa1 = iwaa_simplify(args, TRUE);
+	wa1 = iwaa_uniq(args, TRUE);
 	i1 = 0;
 	while((wa1[i1]))
 	{
@@ -1751,7 +1792,7 @@ WS
 	//
 	// FALSE=大小文字区別する
 	//
-	wa1 = iwaa_simplify(args, FALSE);
+	wa1 = iwaa_uniq(args, FALSE);
 	i1 = 0;
 	while((wa1[i1]))
 	{
@@ -1761,9 +1802,9 @@ WS
 	ifree(wa1);
 
 */
-// v2023-07-27
+// v2024-01-15
 WS
-**iwaa_simplify(
+**iwaa_uniq(
 	WS **ary,
 	BOOL icase // TRUE=大文字小文字区別しない
 )
@@ -1786,14 +1827,14 @@ WS
 				{
 					if(iwb_cmppi(ary[u1], ary[u2]))
 					{
-						iAryFlg[u2] = -1; // ×
+						iAryFlg[u2] = -1; // NG
 					}
 				}
 				else
 				{
 					if(iwb_cmpp(ary[u1], ary[u2]))
 					{
-						iAryFlg[u2] = -1; // ×
+						iAryFlg[u2] = -1; // NG
 					}
 				}
 				++u2;
@@ -1843,7 +1884,7 @@ WS
 )
 {
 	// 重複排除
-	WS **wa1 = iwaa_simplify(ary, TRUE);
+	WS **wa1 = iwaa_uniq(ary, TRUE);
 		UINT uArySize = iwan_size(wa1);
 		WS **rtn = icalloc_WS_ary(uArySize);
 		UINT u1 = 0, u2 = 0;
@@ -1852,15 +1893,15 @@ WS
 		{
 			if(iType == 0 || iType == 1)
 			{
-				if(iFchk_DirNameW(wa1[u1]) && PathFileExistsW(wa1[u1]))
+				if(iFchk_DirName(wa1[u1]) && PathFileExistsW(wa1[u1]))
 				{
-					rtn[u2] = iFget_ApathW(wa1[u1]);
+					rtn[u2] = iFget_APath(wa1[u1]);
 					++u2;
 				}
 			}
 			if(iType == 0 || iType == 2)
 			{
-				if(! iFchk_DirNameW(wa1[u1]) && PathFileExistsW(wa1[u1]))
+				if(! iFchk_DirName(wa1[u1]) && PathFileExistsW(wa1[u1]))
 				{
 					WS *_wp1 = icalloc_WS(IMAX_PATH);
 					_wfullpath(_wp1, wa1[u1], IMAX_PATH);
@@ -1948,10 +1989,9 @@ WS
 // 配列一覧
 //-----------
 /* (例)
-	// コマンドライン引数
 	iwav_print($ARGV);
 */
-// v2023-07-19
+// v2024-01-17
 VOID
 iwav_print(
 	WS **ary
@@ -1964,11 +2004,99 @@ iwav_print(
 	UINT u1 = 0;
 	while(*ary)
 	{
-		MS *p1 = W2M(*ary);
-			P(" %4u) %s\n", ++u1, p1);
-		ifree(p1);
+		MS *mp1 = W2M(*ary);
+			P(" %4u) '%s'\n", ++u1, mp1);
+		ifree(mp1);
 		++ary;
 	}
+}
+/* (例)
+	iwav_print2($ARGV, L"'", L"'\n");
+*/
+// v2024-01-18
+VOID
+iwav_print2(
+	WS **ary,
+	WS *sLeft,
+	WS *sRight
+)
+{
+	if(! ary)
+	{
+		return;
+	}
+	MS *mp1L = W2M(sLeft);
+	MS *mp1R = W2M(sRight);
+		while(*ary)
+		{
+			MS *mp1 = W2M(*ary);
+				P1(mp1L);
+				P1(mp1);
+				P1(mp1R);
+			ifree(mp1);
+			++ary;
+		}
+	ifree(mp1R);
+	ifree(mp1L);
+}
+//////////////////////////////////////////////////////////////////////////////////////////
+/*----------------------------------------------------------------------------------------
+	Variable Buffer
+----------------------------------------------------------------------------------------*/
+//////////////////////////////////////////////////////////////////////////////////////////
+/* (例)
+	$struct_iVBMS *IVBMS = iVBMS_alloc2(10000);
+		iVBMS_add(IVBMS, "123456789");
+		iVBMS_add(IVBMS, "あいうえお");
+			P2(iVBMS_getStr(IVBMS));
+			PL3(iVBMS_getLength(IVBMS));
+			PL3(iVBMS_getSize(IVBMS));
+		iVBMS_clear(IVBMS);
+			for(UINT64 _u1 = 0; _u1 < 1000000; _u1++)
+			{
+				iVBMS_add(IVBMS, "かきくけこ");
+			}
+			QP(iVBMS_getStr(IVBMS), iVBMS_getLength(IVBMS));
+			NL();
+			PL3(iVBMS_getLength(IVBMS));
+			PL3(iVBMS_getSize(IVBMS));
+	iVBMS_free(IVBMS);
+*/
+// v2024-01-15
+$struct_iVBStr
+*iVBStr_alloc(
+	UINT64 startSize, // 開始時の文字列長（自動拡張）
+	INT sizeOfChar    // sizeof(MS), sizeof(WS)
+)
+{
+	$struct_iVBStr *IVBS = icalloc(1, sizeof($struct_iVBStr), FALSE);
+		IVBS->size = startSize;
+		IVBS->str = (VOID*)icalloc(IVBS->size, sizeOfChar, FALSE);
+		IVBS->length = 0;
+	return IVBS;
+}
+// v2024-01-15
+VOID
+*iVBStr_add(
+	$struct_iVBStr *IVBS, // 格納場所
+	VOID *str,            // 追記する文字列
+	UINT64 strLen,        // 追記する文字列長／strlen(str), wcslen(str)
+	INT sizeOfChar        // sizeof(MS), sizeof(WS)
+)
+{
+	if((strLen + IVBS->length) >= IVBS->size)
+	{
+		IVBS->size += strLen;
+		IVBS->size *= 2;
+		IVBS->str = (VOID*)irealloc(IVBS->str, IVBS->size, sizeOfChar);
+	}
+
+	VOID *vp1 = (IVBS->str + (IVBS->length * sizeOfChar));
+	UINT64 u1 = strLen * sizeOfChar;
+	memcpy(vp1, str, u1);
+	memset((vp1 + u1), 0, sizeOfChar);
+	IVBS->length += strLen;
+	return IVBS->str;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -1984,16 +2112,16 @@ iwav_print(
 //
 VOID
 ifind1(
-	$struct_iFinfoW *FI,
+	$struct_iFinfo *FI,
 	WIN32_FIND_DATAW F,
 	WS *dir
 )
 {
-	// FI->sPathW 末尾に "*" を付与
-	UINT dirLen = iwn_cpy(FI->sPathW, dir);
-		*(FI->sPathW + dirLen) = '*';
-		*(FI->sPathW + dirLen + 1) = 0;
-	HANDLE hfind = FindFirstFileW(FI->sPathW, &F);
+	// FI->sPath 末尾に "*" を付与
+	UINT dirLen = iwn_cpy(FI->sPath, dir);
+		*(FI->sPath + dirLen) = '*';
+		*(FI->sPath + dirLen + 1) = 0;
+	HANDLE hfind = FindFirstFileW(FI->sPath, &F);
 		// アクセス不可なフォルダ等はスルー
 		if(hfind == INVALID_HANDLE_VALUE)
 		{
@@ -2001,26 +2129,26 @@ ifind1(
 			return;
 		}
 		// Dir
-		iFinfo_initW(FI, &F, dir, NULL);
-			MS *mp1 = W2M(FI->sPathW);
+		iFinfo_init(FI, &F, dir, NULL);
+			MS *mp1 = W2M(FI->sPath);
 				P("%llu\t%s\n", FI->uFsize, mp1);
 			ifree(mp1);
 		// File
 		do
 		{
-			if(iFinfo_initW(FI, &F, dir, F.cFileName))
+			if(iFinfo_init(FI, &F, dir, F.cFileName))
 			{
 				// Dir
 				if(FI->bType)
 				{
-					WS *wp1 = iws_clone(FI->sPathW);
+					WS *wp1 = iws_clone(FI->sPath);
 						ifind1(FI, F, wp1); // Dir(下位)
 					ifree(wp1);
 				}
 				// File
 				else
 				{
-					MS *mp1 = W2M(FI->sPathW);
+					MS *mp1 = W2M(FI->sPath);
 						P("%llu\t%s\n", FI->uFsize, mp1);
 					ifree(mp1);
 				}
@@ -2032,13 +2160,13 @@ ifind1(
 	//
 	// main()
 	//
-	WS *dir = iFget_RpathW(L".");
+	WS *dir = iFget_RPath(L".");
 		if(dir)
 		{
-			$struct_iFinfoW *FI = iFinfo_allocW();
+			$struct_iFinfo *FI = iFinfo_alloc();
 				WIN32_FIND_DATAW F;
 				ifind1(FI, F, dir);
-			iFinfo_freeW(FI);
+			iFinfo_free(FI);
 		}
 	ifree(dir);
 //
@@ -2061,25 +2189,25 @@ ifind2(
 	WS *dir = iws_clone(path);
 		dir[iPos] = 0;
 	WS *name = iws_clone(path + iPos);
-		$struct_iFinfoW *FI = iFinfo_allocW();
-			iwn_cpy(FI->sPathW, path);
+		$struct_iFinfo *FI = iFinfo_alloc();
+			iwn_cpy(FI->sPath, path);
 			WIN32_FIND_DATAW F;
-			HANDLE hfind = FindFirstFileW(FI->sPathW, &F);
+			HANDLE hfind = FindFirstFileW(FI->sPath, &F);
 				// アクセス不可なフォルダなど
 				if(hfind == INVALID_HANDLE_VALUE)
 				{
 					FindClose(hfind);
 					return;
 				}
-				if(iFinfo_initW(FI, &F, dir, name))
+				if(iFinfo_init(FI, &F, dir, name))
 				{
 					WS *wp1 = 0;
 					P1("Path:    ");
-						P2W(FI->sPathW);
+						P2W(FI->sPath);
 					P1("FnPos:   ");
-						P3(FI->uFnPosW);
+						P3(FI->uFnPos);
 					P1("Fn:      ");
-						P2W(FI->sPathW + FI->uFnPosW);
+						P2W(FI->sPath + FI->uFnPos);
 					P1("Bytes:   ");
 						P3(FI->uFsize);
 					P1("Ctime:   ");
@@ -2097,7 +2225,7 @@ ifind2(
 					NL();
 				}
 			FindClose(hfind);
-		iFinfo_freeW(FI);
+		iFinfo_free(FI);
 	ifree(name);
 	ifree(dir);
 }
@@ -2107,26 +2235,26 @@ ifind2(
 	ifind2(L"lib_iwmutil2.c");
 */
 // v2016-08-09
-$struct_iFinfoW
-*iFinfo_allocW()
+$struct_iFinfo
+*iFinfo_alloc()
 {
-	return icalloc(1, sizeof($struct_iFinfoW), FALSE);
+	return icalloc(1, sizeof($struct_iFinfo), FALSE);
 }
 //---------------------------
 // ファイル情報取得の前処理
 //---------------------------
 // v2024-01-04
 BOOL
-iFinfo_initW(
-	$struct_iFinfoW *FI,
+iFinfo_init(
+	$struct_iFinfo *FI,
 	WIN32_FIND_DATAW *F,
 	WS *dir, // "\"を付与して呼ぶ
 	WS *fname
 )
 {
 	// 初期化
-	*FI->sPathW  = 0;
-	FI->uFnPosW  = 0;
+	*FI->sPath   = 0;
+	FI->uFnPos   = 0;
 	FI->uAttr    = 0;
 	FI->bType    = FALSE;
 	FI->cjdCtime = 0.0;
@@ -2145,10 +2273,10 @@ iFinfo_initW(
 	{
 		return FALSE;
 	}
-	// FI->sPathW
+	// FI->sPath
 	// FI->uFname
-	UINT dirLen  = iwn_cpy(FI->sPathW, dir);
-	UINT nameLen = iwn_cpy((FI->sPathW + dirLen), fname);
+	UINT dirLen  = iwn_cpy(FI->sPath, dir);
+	UINT nameLen = iwn_cpy((FI->sPath + dirLen), fname);
 	// FI->bType
 	// FI->uFsize
 	if(FI->uAttr & FILE_ATTRIBUTE_DIRECTORY)
@@ -2157,8 +2285,8 @@ iFinfo_initW(
 		if(nameLen)
 		{
 			dirLen += nameLen + 1;
-			*(FI->sPathW + dirLen - 1) = L'\\'; // '\\' 付与
-			*(FI->sPathW + dirLen) = 0;         // '\0' 付与
+			*(FI->sPath + dirLen - 1) = L'\\'; // '\\' 付与
+			*(FI->sPath + dirLen) = 0;         // '\0' 付与
 		}
 		FI->bType = TRUE;
 		// FI->uFsize = 0 初期化値
@@ -2168,7 +2296,7 @@ iFinfo_initW(
 		// FI->bType = FALSE 初期化値
 		FI->uFsize = (UINT64)F->nFileSizeLow + (F->nFileSizeHigh ? (UINT64)(F->nFileSizeHigh) * MAXDWORD + 1 : 0);
 	}
-	FI->uFnPosW = dirLen;
+	FI->uFnPos = dirLen;
 	// JST変換
 	// FI->cftime
 	// FI->mftime
@@ -2184,8 +2312,8 @@ iFinfo_initW(
 }
 // v2016-08-09
 VOID
-iFinfo_freeW(
-	$struct_iFinfoW *FI
+iFinfo_free(
+	$struct_iFinfo *FI
 )
 {
 	ifree(FI);
@@ -2249,7 +2377,7 @@ WS
 }
 // v2023-08-31
 UINT
-iFinfo_attrWtoINT(
+iFinfo_attrToINT(
 	WS *sAttr // L"rhsda" => 55
 )
 {
@@ -2331,7 +2459,7 @@ WS
 }
 // v2024-01-06
 INT64
-iFinfo_ftimeToI64(
+iFinfo_ftimeToINT64(
 	FILETIME ftime
 )
 {
@@ -2343,7 +2471,7 @@ iFinfo_ftimeToCjd(
 	FILETIME ftime
 )
 {
-	INT64 i1 = iFinfo_ftimeToI64(ftime);
+	INT64 i1 = iFinfo_ftimeToINT64(ftime);
 	i1 /= 10000000; // (重要) MicroSecond 削除
 	return ((DOUBLE)i1 / 86400) + 2305814.0;
 }
@@ -2387,48 +2515,13 @@ iFinfo_ymdhnsToFtime(
 	File/Dir処理
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-//-----------------------------------
-// ファイルが存在するときTRUEを返す
-//-----------------------------------
-/* (例)
-	PL3(iFchk_existPathW(L"."));    //=> 1
-	PL3(iFchk_existPathW(L""));     //=> 0
-	PL3(iFchk_existPathW(L"\\"));   //=> 1
-	PL3(iFchk_existPathW(L"\\\\")); //=> 0
+/*
+[2014-01-13]
+	フォルダ名／ファイル名を引数とする処理は WS(=WideChar)版 を使用する。
+	理由は以下のとおり。
+	・[MS]漢字等を含むとき fopen() がエラーを返す／[WS]_wfopen() はOK
+	・[MS]文字列走査が複雑になる／[WS]１文字毎に走査可能
 */
-// v2022-09-12
-BOOL
-iFchk_existPathW(
-	WS *path
-)
-{
-	if(! path || ! *path)
-	{
-		return FALSE;
-	}
-	return PathFileExistsW(path);
-}
-//------------------------------------------------------------
-// Dir名として使用可能なとき実在の有無にかかわらずTRUEを返す
-//------------------------------------------------------------
-/* (例)
-	PL3(iFchk_DirNameW(L"."));    //=> 1
-	PL3(iFchk_DirNameW(L""));     //=> 0
-	PL3(iFchk_DirNameW(L"\\"));   //=> 1
-	PL3(iFchk_DirNameW(L"\\\\")); //=> 1
-*/
-// v2023-09-17
-BOOL
-iFchk_DirNameW(
-	WS *path
-)
-{
-	if(! path || ! *path)
-	{
-		return FALSE;
-	}
-	return (GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY ? TRUE : FALSE);
-}
 //-------------------------------
 // Binary File のときTRUEを返す
 //-------------------------------
@@ -2438,43 +2531,41 @@ iFchk_DirNameW(
 	PL3(iFchk_BfileW(L"aaa.txt")); //=> FALSE
 	PL3(iFchk_BfileW(L"???"));     //=> FALSE (存在しないとき)
 */
-// v2022-08-30
+// v2024-01-13
 BOOL
-iFchk_BfileW(
+iFchk_Binfile(
 	WS *Fn
 )
 {
+	BOOL rtn = FALSE;
 	FILE *Fp = _wfopen(Fn, L"rb");
-	if(! Fp)
+	if(Fp)
 	{
-		return FALSE;
-	}
-	UINT cnt = 0, c = 0, u1 = 0;
-	// 64byteでは不完全
-	while((c = getc(Fp)) != (UINT)EOF && u1 < 128)
-	{
-		if(! c)
+		INT c = 0;
+		while((c = getc(Fp)) != EOF)
 		{
-			++cnt;
-			break;
+			if(! c)
+			{
+				rtn = TRUE;
+				break;
+			}
 		}
-		++u1;
 	}
 	fclose(Fp);
-	return (0 < cnt ? TRUE : FALSE);
+	return rtn;
 }
 //---------------------
 // ファイル名等を抽出
 //---------------------
 /* (例)
 	WS *p1 = L"c:\\windows\\win.ini";
-	PL2W(iFget_extPathnameW(p1, 0)); //=> "c:\windows\win.ini"
-	PL2W(iFget_extPathnameW(p1, 1)); //=> "win.ini"
-	PL2W(iFget_extPathnameW(p1, 2)); //=> "win"
+	PL2W(iFget_extPathname(p1, 0)); //=> "c:\windows\win.ini"
+	PL2W(iFget_extPathname(p1, 1)); //=> "win.ini"
+	PL2W(iFget_extPathname(p1, 2)); //=> "win"
 */
 // v2023-09-17
 WS
-*iFget_extPathnameW(
+*iFget_extPathname(
 	WS *path,
 	INT option // 1=拡張子付きファイル名／2=拡張子なしファイル名
 )
@@ -2485,7 +2576,7 @@ WS
 	}
 	WS *rtn = icalloc_WS(wcslen(path));
 	// Dir or File ?
-	if(iFchk_DirNameW(path))
+	if(iFchk_DirName(path))
 	{
 		if(option == 0)
 		{
@@ -2519,11 +2610,11 @@ WS
 //--------------------------
 /* (例)
 	// "." = "d:\foo" のとき
-	PL2W(iFget_ApathW(L".")); //=> "d:\foo\"
+	PL2W(iFget_APath(L".")); //=> "d:\foo\"
 */
 // v2023-09-17
 WS
-*iFget_ApathW(
+*iFget_APath(
 	WS *path
 )
 {
@@ -2534,14 +2625,14 @@ WS
 	WS *rtn = 0;
 	WS *p1 = iws_cutYenR(path);
 	// "c:" のような表記は特別処理
-	if(p1[1] == ':' && wcslen(p1) == 2 && iFchk_DirNameW(p1))
+	if(p1[1] == ':' && wcslen(p1) == 2 && iFchk_DirName(p1))
 	{
 		rtn = iws_cats(2, p1 , L"\\");
 	}
 	else
 	{
 		rtn = icalloc_WS(IMAX_PATH);
-		if(iFchk_DirNameW(p1) && _wfullpath(rtn, p1, IMAX_PATH))
+		if(iFchk_DirName(p1) && _wfullpath(rtn, p1, IMAX_PATH))
 		{
 			wcscat(rtn, L"\\");
 		}
@@ -2553,11 +2644,11 @@ WS
 // 相対Path に '\\' 付与
 //------------------------
 /* (例)
-	PL2W(iFget_RpathW(L".")); //=> ".\"
+	PL2W(iFget_RPath(L".")); //=> ".\"
 */
 // v2023-09-17
 WS
-*iFget_RpathW(
+*iFget_RPath(
 	WS *path
 )
 {
@@ -2566,7 +2657,7 @@ WS
 		return icalloc_WS(0);
 	}
 	WS *rtn = iws_cutYenR(path);
-	if(iFchk_DirNameW(path))
+	if(iFchk_DirName(path))
 	{
 		wcscat(rtn, L"\\");
 	}
@@ -2576,11 +2667,11 @@ WS
 // 複階層のDirを作成
 //--------------------
 /* (例)
-	PL3(imk_dirW(L"aaa\\bbb")); //=> 2
+	PL3(iF_mkdir(L"aaa\\bbb")); //=> 2
 */
 // v2023-09-03
 UINT
-imk_dirW(
+iF_mkdir(
 	WS *path
 )
 {
@@ -2607,25 +2698,56 @@ imk_dirW(
 // Dir/Fileをゴミ箱へ移動
 //-------------------------
 /* (例)
-	PL3(imv_trashW(L"Dir"));  // Dirをゴミ箱へ移動する
-	PL3(imv_trashW(L"File")); // Fileをゴミ箱へ移動する
+	// '\t' '\r' '\n' 区切り文字列に対応
+	PL3(iF_trash(L"新しいテキスト ドキュメント.txt\n新しいフォルダー\n"));
 */
-// v2022-09-21
-BOOL
-imv_trashW(
+// v2024-01-18
+WS
+**iF_trash(
 	WS *path
 )
 {
-	// path末尾 "\0\0"
-	WS *p1 = iws_clone(path);
-		SHFILEOPSTRUCTW sfos;
-		ZeroMemory(&sfos, sizeof(SHFILEOPSTRUCTW));
-		sfos.hwnd = 0;
-		sfos.wFunc = FO_DELETE;
-		sfos.pFrom = p1;
-		sfos.fFlags = FOF_ALLOWUNDO;
-		BOOL rtn = (SHFileOperationW(&sfos) ? FALSE : TRUE);
-	ifree(p1);
+	if(! iwn_len(path))
+	{
+		return 0;
+	}
+	WS **rtn = icalloc_WS_ary(0);
+	// '\t' '\r' '\n' で分割
+	WS **awp1 = iwaa_split(path, L"\t\r\n", TRUE);
+		// Trim
+		for(UINT _u1 = 0; _u1 < iwan_size(awp1); _u1++)
+		{
+			WS *wp1 = iws_trim(awp1[_u1]);
+				wcscpy(awp1[_u1], wp1);
+			ifree(wp1);
+		}
+		// Uniq
+		WS **awp2 = iwaa_uniq(awp1, TRUE);
+			CONST UINT uAwp2Size = iwan_size(awp2);
+			if(uAwp2Size)
+			{
+				SHFILEOPSTRUCTW sfos;
+					ZeroMemory(&sfos, sizeof(SHFILEOPSTRUCTW));
+					sfos.hwnd = 0;
+					sfos.wFunc = FO_DELETE;
+					sfos.fFlags = FOF_ALLOWUNDO | FOF_NO_UI;
+				rtn = irealloc_WS_ary(rtn, uAwp2Size);
+				for(UINT _u1 = 0, _u2 = 0; _u1 < uAwp2Size; _u1++)
+				{
+					// Dir/File Exist?
+					// ファルダごと移動されたファイルは、ここでは存在しない。
+					if(iFchk_existPath(awp2[_u1]))
+					{
+						sfos.pFrom = awp2[_u1];
+						if(! SHFileOperationW(&sfos))
+						{
+							rtn[_u2++] = iws_clone(awp2[_u1]);
+						}
+					}
+				}
+			}
+		ifree(awp2);
+	ifree(awp1);
 	return rtn;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -3437,7 +3559,8 @@ idate_diff_checker(
 		sprintf(s2, "%d%02d%02d", ai4[0], ai4[1], ai4[2]);
 		err = (strcmp(s1, s2) ? "\033[91mNG\033[0m" : "\033[93mok\033[0m");
 		P(
-			"%5d   %5d-%02d-%02d   \033[96m%5d-%02d-%02d\033[0m    [%4d, %4d, %2d, %2d]   \033[96m%5d-%02d-%02d\033[0m    %s\n",
+			"%5d   %5d-%02d-%02d   \033[96m%5d-%02d-%02d\033[0m    [%4d, %4d, %2d, %2d]   \033[96m%5d-%02d-%02d\033[0m    %s\n"
+			,
 			i1,
 			ai1[0], ai1[1], ai1[2], ai2[0], ai2[1], ai2[2],
 			ai3[0], ai3[1], ai3[2], ai3[3], ai4[0], ai4[1], ai4[2],
@@ -3740,8 +3863,8 @@ WS
 		add_quote = L"";
 	}
 	WS *rtn = 0;
-	UINT u1 = iwn_searchCnt(str, quoteBgn);
-	UINT u2 = iwn_searchCnt(str, quoteEnd);
+	UINT u1 = iwn_search(str, quoteBgn);
+	UINT u2 = iwn_search(str, quoteEnd);
 	// quoteBgn or quoteEnd がないとき str のクローンを返す
 	if(u1 && u2)
 	{

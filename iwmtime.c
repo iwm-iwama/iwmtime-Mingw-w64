@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 #define   IWM_COPYRIGHT       "(C)2021-2024 iwm-iwama"
-#define   IWM_VERSION         "iwmtime_20240109"
+#define   IWM_VERSION         "iwmtime_20240118"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil2.h"
 #include <psapi.h>
@@ -81,7 +81,7 @@ main()
 					"\033[92m"	"  Memory "	"\033[96m"	"  %.3f MB\n"
 					,
 					mpCmd,
-					((iFinfo_ftimeToI64(exitTime) - iFinfo_ftimeToI64(creationTime)) / NANO100),
+					((iFinfo_ftimeToINT64(exitTime) - iFinfo_ftimeToINT64(creationTime)) / NANO100),
 					(pmc.PeakPagefileUsage / MB)
 				);
 				P1("\033[92m");
@@ -129,18 +129,17 @@ print_help()
 
 	print_version();
 	P(
-		IESC_TITLE1	" コマンドの実行時間を計測 "
-		IESC_RESET	"\n"
+		IESC_TITLE1	" コマンドの実行時間を計測 "	IESC_RESET	"\n\n"
 		IESC_STR1	"    %s"
 		IESC_OPT2	" [Option]"
-		IESC_OPT1	" [Command]\n\n"
+		IESC_OPT1	" [Command]\n\n\n"
 		IESC_LBL1	" (例１)\n"
 		IESC_STR1	"    %s"
 		IESC_OPT1	" notepad.exe\n\n"
 		IESC_LBL1	" (例２)\n"
 		IESC_STR1	"    %s"
 		IESC_OPT2	" -cmd"
-		IESC_OPT1	" dir /b\n\n"
+		IESC_OPT1	" dir /b\n\n\n"
 		,
 		_cmd,
 		_cmd,
