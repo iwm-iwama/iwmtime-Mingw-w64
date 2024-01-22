@@ -40,8 +40,19 @@
 [2021-11-18] +[2022-09-23]
 	ポインタ *(p + n) と配列 p[n] どちらが速い？
 		Mingw-w64においては最適化するとどちらも同じになる。
-		今後は可読性を考慮した配列型でコーディングする。
+		今後は可読性を考慮した配列 p[n] でコーディングする。
 
+[2024-01-19]
+	主に使うデータ型
+		BOOL   = TRUE / FALSE
+		INT    = 32bit integer
+		UINT   = 32bit unsigned integer (例：NTFSファイル数)
+		INT64  = 64bit integer (例：年月日計算)
+		UINT64 = 64bit unsigned integer (例：size_t)
+		DOUBLE = double (例：年月日通算日)
+		MS     = char
+		WS     = wchar
+		VOID   = void
 */
 #include "lib_iwmutil2.h"
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -61,12 +72,12 @@
 	// 最終処理
 	imain_end();
 */
-WS     *$CMD         = L"";   // コマンド名を格納
-WS     *$ARG         = 0;     // 引数からコマンド名を消去したもの
-UINT   $ARGC         = 0;     // 引数配列数
-WS     **$ARGV       = 0;     // 引数配列／ダブルクォーテーションを消去したもの
-HANDLE $StdoutHandle = 0;     // 画面制御用ハンドル
-UINT64 $ExecSecBgn   = 0;     // 実行開始時間
+WS     *$CMD         = L""; // コマンド名を格納
+WS     *$ARG         = 0;   // 引数からコマンド名を消去したもの
+UINT   $ARGC         = 0;   // 引数配列数
+WS     **$ARGV       = 0;   // 引数配列／ダブルクォーテーションを消去したもの
+HANDLE $StdoutHandle = 0;   // 画面制御用ハンドル
+UINT64 $ExecSecBgn   = 0;   // 実行開始時間
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
 	Command Line
@@ -2045,22 +2056,22 @@ iwav_print2(
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
 /* (例)
-	$struct_iVBMS *IVBMS = iVBMS_alloc2(10000);
-		iVBMS_add(IVBMS, "123456789");
-		iVBMS_add(IVBMS, "あいうえお");
-			P2(iVBMS_getStr(IVBMS));
-			PL3(iVBMS_getLength(IVBMS));
-			PL3(iVBMS_getSize(IVBMS));
-		iVBMS_clear(IVBMS);
+	$struct_iVBM *IVBM = iVBM_alloc2(10000);
+		iVBM_add(IVBM, "123456789");
+		iVBM_add(IVBM, "あいうえお");
+			P2(iVBM_getStr(IVBM));
+			PL3(iVBM_getLength(IVBM));
+			PL3(iVBM_getSize(IVBM));
+		iVBM_clear(IVBM);
 			for(UINT64 _u1 = 0; _u1 < 1000000; _u1++)
 			{
-				iVBMS_add(IVBMS, "かきくけこ");
+				iVBM_add(IVBM, "かきくけこ");
 			}
-			QP(iVBMS_getStr(IVBMS), iVBMS_getLength(IVBMS));
+			QP(iVBM_getStr(IVBM), iVBM_getLength(IVBM));
 			NL();
-			PL3(iVBMS_getLength(IVBMS));
-			PL3(iVBMS_getSize(IVBMS));
-	iVBMS_free(IVBMS);
+			PL3(iVBM_getLength(IVBM));
+			PL3(iVBM_getSize(IVBM));
+	iVBM_free(IVBM);
 */
 // v2024-01-15
 $struct_iVBStr
@@ -2310,14 +2321,6 @@ iFinfo_init(
 		FI->cjdAtime = iFinfo_ftimeToCjd(ft);
 	return TRUE;
 }
-// v2016-08-09
-VOID
-iFinfo_free(
-	$struct_iFinfo *FI
-)
-{
-	ifree(FI);
-}
 //---------------------
 // ファイル情報を変換
 //---------------------
@@ -2368,102 +2371,12 @@ WS
 )
 {
 	WS *rtn = icalloc_WS(5);
-	rtn[0] = (uAttr & FILE_ATTRIBUTE_DIRECTORY ? 'd' : '-'); // 16=Dir
-	rtn[1] = (uAttr & FILE_ATTRIBUTE_READONLY  ? 'r' : '-'); //  1=ReadOnly
-	rtn[2] = (uAttr & FILE_ATTRIBUTE_HIDDEN    ? 'h' : '-'); //  2=Hidden
-	rtn[3] = (uAttr & FILE_ATTRIBUTE_SYSTEM    ? 's' : '-'); //  4=System
-	rtn[4] = (uAttr & FILE_ATTRIBUTE_ARCHIVE   ? 'a' : '-'); // 32=Archive
+		rtn[0] = (uAttr & FILE_ATTRIBUTE_DIRECTORY ? 'd' : '-'); // 16=Dir
+		rtn[1] = (uAttr & FILE_ATTRIBUTE_READONLY  ? 'r' : '-'); //  1=ReadOnly
+		rtn[2] = (uAttr & FILE_ATTRIBUTE_HIDDEN    ? 'h' : '-'); //  2=Hidden
+		rtn[3] = (uAttr & FILE_ATTRIBUTE_SYSTEM    ? 's' : '-'); //  4=System
+		rtn[4] = (uAttr & FILE_ATTRIBUTE_ARCHIVE   ? 'a' : '-'); // 32=Archive
 	return rtn;
-}
-// v2023-08-31
-UINT
-iFinfo_attrToINT(
-	WS *sAttr // L"rhsda" => 55
-)
-{
-	if(! sAttr || ! *sAttr)
-	{
-		return 0;
-	}
-	UINT rtn = 0;
-	WS *pEnd = sAttr;
-	while(*pEnd)
-	{
-		// 頻出順
-		switch(*pEnd)
-		{
-			// 32 = ARCHIVE
-			case('a'):
-			case('A'):
-				rtn += FILE_ATTRIBUTE_ARCHIVE;
-				break;
-			// 16 = DIRECTORY
-			case('d'):
-			case('D'):
-				rtn += FILE_ATTRIBUTE_DIRECTORY;
-				break;
-			// 4 = SYSTEM
-			case('s'):
-			case('S'):
-				rtn += FILE_ATTRIBUTE_SYSTEM;
-				break;
-			// 2 = HIDDEN
-			case('h'):
-			case('H'):
-				rtn += FILE_ATTRIBUTE_HIDDEN;
-				break;
-			// 1 = READONLY
-			case('r'):
-			case('R'):
-				rtn += FILE_ATTRIBUTE_READONLY;
-				break;
-		}
-		++pEnd;
-	}
-	return rtn;
-}
-//---------------
-// FileTime関係
-//---------------
-/*
-	基本、FILETIME(UTC)で処理。
-	必要に応じて、JST(UTC+9h)に変換した値を渡すこと。
-*/
-// v2023-07-20
-WS
-*iFinfo_ftimeToWS(
-	FILETIME ft
-)
-{
-	WS *rtn = icalloc_WS(20);
-	SYSTEMTIME st;
-	FileTimeToSystemTime(&ft, &st);
-	if(st.wYear <= 1980 || st.wYear >= 2100)
-	{
-		rtn = 0;
-	}
-	else
-	{
-		wsprintfW(
-			rtn,
-			DATETIME_FORMAT,
-			st.wYear,
-			st.wMonth,
-			st.wDay,
-			st.wHour,
-			st.wMinute,
-			st.wSecond
-		);
-	}
-	return rtn;
-}
-// v2024-01-06
-INT64
-iFinfo_ftimeToINT64(
-	FILETIME ftime
-)
-{
-	return (((INT64)ftime.dwHighDateTime << 32) + ftime.dwLowDateTime);
 }
 // v2024-01-06
 DOUBLE
@@ -2474,41 +2387,6 @@ iFinfo_ftimeToCjd(
 	INT64 i1 = iFinfo_ftimeToINT64(ftime);
 	i1 /= 10000000; // (重要) MicroSecond 削除
 	return ((DOUBLE)i1 / 86400) + 2305814.0;
-}
-// v2021-11-15
-FILETIME
-iFinfo_ymdhnsToFtime(
-	INT i_y,   // 年
-	INT i_m,   // 月
-	INT i_d,   // 日
-	INT i_h,   // 時
-	INT i_n,   // 分
-	INT i_s,   // 秒
-	BOOL reChk // TRUE=年月日を正規化／FALSE=入力値を信用
-)
-{
-	SYSTEMTIME st;
-	FILETIME ft;
-	if(reChk)
-	{
-		INT *ai = idate_reYmdhns(i_y, i_m, i_d, i_h, i_n, i_s);
-			i_y = ai[0];
-			i_m = ai[1];
-			i_d = ai[2];
-			i_h = ai[3];
-			i_n = ai[4];
-			i_s = ai[5];
-		ifree(ai);
-	}
-	st.wYear         = i_y;
-	st.wMonth        = i_m;
-	st.wDay          = i_d;
-	st.wHour         = i_h;
-	st.wMinute       = i_n;
-	st.wSecond       = i_s;
-	st.wMilliseconds = 0;
-	SystemTimeToFileTime(&st, &ft);
-	return ft;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -2804,12 +2682,12 @@ iConsole_EscOn()
 		P1("\033[0m\n\n");
 	ifree(wp1);
 */
-// v2024-01-06
+// v2024-01-20
 WS
 *iCLI_GetStdin()
 {
-	INT64 mp1Size = 256;
-	INT64 mp1End = 0;
+	INT mp1Size = 256;
+	INT mp1End = 0;
 	MS *mp1 = icalloc_MS(mp1Size);
 
 	// 手入力のとき
@@ -2933,87 +2811,77 @@ idate_chk_uruu(
 // 月を正規化
 //-------------
 /* (例)
-	INT *ai = idate_cnv_month(2011, 14, 1, 12);
-	for(INT i1 = 0; i1 < 2; i1++)
-	{
-		PL3(ai[i1]); //=> 2012, 2
-	}
-	ifree(ai);
+	INT i_y = 2011, i_m = 14;
+	idate_cnv_month(&i_y, &i_m, 1, 12);
+		PL3(i_y); //=> 2012
+		PL3(i_m); //=> 2
 */
-// v2021-11-15
-INT
-*idate_cnv_month(
-	INT i_y,    // 年
-	INT i_m,    // 月
+// v2024-01-21
+VOID
+idate_cnv_month(
+	INT *i_y,   // 年
+	INT *i_m,   // 月
 	INT from_m, // 開始月
 	INT to_m    // 終了月
 )
 {
-	INT *rtn = icalloc_INT(2);
-	while(i_m < from_m)
+	while(*i_m < from_m)
 	{
-		i_m += 12;
-		i_y -= 1;
+		*i_m += 12;
+		*i_y -= 1;
 	}
-	while(i_m > to_m)
+	while(*i_m > to_m)
 	{
-		i_m -= 12;
-		i_y += 1;
+		*i_m -= 12;
+		*i_y += 1;
 	}
-	rtn[0] = i_y;
-	rtn[1] = i_m;
-	return rtn;
 }
 //---------------
 // 月末日を返す
 //---------------
 /* (例)
-	idate_month_end(2012, 2); //=> 29
+	idate_month_end(2012, 2); //=> 閏29
 	idate_month_end(2013, 2); //=> 28
 */
-// v2021-11-15
+// v2024-01-21
 INT
 idate_month_end(
 	INT i_y, // 年
 	INT i_m  // 月
 )
 {
-	INT *ai = idate_cnv_month1(i_y, i_m);
-	INT i_d = MDAYS[ai[1]];
+	idate_cnv_month1(&i_y, &i_m);
+	INT i_d = MDAYS[i_m];
 	// 閏２月末日
-	if(ai[1] == 2 && idate_chk_uruu(ai[0]))
+	if(i_m == 2 && idate_chk_uruu(i_y))
 	{
 		i_d = 29;
 	}
-	ifree(ai);
 	return i_d;
 }
 //-----------------
 // 月末日かどうか
 //-----------------
 /* (例)
-	PL3(idate_chk_month_end(2012, 2, 28, FALSE)); //=> FALSE
-	PL3(idate_chk_month_end(2012, 2, 29, FALSE)); //=> TRUE
-	PL3(idate_chk_month_end(2012, 1, 60, TRUE )); //=> TRUE
-	PL3(idate_chk_month_end(2012, 1, 60, FALSE)); //=> FALSE
+	PL3(idate_chk_month_end(2012, 2, 28)); //=> FALSE
+	PL3(idate_chk_month_end(2012, 2, 29)); //=> TRUE
+	PL3(idate_chk_month_end(2012, 1, 59)); //=> FALSE
+	PL3(idate_chk_month_end(2012, 1, 60)); //=> TRUE
 */
-// v2021-11-15
+// v2024-01-21
 BOOL
 idate_chk_month_end(
-	INT i_y,   // 年
-	INT i_m,   // 月
-	INT i_d,   // 日
-	BOOL reChk // TRUE=年月日を正規化／FALSE=入力値を信用
+	INT i_y, // 年
+	INT i_m, // 月
+	INT i_d  // 日
 )
 {
-	if(reChk)
-	{
-		INT *ai1 = idate_reYmdhns(i_y, i_m, i_d, 0, 0, 0);
-			i_y = ai1[0];
-			i_m = ai1[1];
-			i_d = ai1[2];
-		ifree(ai1);
-	}
+	$struct_iDV *IDV = iDV_alloc();
+		iDV_set(IDV, i_y, i_m, i_d, 0, 0, 0);
+		i_y = IDV->y;
+		i_m = IDV->m;
+		i_d = IDV->d;
+	iDV_free(IDV);
 	return (i_d == idate_month_end(i_y, i_m) ? TRUE : FALSE);
 }
 //-------------------------
@@ -3062,23 +2930,29 @@ INT
 // 年月日を数字に変換
 //---------------------
 /* (例)
-	idate_ymd_num(2012, 6, 17); //=> 20120617
+	idate_ymdToINT(2012, 6, 17); //=> 20120617
 */
-// v2013-03-17
+// v2024-01-21
 INT
-idate_ymd_num(
+idate_ymdToINT(
 	INT i_y, // 年
 	INT i_m, // 月
 	INT i_d  // 日
 )
 {
-	return (i_y * 10000) + (i_m * 100) + (i_d);
+	INT i1 = 1;
+	if(i_y < 0)
+	{
+		i1 = -1;
+		i_y = -(i_y);
+	}
+	return (i1 * (i_y * 10000) + (i_m * 100) + i_d);
 }
 //-----------------------------------------------
 // 年月日をCJDに変換
 //   (注)空白日のとき、一律 NS_BEFORE[0] を返す
 //-----------------------------------------------
-// v2021-11-15
+// v2024-01-21
 DOUBLE
 idate_ymdhnsToCjd(
 	INT i_y, // 年
@@ -3091,10 +2965,7 @@ idate_ymdhnsToCjd(
 {
 	DOUBLE cjd = 0.0;
 	INT i1 = 0, i2 = 0;
-	INT *ai = idate_cnv_month1(i_y, i_m);
-		i_y = ai[0];
-		i_m = ai[1];
-	ifree(ai);
+	idate_cnv_month1(&i_y, &i_m);
 	// 1m=>13m, 2m=>14m
 	if(i_m <= 2)
 	{
@@ -3102,10 +2973,10 @@ idate_ymdhnsToCjd(
 		i_m += 12;
 	}
 	// 空白日
-	i1 = idate_ymd_num(i_y, i_m, i_d);
+	i1 = idate_ymdToINT(i_y, i_m, i_d);
 	if(i1 > NS_BEFORE[1] && i1 < NS_AFTER[1])
 	{
-		return (DOUBLE)NS_BEFORE[0];
+		return NS_BEFORE[0];
 	}
 	// ユリウス通日
 	cjd = floor((DOUBLE)(365.25 * (i_y + 4716)) + floor(30.6001 * (i_m + 1)) + i_d - 1524.0);
@@ -3115,18 +2986,18 @@ idate_ymdhnsToCjd(
 		i2 = 2 - i1 + (INT)floor(i1 / 4);
 		cjd += (DOUBLE)i2;
 	}
-	return cjd + ((i_h * 3600 + i_n * 60 + i_s) / 86400.0);
+	return (cjd + ((i_h * 3600 + i_n * 60 + i_s) / 86400.0));
 }
 //--------------------
-// CJDを時分秒に変換
+// CJDをYMDHNSに変換
 //--------------------
-// v2023-07-13
-INT
-*idate_cjdToiAryHhs(
-	DOUBLE cjd
+// v2024-01-21
+VOID
+idate_cjdToYmdhns(
+	$struct_iDV *IDV,
+	CONST DOUBLE cjd
 )
 {
-	INT *rtn = icalloc_INT(3);
 	INT i_h = 0, i_n = 0, i_s = 0;
 	// 小数点部分を抽出
 	//  [sec]   [補正前]  [cjd]
@@ -3140,46 +3011,33 @@ INT
 	//   7 = 7   -         0.00008101851851852
 	//   8 = 8   -         0.00009259259259259
 	//   9 = 9   -         0.00010416666666667
-	DOUBLE d1 = (cjd - (INT)cjd);
-		d1 += 0.00001; // 補正
-		d1 *= 24.0;
-	i_h = (INT)d1;
-		d1 -= i_h;
-		d1 *= 60.0;
-	i_n = (INT)d1;
-		d1 -= i_n;
-		d1 *= 60.0;
-	i_s = (INT)d1;
-	rtn[0] = i_h;
-	rtn[1] = i_n;
-	rtn[2] = i_s;
-	return rtn;
-}
-//--------------------
-// CJDをYMDHNSに変換
-//--------------------
-// v2023-07-13
-INT
-*idate_cjdToiAryYmdhns(
-	DOUBLE cjd
-)
-{
-	INT *rtn = icalloc_INT(6);
+	DOUBLE dCjd = (cjd - (INT64)cjd);
+		dCjd += 0.00001; // 補正
+		dCjd *= 24.0;
+	i_h = (INT)dCjd;
+		dCjd -= i_h;
+		dCjd *= 60.0;
+	i_n = (INT)dCjd;
+		dCjd -= i_n;
+		dCjd *= 60.0;
+	i_s = (INT)dCjd;
+	IDV->h = i_h;
+	IDV->n = i_n;
+	IDV->s = i_s;
+
 	INT i_y = 0, i_m = 0, i_d = 0;
-	INT iCJD = (INT)cjd;
-	INT i1 = 0, i2 = 0, i3 = 0, i4 = 0;
-	if((INT)cjd >= NS_AFTER[0])
+	INT64 iCJD = (INT64)cjd;
+	INT64 i1 = 0, i2 = 0, i3 = 0, i4 = 0;
+	if((INT64)cjd >= NS_AFTER[0])
 	{
-		i1 = (INT)floor((cjd - 1867216.25) / 36524.25);
-		iCJD += (i1 - (INT)floor(i1 / 4.0) + 1);
+		i1 = (INT64)floor((cjd - 1867216.25) / 36524.25);
+		iCJD += (i1 - (INT64)floor(i1 / 4.0) + 1);
 	}
 	i1 = iCJD + 1524;
-	i2 = (INT)floor((i1 - 122.1) / 365.25);
-	i3 = (INT)floor(365.25 * i2);
-	i4 = (INT)((i1 - i3) / 30.6001);
-	// d
-	i_d = (i1 - i3 - (INT)floor(30.6001 * i4));
-	// y, m
+	i2 = (INT64)floor((i1 - 122.1) / 365.25);
+	i3 = (INT64)floor(365.25 * i2);
+	i4 = (INT64)((i1 - i3) / 30.6001);
+	i_d = (i1 - i3 - (INT64)floor(30.6001 * i4));
 	if(i4 <= 13)
 	{
 		i_m = i4 - 1;
@@ -3190,33 +3048,9 @@ INT
 		i_m = i4 - 13;
 		i_y = i2 - 4715;
 	}
-	// h, n, s
-	INT *ai2 = idate_cjdToiAryHhs(cjd);
-		rtn[0] = i_y;
-		rtn[1] = i_m;
-		rtn[2] = i_d;
-		rtn[3] = ai2[0];
-		rtn[4] = ai2[1];
-		rtn[5] = ai2[2];
-	ifree(ai2);
-	return rtn;
-}
-//---------
-// 再計算
-//---------
-// v2023-07-13
-INT
-*idate_reYmdhns(
-	INT i_y, // 年
-	INT i_m, // 月
-	INT i_d, // 日
-	INT i_h, // 時
-	INT i_n, // 分
-	INT i_s  // 秒
-)
-{
-	DOUBLE cjd = idate_ymdhnsToCjd(i_y, i_m, i_d, i_h, i_n, i_s);
-	return idate_cjdToiAryYmdhns(cjd);
+	IDV->y = i_y;
+	IDV->m = i_m;
+	IDV->d = i_d;
 }
 //-------------------------------------------
 // cjd通日から曜日(日 = 0, 月 = 1...)を返す
@@ -3243,30 +3077,40 @@ WS
 //------------------------------
 // cjd通日から年内の通日を返す
 //------------------------------
-// v2023-07-13
+// v2024-01-21
 INT
 idate_cjd_yeardays(
 	DOUBLE cjd
 )
 {
-	INT *ai = idate_cjdToiAryYmdhns(cjd);
-	INT i1 = ai[0];
-	ifree(ai);
-	return (INT)(cjd - idate_ymdhnsToCjd(i1, 1, 0, 0, 0, 0));
+	$struct_iDV *IDV = iDV_alloc();
+		iDV_set2(IDV, cjd);
+		INT rtn = (INT)(cjd - idate_ymdhnsToCjd(IDV->y, 1, 0, 0, 0, 0));
+	iDV_free(IDV);
+	return rtn;
 }
-//--------------------------------------
-// 日付の前後 [6] = {y, m, d, h, n, s}
-//--------------------------------------
+//--------------------------------
+// 日付の加算 = y, m, d, h, n, s
+//--------------------------------
 /* (例)
-	INT *ai = idate_add(2012, 1, 31, 0, 0, 0, 0, 1, 0, 0, 0, 0);
-	for(INT i1 = 0; i1 < 6; i1++)
-	{
-		PL3(ai[i1]); //=> 2012, 2, 29, 0, 0, 0
-	}
+	$struct_iDV *IDV = iDV_alloc();
+		idate_add(
+			IDV,
+			1582, 11, 10, 0, 0, 0,
+			0, -1, -1, 0, 0, 0
+		);
+		PL3(IDV->y); //=> 1582
+		PL3(IDV->m); //=> 10
+		PL3(IDV->d); //=> 3
+		PL3(IDV->h); //=> 0
+		PL3(IDV->n); //=> 0
+		PL3(IDV->s); //=> 0
+	iDV_free(IDV);
 */
-// v2023-07-13
-INT
-*idate_add(
+// v2024-01-22
+VOID
+idate_add(
+	$struct_iDV *IDV,
 	INT i_y,   // 年
 	INT i_m,   // 月
 	INT i_d,   // 日
@@ -3281,88 +3125,59 @@ INT
 	INT add_s  // 秒
 )
 {
-	INT *ai1 = 0;
-	INT *ai2 = idate_reYmdhns(i_y, i_m, i_d, i_h, i_n, i_s);
-	INT i1 = 0, i2 = 0, flg = 0;
-	DOUBLE cjd = 0.0;
+	iDV_set(IDV, i_y, i_m, i_d, i_h, i_n, i_s);
+	INT i1 = 0;
 	// 個々に計算
-	// 手を抜くと「1582-11-10 -1m, -1d」のとき、1582-10-04(期待値は1582-10-03)となる
+	// 手を抜くと「1582-11-10 -1m, -1d」のとき、エラー1582-10-04（期待値は1582-10-03）となる
 	if(add_y != 0 || add_m != 0)
 	{
-		i1 = (INT)idate_month_end(ai2[0] + add_y, ai2[1] + add_m);
-		if(ai2[2] > (INT)i1)
+		i1 = (INT)idate_month_end((IDV->y + add_y), (IDV->m + add_m));
+		if(IDV->d > (INT)i1)
 		{
-			ai2[2] = (INT)i1;
+			IDV->d = (INT)i1;
 		}
-		ai1 = idate_reYmdhns(ai2[0] + add_y, ai2[1] + add_m, ai2[2], ai2[3], ai2[4], ai2[5]);
-		i2 = 0;
-		while(i2 < 6)
-		{
-			ai2[i2] = ai1[i2];
-			++i2;
-		}
-		ifree(ai1);
-		++flg;
+		iDV_add(IDV, add_y, add_m, 0, 0, 0, 0);
 	}
-	if(add_d != 0)
+	if(add_d)
 	{
-		cjd = idate_ymdhnsToCjd(ai2[0], ai2[1], ai2[2], ai2[3], ai2[4], ai2[5]);
-		ai1 = idate_cjdToiAryYmdhns(cjd + add_d);
-		i2 = 0;
-		while(i2 < 6)
-		{
-			ai2[i2] = ai1[i2];
-			++i2;
-		}
-		ifree(ai1);
-		++flg;
+		// 【重要】CJDに変換してから加算
+		iDV_add2(IDV, add_d);
 	}
 	if(add_h != 0 || add_n != 0 || add_s != 0)
 	{
-		ai1 = idate_reYmdhns(ai2[0], ai2[1], ai2[2], ai2[3] + add_h, ai2[4] + add_n, ai2[5] + add_s);
-		i2 = 0;
-		while(i2 < 6)
-		{
-			ai2[i2] = ai1[i2];
-			++i2;
-		}
-		ifree(ai1);
-		++flg;
+		iDV_add(IDV, 0, 0, 0, add_h, add_n, add_s);
 	}
-	if(flg)
-	{
-		ai1 = icalloc_INT(6);
-		i2 = 0;
-		while(i2 < 6)
-		{
-			ai1[i2] = ai2[i2];
-			++i2;
-		}
-	}
-	else
-	{
-		ai1 = idate_reYmdhns(ai2[0], ai2[1], ai2[2], ai2[3], ai2[4], ai2[5]);
-	}
-	ifree(ai2);
-	return ai1;
+	IDV->sign = TRUE;
+	IDV->days = 0.0;
 }
-//-------------------------------------------------------
-// 日付の差 [8] = {sign, y, m, d, h, n, s, days}
-//   (注)便宜上、(日付1<=日付2)に変換して計算するため、
-//       結果は以下のとおりとなるので注意。
-//       ・5/31⇒6/30 : + 1m
-//       ・6/30⇒5/31 : -30d
-//-------------------------------------------------------
+//------------------------------------------
+// 日付の差 = sign, y, m, d, h, n, s, days
+//   (注)「月差」と「日差」を区別する
+//     ・5/31 => 6/30 : +1m
+//     ・6/30 => 5/31 : -30d
+//------------------------------------------
 /* (例)
-	INT *ai = idate_diff(2012, 1, 31, 0, 0, 0, 2012, 2, 29, 0, 0, 0); //=> sign=1, y=0, m=1, d=0, h=0, n=0, s=0, days=29
-	for(INT i1 = 0; i1 < 7; i1++)
-	{
-		PL3(ai[i1]); //=> 2012, 2, 29, 0, 0, 0, 29
-	}
+	$struct_iDV *IDV = iDV_alloc();
+		idate_diff(
+			IDV,
+			2012, 5, 31, 0, 0, 0,
+			2012, 6, 30, 0, 0, 0
+		);
+		//=> sign=1, y=0, m=1, d=0, h=0, n=0, s=0, days=30.000000
+		P("sign=%d, y=%d, m=%d, d=%d, h=%d, n=%d, s=%d, days=%.6f\n", IDV->sign, IDV->y, IDV->m, IDV->d, IDV->h, IDV->n, IDV->s, IDV->days);
+		idate_diff(
+			IDV,
+			2012, 6, 30, 0, 0, 0,
+			2012, 5, 31, 0, 0, 0
+		);
+		//=> sign=0, y=0, m=0, d=30, h=0, n=0, s=0, days=30.000000
+		P("sign=%d, y=%d, m=%d, d=%d, h=%d, n=%d, s=%d, days=%.6f\n", IDV->sign, IDV->y, IDV->m, IDV->d, IDV->h, IDV->n, IDV->s, IDV->days);
+	iDV_free(IDV);
 */
-// v2023-07-13
-INT
-*idate_diff(
+// v2024-01-21
+VOID
+idate_diff(
+	$struct_iDV *IDV,
 	INT i_y1, // 年1
 	INT i_m1, // 月1
 	INT i_d1, // 日1
@@ -3377,136 +3192,121 @@ INT
 	INT i_s2  // 秒2
 )
 {
-	INT *rtn = icalloc_INT(8);
+	iDV_clear(IDV);
+
 	INT i1 = 0, i2 = 0, i3 = 0, i4 = 0;
-	DOUBLE cjd = 0.0;
-	/*
-		正規化1
-	*/
+
+	// 正規化1
 	DOUBLE cjd1 = idate_ymdhnsToCjd(i_y1, i_m1, i_d1, i_h1, i_n1, i_s1);
 	DOUBLE cjd2 = idate_ymdhnsToCjd(i_y2, i_m2, i_d2, i_h2, i_n2, i_s2);
 	if(cjd1 > cjd2)
 	{
-		rtn[0] = -1; // sign(-)
-		cjd  = cjd1;
+		IDV->sign = FALSE;
+		DOUBLE cjd  = cjd1;
 		cjd1 = cjd2;
 		cjd2 = cjd;
 	}
 	else
 	{
-		rtn[0] = 1; // sign(+)
+		IDV->sign = TRUE;
 	}
-	/*
-		days
-	*/
-	rtn[7] = (INT)(cjd2 - cjd1);
-	/*
-		正規化2
-	*/
-	INT *ai1 = idate_cjdToiAryYmdhns(cjd1);
-	INT *ai2 = idate_cjdToiAryYmdhns(cjd2);
-	/*
-		ymdhns
-	*/
-	rtn[1] = ai2[0] - ai1[0];
-	rtn[2] = ai2[1] - ai1[1];
-	rtn[3] = ai2[2] - ai1[2];
-	rtn[4] = ai2[3] - ai1[3];
-	rtn[5] = ai2[4] - ai1[4];
-	rtn[6] = ai2[5] - ai1[5];
-	/*
-		m 調整
-	*/
-	INT *ai3 = idate_cnv_month2(rtn[1], rtn[2]);
-		rtn[1] = ai3[0];
-		rtn[2] = ai3[1];
-	ifree(ai3);
-	/*
-		hns 調整
-	*/
-	while(rtn[6] < 0)
-	{
-		rtn[6] += 60;
-		rtn[5] -= 1;
-	}
-	while(rtn[5] < 0)
-	{
-		rtn[5] += 60;
-		rtn[4] -= 1;
-	}
-	while(rtn[4] < 0)
-	{
-		rtn[4] += 24;
-		rtn[3] -= 1;
-	}
-	/*
-		d 調整
-		前処理
-	*/
-	if(rtn[3] < 0)
-	{
-		rtn[2] -= 1;
-		if(rtn[2] < 0)
+
+	// days
+	IDV->days = (DOUBLE)(cjd2 - cjd1);
+
+	// 正規化2
+	$struct_iDV *IDV1 = iDV_alloc();
+		iDV_set2(IDV1, cjd1);
+	$struct_iDV *IDV2 = iDV_alloc();
+		iDV_set2(IDV2, cjd2);
+
+		// ymdhns
+		IDV->y = IDV2->y - IDV1->y;
+		IDV->m = IDV2->m - IDV1->m;
+		IDV->d = IDV2->d - IDV1->d;
+		IDV->h = IDV2->h - IDV1->h;
+		IDV->n = IDV2->n - IDV1->n;
+		IDV->s = IDV2->s - IDV1->s;
+
+		// m 調整
+		idate_cnv_month2(&IDV->y, &IDV->m);
+
+		// hns 調整
+		while(IDV->s < 0)
 		{
-			rtn[2] += 12;
-			rtn[1] -= 1;
+			IDV->s += 60;
+			IDV->n -= 1;
 		}
-	}
-	/*
-		本処理
-	*/
-	if(rtn[0] > 0)
-	{
-		ai3 = idate_add(ai1[0], ai1[1], ai1[2], ai1[3], ai1[4], ai1[5], rtn[1], rtn[2], 0, 0, 0, 0);
-			i1 = (INT)idate_ymdhnsToCjd(ai2[0], ai2[1], ai2[2], 0, 0, 0);
-			i2 = (INT)idate_ymdhnsToCjd(ai3[0], ai3[1], ai3[2], 0, 0, 0);
-		ifree(ai3);
-	}
-	else
-	{
-		ai3 = idate_add(ai2[0], ai2[1], ai2[2], ai2[3], ai2[4], ai2[5], -rtn[1], -rtn[2], 0, 0, 0, 0);
-			i1 = (INT)idate_ymdhnsToCjd(ai3[0], ai3[1], ai3[2], 0, 0, 0);
-			i2 = (INT)idate_ymdhnsToCjd(ai1[0], ai1[1], ai1[2], 0, 0, 0);
-		ifree(ai3);
-	}
-	i3 = idate_ymd_num(ai1[3], ai1[4], ai1[5]);
-	i4 = idate_ymd_num(ai2[3], ai2[4], ai2[5]);
-	/* 変換例
-		"05-31" "06-30" のとき m = 1, d = 0
-		"06-30" "05-31" のとき m = 0, d = -30
-		※分岐条件は非常にシビアなので安易に変更するな!!
-	*/
-	if(rtn[0] > 0                                             // +のときのみ
-		&& i3 <= i4                                           // (例) "12:00:00 =< 23:00:00"
-		&& idate_chk_month_end(ai2[0], ai2[1], ai2[2], FALSE) // (例) 06-"30" は月末日？
-		&& ai1[2] > ai2[2]                                    // (例) 05-"31" > 06-"30"
-	)
-	{
-		rtn[2] += 1;
-		rtn[3] = 0;
-	}
-	else
-	{
-		rtn[3] = i1 - i2 - (INT)(i3 > i4 ? 1 : 0);
-	}
-	ifree(ai2);
-	ifree(ai1);
-	return rtn;
+		while(IDV->n < 0)
+		{
+			IDV->n += 60;
+			IDV->h -= 1;
+		}
+		while(IDV->h < 0)
+		{
+			IDV->h += 24;
+			IDV->d -= 1;
+		}
+
+		// d 調整
+		// 前処理
+		if(IDV->d < 0)
+		{
+			IDV->m -= 1;
+			if(IDV->m < 0)
+			{
+				IDV->m += 12;
+				IDV->y -= 1;
+			}
+		}
+
+		// 本処理
+		$struct_iDV *IDV3 = iDV_alloc();
+			if(IDV->sign)
+			{
+				idate_add(IDV3, IDV1->y, IDV1->m, IDV1->d, IDV1->h, IDV1->n, IDV1->s, IDV->y, IDV->m, 0, 0, 0, 0);
+					i1 = (INT)idate_ymdhnsToCjd(IDV2->y, IDV2->m, IDV2->d, 0, 0, 0);
+					i2 = (INT)idate_ymdhnsToCjd(IDV3->y, IDV3->m, IDV3->d, 0, 0, 0);
+			}
+			else
+			{
+				idate_add(IDV3, IDV2->y, IDV2->m, IDV2->d, IDV2->h, IDV2->n, IDV2->s, -(IDV->y), -(IDV->m), 0, 0, 0, 0);
+					i1 = (INT)idate_ymdhnsToCjd(IDV3->y, IDV3->m, IDV3->d, 0, 0, 0);
+					i2 = (INT)idate_ymdhnsToCjd(IDV1->y, IDV1->m, IDV1->d, 0, 0, 0);
+			}
+		iDV_free(IDV3);
+		i3 = idate_ymdToINT(IDV1->h, IDV1->n, IDV1->s);
+		i4 = idate_ymdToINT(IDV2->h, IDV2->n, IDV2->s);
+
+		/* 変換例
+			"05-31" "06-30" のとき m = 1, d = 0
+			"06-30" "05-31" のとき m = 0, d = -30
+			※分岐条件は非常にシビアなので安易に変更するな!!
+		*/
+		if(IDV->sign                                          // ＋のとき
+			&& i3 <= i4                                       // (例) "12:00:00 =< 23:00:00"
+			&& idate_chk_month_end(IDV2->y, IDV2->m, IDV2->d) // (例) "06-30" は月末日？
+			&& IDV1->d > IDV2->d                              // (例) "05-31" > "06-30"
+		)
+		{
+			IDV->m += 1;
+			IDV->d = 0;
+		}
+		else
+		{
+			IDV->d = i1 - i2 - (INT)(i3 > i4 ? 1 : 0);
+		}
+	iDV_free(IDV2);
+	iDV_free(IDV1);
 }
 //--------------------------
 // diff()／add()の動作確認
 //--------------------------
 /* (例) 西暦1年から2000年迄のサンプル100例について評価
-	idate_diff_checker(1, 2000, 100);
+	iDV_checker(1, 2000, 100);
 */
-// v2023-07-10
+// v2024-01-21
 /*
-VOID
-irand_init()
-{
-	srand((UINT)time(NULL));
-}
-
 INT
 irand_INT(
 	INT min,
@@ -3515,62 +3315,90 @@ irand_INT(
 {
 	return (min + (INT)(rand() * (max - min + 1.0) / (1.0 + RAND_MAX)));
 }
-
 VOID
-idate_diff_checker(
+iDV_checker(
 	INT from_year, // 何年から
 	INT to_year,   // 何年まで
 	INT iSample    // サンプル抽出数
 )
 {
-	if(from_year > to_year)
-	{
-		INT i1 = to_year;
-		to_year = from_year;
-		from_year = i1;
-	}
-	INT rnd_y = to_year - from_year;
-	INT *ai1 = 0, *ai2 = 0, *ai3 = 0, *ai4 = 0;
-	INT y1 = 0, y2 = 0, m1 = 0, m2 = 0, d1 = 0, d2 = 0;
-	MS s1[16] = "", s2[16] = "";
-	MS *err = 0;
-	P2("\033[94m--Cnt----From----------To------------[Sign,    Y,  M,  D]----DateAdd-------Chk----\033[0m");
-	irand_init();
-	for(INT i1 = 1; i1 <= iSample; i1++)
-	{
-		y1 = from_year + irand_INT(0, rnd_y);
-		y2 = from_year + irand_INT(0, rnd_y);
-		m1 = 1 + irand_INT(0, 11);
-		m2 = 1 + irand_INT(0, 11);
-		d1 = 1 + irand_INT(0, 30);
-		d2 = 1 + irand_INT(0, 30);
-		// 再計算
-		ai1 = idate_reYmdhns(y1, m1, d1, 0, 0, 0);
-		ai2 = idate_reYmdhns(y2, m2, d2, 0, 0, 0);
-		// diff & add
-		ai3 = idate_diff(ai1[0], ai1[1], ai1[2], 0, 0, 0, ai2[0], ai2[1], ai2[2], 0, 0, 0);
-		ai4 = (
-			ai3[0] > 0 ?
-			idate_add(ai1[0], ai1[1], ai1[2], 0, 0, 0, ai3[1], ai3[2], ai3[3], 0, 0, 0) :
-			idate_add(ai1[0], ai1[1], ai1[2], 0, 0, 0, -(ai3[1]), -(ai3[2]), -(ai3[3]), 0, 0, 0)
-		);
-		// 計算結果の照合
-		sprintf(s1, "%d%02d%02d", ai2[0], ai2[1], ai2[2]);
-		sprintf(s2, "%d%02d%02d", ai4[0], ai4[1], ai4[2]);
-		err = (strcmp(s1, s2) ? "\033[91mNG\033[0m" : "\033[93mok\033[0m");
-		P(
-			"%5d   %5d-%02d-%02d   \033[96m%5d-%02d-%02d\033[0m    [%4d, %4d, %2d, %2d]   \033[96m%5d-%02d-%02d\033[0m    %s\n"
-			,
-			i1,
-			ai1[0], ai1[1], ai1[2], ai2[0], ai2[1], ai2[2],
-			ai3[0], ai3[1], ai3[2], ai3[3], ai4[0], ai4[1], ai4[2],
-			err
-		);
-		ifree(ai4);
-		ifree(ai3);
-		ifree(ai2);
-		ifree(ai1);
-	}
+	$struct_idate_value *IDV1 = iDV_alloc();
+	$struct_idate_value *IDV2 = iDV_alloc();
+	$struct_idate_value *IDV3 = iDV_alloc();
+	$struct_idate_value *IDV4 = iDV_alloc();
+		if(from_year > to_year)
+		{
+			INT _i1 = to_year;
+			to_year = from_year;
+			from_year = _i1;
+		}
+		INT rnd_y = to_year - from_year;
+		MS buf[256] = "";
+		P2("\033[94m--Cnt----From-----------To-------------Sign  Y  M  D----DateAdd--------Check--\033[0m");
+		srand((UINT)time(NULL));
+		for(INT _i1 = 1; _i1 <= iSample; _i1++)
+		{
+			iDV_set(
+				IDV1,
+				from_year + irand_INT(0, rnd_y),
+				(1 + irand_INT(0, 11)),
+				(1 + irand_INT(0, 30)),
+				0, 0, 0
+			);
+			iDV_set(
+				IDV2,
+				to_year + irand_INT(0, rnd_y),
+				(1 + irand_INT(0, 11)),
+				(1 + irand_INT(0, 30)),
+				0, 0, 0
+			);
+			idate_diff(
+				IDV3,
+				IDV1->y, IDV1->m, IDV1->d, 0, 0, 0,
+				IDV2->y, IDV2->m, IDV2->d, 0, 0, 0
+			);
+			if(IDV3->sign)
+			{
+				idate_add(
+					IDV4,
+					IDV1->y, IDV1->m, IDV1->d, 0, 0, 0,
+					IDV3->y, IDV3->m, IDV3->d, 0, 0, 0
+				);
+			}
+			else
+			{
+				idate_add(
+					IDV4,
+					IDV1->y, IDV1->m, IDV1->d, 0, 0, 0,
+					-(IDV3->y), -(IDV3->m), -(IDV3->d), 0, 0, 0
+				);
+			}
+			UINT _uLen = sprintf(
+				buf,
+				"%5d"
+				" \033[92m%8d-%02d-%02d"
+				" \033[96m%8d-%02d-%02d"
+				"    \033[94m%c %5d %2d %2d"
+				" \033[96m%8d-%02d-%02d"
+				"    %s\033[0m\n"
+				,
+				_i1,
+				IDV1->y, IDV1->m, IDV1->d,
+				IDV2->y, IDV2->m, IDV2->d,
+				(IDV3->sign ? '+' : '-'), IDV3->y, IDV3->m, IDV3->d,
+				IDV4->y, IDV4->m, IDV4->d,
+				(
+					idate_ymdToINT(IDV2->y, IDV2->m, IDV2->d) == idate_ymdToINT(IDV4->y, IDV4->m, IDV4->d) ?
+					"\033[93mok" :
+					"\033[91mNG"
+				)
+			);
+			QP(buf, _uLen);
+		}
+	iDV_free(IDV4);
+	iDV_free(IDV3);
+	iDV_free(IDV2);
+	iDV_free(IDV1);
 }
 */
 /*
@@ -3607,31 +3435,25 @@ idate_diff_checker(
 	\t
 */
 /* (例) ymdhns
-	INT *ai1 = idate_reYmdhns(1970, 12, 10, 0, 0, 0);
-	WS *p1 = idate_format_ymdhns(L"%g%y-%m-%d(%a) %c / %C", ai1[0], ai1[1], ai1[2], ai1[3], ai1[4], ai1[5]);
-		PL2W(p1); //=> "+1970-12-10(Th) 344 / 2440931.000"
-	ifree(p1);
-	ifree(ai1);
+	$struct_iDV *IDV = iDV_alloc();
+		iDV_set(IDV, 2024, 0, 50, 60, 0, 0);
+		WS *wp1 = idate_format_ymdhns(L"%g%y-%m-%d(%a) %C", IDV->y, IDV->m, IDV->d, IDV->h, IDV->n, IDV->s);
+			PL2W(wp1); //=> "+2024-01-21(Su) 2460331.500000"
+		ifree(wp1);
+	iDV_free(IDV);
 */
-/* (例) diff
-	INT *ai1 = idate_diff(1970, 12, 10, 0, 0, 0, 2021, 4, 18, 0, 0, 0);
-	WS *p1 = idate_format_diff(L"%g%y-%m-%d %Wweeks %Ddays %Sseconds", ai1[0], ai1[1], ai1[2], ai1[3], ai1[4], ai1[5], ai1[6], ai1[7]);
-		PL2W(p1); //=> "+0050-04-08 2627weeks 18392days 1589068800seconds"
-	ifree(p1);
-	ifree(ai1);
-*/
-// v2023-12-22
+// v2024-01-20
 WS
-*idate_format_diff(
-	WS *format,  //
-	INT i_sign,  // 符号／-1="-", 1="+"
-	INT i_y,     // 年
-	INT i_m,     // 月
-	INT i_d,     // 日
-	INT i_h,     // 時
-	INT i_n,     // 分
-	INT i_s,     // 秒
-	INT64 i_days // 通算日／idate_diff()で使用
+*idate_format(
+	WS *format,
+	BOOL b_sign,  // TRUE='+'／FALSE='-'
+	INT i_y,      // 年
+	INT i_m,      // 月
+	INT i_d,      // 日
+	INT i_h,      // 時
+	INT i_n,      // 分
+	INT i_s,      // 秒
+	DOUBLE d_days // 通算日／idate_diff()で使用
 )
 {
 	if(! format)
@@ -3643,12 +3465,12 @@ WS
 	WS *pEnd = rtn;
 	UINT uPos = 0;
 	// Ymdhns で使用
-	DOUBLE cjd = (i_days ? 0.0 : idate_ymdhnsToCjd(i_y, i_m, i_d, i_h, i_n, i_s));
-	DOUBLE jd = cjd - CJD_TO_JD;
+	DOUBLE cjd = (d_days ? d_days : idate_ymdhnsToCjd(i_y, i_m, i_d, i_h, i_n, i_s));
+	INT64 i_days = (INT64)cjd;
 	// 符号チェック
 	if(i_y < 0)
 	{
-		i_sign = -1;
+		b_sign = FALSE;
 		i_y = -(i_y);
 	}
 	while(*format)
@@ -3669,10 +3491,10 @@ WS
 					pEnd += swprintf(pEnd, BufSizeMax, L"%d", idate_cjd_yeardays(cjd));
 					break;
 				case 'C': // CJD通算日
-					pEnd += swprintf(pEnd, BufSizeMax, L"%.8f", cjd);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%.6f", cjd);
 					break;
 				case 'J': // JD通算日
-					pEnd += swprintf(pEnd, BufSizeMax, L"%.8f", jd);
+					pEnd += swprintf(pEnd, BufSizeMax, L"%.6f", (cjd - CJD_TO_JD));
 					break;
 				case 'e': // 年内の通算週
 					pEnd += swprintf(pEnd, BufSizeMax, L"%d", idate_cjd_yearweeks(cjd));
@@ -3704,11 +3526,11 @@ WS
 					break;
 				// 共通
 				case 'g': // Sign "-" "+"
-					*pEnd = (i_sign < 0 ? '-' : '+');
+					*pEnd = (! b_sign ? '-' : '+');
 					++pEnd;
 					break;
 				case 'G': // Sign "-" のみ
-					if(i_sign < 0)
+					if(! b_sign)
 					{
 						*pEnd = '-';
 						++pEnd;
@@ -3778,9 +3600,9 @@ WS
 	return rtn;
 }
 /* (例)
-	PL2W(idate_format_cjdToWS(NULL, idate_nowToCjd_localtime()));
+	PL2W(idate_format_cjdToWS(NULL, CJD_NOW_LOCAL()));
 */
-// v2023-07-13
+// v2024-01-21
 WS
 *idate_format_cjdToWS(
 	WS *format, // NULL=IDATE_FORMAT_STD
@@ -3791,9 +3613,10 @@ WS
 	{
 		format = IDATE_FORMAT_STD;
 	}
-	INT *ai1 = idate_cjdToiAryYmdhns(cjd);
-	WS *rtn = idate_format_ymdhns(format, ai1[0], ai1[1], ai1[2], ai1[3], ai1[4], ai1[5]);
-	ifree(ai1);
+	$struct_iDV *IDV = iDV_alloc();
+		iDV_set2(IDV, cjd);
+		WS *rtn = idate_format_ymdhns(format, IDV->y, IDV->m, IDV->d, IDV->h, IDV->n, IDV->s);
+	iDV_free(IDV);
 	return rtn;
 }
 //---------------------
@@ -4010,7 +3833,7 @@ WS
 				}
 				UINT uCntPercent = 0; // str 中の "%" 個数
 				UINT uCntStar    = 0; // str 中の "*" 個数
-				INT *ai = 0;
+				INT *ai = icalloc_INT(6);
 					if(bAdd)
 					{
 						// "Y".."s" 末尾の "%", "*" を検索
@@ -4028,16 +3851,20 @@ WS
 							++pDtEnd;
 						}
 						// ±日時
-						ai = idate_add(i_y, i_m, i_d, i_h, i_n, i_s, add_y, add_m, add_d, add_h, add_n, add_s);
+						$struct_iDV *IDV = iDV_alloc();
+							idate_add(IDV, i_y, i_m, i_d, i_h, i_n, i_s, add_y, add_m, add_d, add_h, add_n, add_s);
+							ai[0] = IDV->y;
+							ai[1] = IDV->m;
+							ai[2] = IDV->d;
+							ai[3] = IDV->h;
+							ai[4] = IDV->n;
+							ai[5] = IDV->s;
+						iDV_free(IDV);
 						// "00:00:00"
 						if(bHnsZero)
 						{
 							ai[3] = ai[4] = ai[5] = 0;
 						}
-					}
-					else
-					{
-						ai = icalloc_INT(6);
 					}
 					WS *p1 = idate_format_ymdhns(IDATE_FORMAT_STD, ai[0], ai[1], ai[2], ai[3], ai[4], ai[5]);
 						WS *p2 = 0;
@@ -4106,7 +3933,7 @@ INT
 	}
 	/* [Pending] 2021-11-15
 		下記コードでビープ音を発生することがある。
-			INT *rtn = icalloc_INT(n) ※INT系全般／DOUBL系は問題なし
+			INT *rtn = icalloc_INT(n) ※INT系全般／DOUBLE系は問題なし
 			rtn[n] = 1793..2047
 		2021-11-10にコンパイラを MInGW(32bit) から Mingw-w64(64bit) に変更した影響か？
 		当面、様子を見る。
