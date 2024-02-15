@@ -830,22 +830,23 @@ imv_system(
 		P1W(wp1); //=> コマンドの実行結果
 	ifree(wp1);
 */
-// v2023-12-23
+// v2024-02-12
 WS
 *iws_popen(
 	WS *cmd
 )
 {
 	WS *rtn = 0;
-	MS *mCmd = W2M(cmd);
-		FILE *fp = popen(mCmd, "rt");
-			UINT uSize = 16;
+	// STDERR 排除
+	WS *wp1 = iws_cats(2, cmd, L" 2> NUL");
+		FILE *fp = _wpopen(wp1, L"rb");
+			UINT uSize = 256;
 			MS *mp1 = icalloc_MS(uSize);
 				UINT uPos = 0;
 				INT c = 0;
 				while((c = fgetc(fp)) != EOF)
 				{
-					mp1[uPos] = (MS)c;
+					mp1[uPos] = c;
 					++uPos;
 					if(uPos >= uSize)
 					{
@@ -854,13 +855,12 @@ WS
 					}
 				}
 				mp1[uPos] = 0;
+				// コンソール文字コードを無視して出力するアプリケーションに対応
 				///PL3(imn_Codepage(mp1));
 				rtn = icnv_M2W(mp1, imn_Codepage(mp1));
 			ifree(mp1);
 		pclose(fp);
-	ifree(mCmd);
-	// CodePage
-	SetConsoleOutputCP(65001);
+	ifree(wp1);
 	return rtn;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1036,33 +1036,47 @@ imn_Codepage(
 		PL2W(to); //=> "abcde"
 	ifree(to);
 */
-// v2023-07-29
+// v2024-02-10
 UINT64
-imn_cpy(
-	MS *to,
-	MS *from
+ivn_cpy(
+	VOID *to,
+	VOID *from,
+	INT sizeOfChar // sizeof(MS), sizeof(WS)
 )
 {
-	if(! from || ! *from)
+	if(! from)
 	{
 		return 0;
 	}
-	strcpy(to, from);
-	return strlen(from);
-}
-// v2023-07-29
-UINT64
-iwn_cpy(
-	WS *to,
-	WS *from
-)
-{
-	if(! from || ! *from)
+	UINT64 rtn = 0;
+	MS *toM = to, *fromM = from;
+	UINT64 u1 = 0;
+	// 利点は
+	//   コピー：strcpy/wcscpy
+	//   文字長：strlen/wcslen
+	// を１ループに収束できること
+	if(sizeOfChar == 2)
 	{
-		return 0;
+		for(u1 = 0; fromM[u1]; u1++)
+		{
+			++rtn;
+			toM[u1] = fromM[u1];
+			++u1;
+			toM[u1] = fromM[u1];
+		}
+		toM[u1] = '\0';
+		++u1;
 	}
-	wcscpy(to, from);
-	return wcslen(from);
+	else
+	{
+		for(u1 = 0; fromM[u1]; u1++)
+		{
+			++rtn;
+			toM[u1] = fromM[u1];
+		}
+	}
+	toM[u1] = '\0';
+	return rtn;
 }
 /* (例)
 	WS *p1 = iws_clone(L"123456789");
@@ -1070,35 +1084,23 @@ iwn_cpy(
 	PL3(iwn_pcpy(p1, p2, (p2 + 5))); //=> 2
 	PL2W(p1);                        //=> "AB"
 */
-// v2023-09-01
+// v2024-02-10
 UINT64
-imn_pcpy(
-	MS *to,
-	MS *from1,
-	MS *from2
+ivn_pcpy(
+	VOID *to,
+	VOID *from1,
+	VOID *from2,
+	INT sizeOfChar // sizeof(MS), sizeof(WS)
 )
 {
 	if(! from1 || ! from2 || from1 >= from2)
 	{
 		return 0;
 	}
-	strncpy(to, from1, (from2 - from1));
-	return strlen(to);
-}
-// v2023-09-01
-UINT64
-iwn_pcpy(
-	WS *to,
-	WS *from1,
-	WS *from2
-)
-{
-	if(! from1 || ! from2 || from1 >= from2)
-	{
-		return 0;
-	}
-	wcsncpy(to, from1, (from2 - from1));
-	return wcslen(to);
+	UINT64 rtn = from2 - from1;
+	memcpy(to, from1, rtn);
+	memset((to + rtn), 0, sizeOfChar);
+	return (rtn / sizeOfChar);
 }
 //-----------------------
 // 新規部分文字列を生成
@@ -1106,31 +1108,23 @@ iwn_pcpy(
 /* (例)
 	PL2W(iws_clone(L"あいうえお")); //=> "あいうえお"
 */
-// v2023-09-01
-MS
-*ims_clone(
-	MS *from
+// v2024-02-10
+VOID
+*ivs_clone(
+	VOID *from,
+	INT sizeOfChar // sizeof(MS), sizeof(WS)
 )
 {
-	if(! from || ! *from)
+	if(! from)
 	{
-		return icalloc_MS(0);
+		return icalloc(0, 0, FALSE);
 	}
-	MS *rtn = icalloc_MS(strlen(from));
-	return strcpy(rtn, from);
-}
-// v2023-09-01
-WS
-*iws_clone(
-	WS *from
-)
-{
-	if(! from || ! *from)
-	{
-		return icalloc_WS(0);
-	}
-	WS *rtn = icalloc_WS(wcslen(from));
-	return wcscpy(rtn, from);
+	UINT64 len = 0;
+	for(MS *_p1 = from; *_p1; (_p1 += sizeOfChar), ++len);
+	len *= sizeOfChar;
+	VOID *rtn = icalloc(len, 1, FALSE);
+	memcpy(rtn, from, (len + sizeOfChar)); // '\0' 含む
+	return rtn;
 }
 /* (例)
 	WS *from = L"あいうえお";
@@ -1138,20 +1132,23 @@ WS
 		PL2W(p1); //=> "あいう"
 	ifree(p1);
 */
-// v2023-09-01
-WS
-*iws_pclone(
-	WS *from1,
-	WS *from2
+// v2024-02-10
+VOID
+*ivs_pclone(
+	VOID *from1,
+	VOID *from2,
+	INT sizeOfChar // sizeof(MS), sizeof(WS)
 )
 {
 	if(! from1 || ! from2 || from1 >= from2)
 	{
-		return icalloc_WS(0);
+		return icalloc(0, 0, FALSE);
 	}
 	UINT64 len = from2 - from1;
-	WS *rtn = icalloc_WS(len);
-	return wcsncpy(rtn, from1, len);
+	VOID *rtn = icalloc(len, 1, FALSE);
+	memcpy(rtn, from1, len);
+	memset((rtn + len), 0, sizeOfChar);
+	return rtn;
 }
 /* (例)
 	MS *mp1 = ims_cats(5, "123", NULL, "abcde", "", "あいうえお");
@@ -1390,7 +1387,7 @@ WS
 	BOOL bRmEmpty // TRUE=配列から空白を除く
 )
 {
-	WS **rtn = {};
+	WS **rtn = { 0 };
 	if(! str || ! *str)
 	{
 		rtn = icalloc_WS_ary(1);
@@ -2056,22 +2053,21 @@ iwav_print2(
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
 /* (例)
-	$struct_iVBM *IVBM = iVBM_alloc2(10000);
-		iVBM_add(IVBM, "123456789");
-		iVBM_add(IVBM, "あいうえお");
-			P2(iVBM_getStr(IVBM));
-			PL3(iVBM_getLength(IVBM));
-			PL3(iVBM_getSize(IVBM));
-		iVBM_clear(IVBM);
-			for(UINT64 _u1 = 0; _u1 < 1000000; _u1++)
-			{
-				iVBM_add(IVBM, "かきくけこ");
-			}
-			QP(iVBM_getStr(IVBM), iVBM_getLength(IVBM));
-			NL();
-			PL3(iVBM_getLength(IVBM));
-			PL3(iVBM_getSize(IVBM));
-	iVBM_free(IVBM);
+	$struct_iVBW *IVBW = iVBW_alloc();
+		iVBW_add(IVBW, L"1234567890");
+		iVBW_add(IVBW, L"あいうえお");
+			PL2W(iVBW_getStr(IVBW));
+			PL3(iVBW_getLength(IVBW));
+			PL3(iVBW_getSize(IVBW));
+		iVBW_clear(IVBW);
+			PL2W(iVBW_getStr(IVBW));
+			PL3(iVBW_getLength(IVBW));
+			PL3(iVBW_getSize(IVBW));
+		iVBW_sprintf(IVBW, L"%.5f", 123456.7890);
+			PL2W(iVBW_getStr(IVBW));
+			PL3(iVBW_getLength(IVBW));
+			PL3(iVBW_getSize(IVBW));
+	iVBW_free(IVBW);
 */
 // v2024-01-15
 $struct_iVBStr
@@ -2086,28 +2082,75 @@ $struct_iVBStr
 		IVBS->length = 0;
 	return IVBS;
 }
-// v2024-01-15
+// v2024-01-26
 VOID
-*iVBStr_add(
+iVBStr_add(
 	$struct_iVBStr *IVBS, // 格納場所
 	VOID *str,            // 追記する文字列
 	UINT64 strLen,        // 追記する文字列長／strlen(str), wcslen(str)
 	INT sizeOfChar        // sizeof(MS), sizeof(WS)
 )
 {
-	if((strLen + IVBS->length) >= IVBS->size)
+	if(! strLen)
 	{
-		IVBS->size += strLen;
+		return;
+	}
+	UINT64 u1 = strLen + IVBS->length;
+	if(u1 > IVBS->size)
+	{
+		IVBS->size = u1;
 		IVBS->size *= 2;
 		IVBS->str = (VOID*)irealloc(IVBS->str, IVBS->size, sizeOfChar);
 	}
-
 	VOID *vp1 = (IVBS->str + (IVBS->length * sizeOfChar));
-	UINT64 u1 = strLen * sizeOfChar;
+	u1 = strLen * sizeOfChar;
 	memcpy(vp1, str, u1);
 	memset((vp1 + u1), 0, sizeOfChar);
 	IVBS->length += strLen;
-	return IVBS->str;
+}
+// v2024-01-24
+VOID
+iVBM_sprintf(
+	$struct_iVBM *IVBM,
+	MS *format,
+	...
+)
+{
+	FILE *oFp = fopen("NUL", "wb");
+		va_list va;
+		va_start(va, format);
+			UINT64 len = vfprintf(oFp, format, va);
+			UINT64 u1 = len + IVBM->length;
+			if(u1 > IVBM->size)
+			{
+				IVBM->str = (VOID*)irealloc(IVBM->str, u1, sizeof(MS));
+			}
+			vsprintf(((MS*)IVBM->str + IVBM->length), format, va);
+			IVBM->length += len;
+		va_end(va);
+	fclose(oFp);
+}
+// v2024-01-24
+VOID
+iVBW_sprintf(
+	$struct_iVBW *IVBW,
+	WS *format,
+	...
+)
+{
+	FILE *oFp = fopen("NUL", "wb");
+		va_list va;
+		va_start(va, format);
+			UINT64 len = vfwprintf(oFp, format, va);
+			UINT64 u1 = len + IVBW->length;
+			if(u1 > IVBW->size)
+			{
+				IVBW->str = (VOID*)irealloc(IVBW->str, u1, sizeof(WS));
+			}
+			vswprintf(((WS*)IVBW->str + IVBW->length), len, format, va);
+			IVBW->length += len;
+		va_end(va);
+	fclose(oFp);
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -3136,16 +3179,16 @@ idate_add(
 		{
 			IDV->d = (INT)i1;
 		}
-		iDV_add(IDV, add_y, add_m, 0, 0, 0, 0);
+		iDV_set(IDV, (IDV->y + add_y), (IDV->m + add_m), IDV->d, IDV->h, IDV->n, IDV->s);
 	}
 	if(add_d)
 	{
 		// 【重要】CJDに変換してから加算
-		iDV_add2(IDV, add_d);
+		iDV_set2(IDV, add_d + idate_ymdhnsToCjd(IDV->y, IDV->m, IDV->d, IDV->h, IDV->n, IDV->s));
 	}
 	if(add_h != 0 || add_n != 0 || add_s != 0)
 	{
-		iDV_add(IDV, 0, 0, 0, add_h, add_n, add_s);
+		iDV_set(IDV, IDV->y, IDV->m, IDV->d, (IDV->h + add_h), (IDV->n + add_n), (IDV->s + add_s));
 	}
 	IDV->sign = TRUE;
 	IDV->days = 0.0;
@@ -3437,12 +3480,12 @@ iDV_checker(
 /* (例) ymdhns
 	$struct_iDV *IDV = iDV_alloc();
 		iDV_set(IDV, 2024, 0, 50, 60, 0, 0);
-		WS *wp1 = idate_format_ymdhns(L"%g%y-%m-%d(%a) %C", IDV->y, IDV->m, IDV->d, IDV->h, IDV->n, IDV->s);
+		WS *wp1 = idate_format(L"%g%y-%m-%d(%a) %C\n", IDV->sign, IDV->y, IDV->m, IDV->d, IDV->h, IDV->n, IDV->s, IDV->days);
 			PL2W(wp1); //=> "+2024-01-21(Su) 2460331.500000"
 		ifree(wp1);
 	iDV_free(IDV);
 */
-// v2024-01-20
+// v2024-01-24
 WS
 *idate_format(
 	WS *format,
@@ -3460,10 +3503,12 @@ WS
 	{
 		return icalloc_WS(0);
 	}
-	CONST UINT BufSizeMax = 1024;
+	CONST UINT BufSizeBase = 32; // %lld長以上
+	UINT BufSize = BufSizeBase;
+	UINT BufSizeMax = BufSize + BufSizeBase;
+	UINT BufEnd = 0;
 	WS *rtn = icalloc_WS(BufSizeMax);
 	WS *pEnd = rtn;
-	UINT uPos = 0;
 	// Ymdhns で使用
 	DOUBLE cjd = (d_days ? d_days : idate_ymdhnsToCjd(i_y, i_m, i_d, i_h, i_n, i_s));
 	INT64 i_days = (INT64)cjd;
@@ -3559,43 +3604,46 @@ WS
 					++pEnd;
 					break;
 				default:
-					--format; // else に処理を振る
+					--format;
 					break;
 			}
-			uPos = pEnd - rtn;
 		}
 		else if(*format == '\\')
 		{
-			switch(format[1])
+			++format;
+			switch(*format)
 			{
 				case('a'):
 					*pEnd = '\a';
+					++pEnd;
 					break;
 				case('n'):
 					*pEnd = '\n';
+					++pEnd;
 					break;
 				case('t'):
 					*pEnd = '\t';
+					++pEnd;
 					break;
 				default:
-					*pEnd = format[1];
+					--format;
 					break;
 			}
-			++format;
-			++pEnd;
-			++uPos;
 		}
 		else
 		{
 			*pEnd = *format;
 			++pEnd;
-			++uPos;
+		}
+		BufEnd = pEnd - rtn;
+		if(BufEnd >= BufSize)
+		{
+			BufSize *= 2;
+			BufSizeMax = BufSize + BufSizeBase;
+			rtn = irealloc_WS(rtn, BufSizeMax);
+			pEnd = rtn + BufEnd;
 		}
 		++format;
-		if(BufSizeMax < uPos)
-		{
-			break;
-		}
 	}
 	return rtn;
 }
@@ -3931,7 +3979,7 @@ INT
 	{
 		GetSystemTime(&st);
 	}
-	/* [Pending] 2021-11-15
+	/* [2021-11-15] Pending
 		下記コードでビープ音を発生することがある。
 			INT *rtn = icalloc_INT(n) ※INT系全般／DOUBLE系は問題なし
 			rtn[n] = 1793..2047
