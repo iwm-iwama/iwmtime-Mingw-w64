@@ -1977,7 +1977,7 @@ WS
 		ifree(wp2);
 	ifree(wp1);
 */
-// v2024-05-24
+// v2024-05-26
 WS
 *iws_withoutESC(
 	WS *str
@@ -1987,11 +1987,21 @@ WS
 	WS *rtnEnd = rtn;
 	while(*str)
 	{
-		if(*str == '\033' && *(str + 1) == '[')
+		// \033[(NUM;NUM)(BYTE)
+		while(*str == '\033' && *(str + 1) == '[')
 		{
+			// '\033' + '['
 			str += 2;
-			for(; (*str >= '0' && *str <= '9') || *str == ';'; str++);
-			++str;
+			// (NUM;NUM)
+			while((*str >= '0' && *str <= '9') || *str == ';')
+			{
+				++str;
+			}
+			// (BYTE)
+			if((*str >= 'A' && *str <= 'Z') || (*str >= 'a' && *str <= 'z'))
+			{
+				++str;
+			}
 		}
 		*rtnEnd++ = *str++;
 	}
