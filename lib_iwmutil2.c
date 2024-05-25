@@ -92,7 +92,7 @@ iCLI_signal()
 {
 	imain_err();
 }
-// v2024-03-23
+// v2024-05-25
 VOID
 iCLI_begin()
 {
@@ -113,6 +113,12 @@ iCLI_begin()
 	WS *pEnd = 0;
 	WS *wp1 = 0;
 	BOOL bArgc = FALSE;
+
+	// TrimR
+	for(pEnd = (str + wcslen(str) - 1); *pEnd == ' '; pEnd--)
+	{
+		*pEnd = 0;
+	}
 
 	for(pEnd = str; pEnd < (str + wcslen(str)); pEnd++)
 	{
@@ -924,6 +930,184 @@ MS
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
+	Console
+----------------------------------------------------------------------------------------*/
+//////////////////////////////////////////////////////////////////////////////////////////
+//------------------
+// RGB色を使用する
+//------------------
+/* (例)
+	// ESC有効化
+	iConsole_EscOn();
+
+	// リセット
+	//   すべて   \033[0m
+	//   文字のみ \033[39m
+	//   背景のみ \033[49m
+
+	// SGRによる指定例
+	//  文字色 9n
+	//  背景色 10n
+	//    0=黒    1=赤    2=黄緑  3=黄
+	//    4=青    5=紅紫  6=水    7=白
+	P2("\033[91m 文字[赤] \033[0m");
+	P2("\033[101m 背景[赤] \033[0m");
+	P2("\033[91;107m 文字[赤]／背景[白] \033[0m");
+
+	// RGBによる指定例
+	//  文字色   \033[38;2;R;G;Bm
+	//  背景色   \033[48;2;R;G;Bm
+	P2("\033[38;2;255;255;255m\033[48;2;0;0;255m 文字[白]／背景[青] \033[0m");
+*/
+// v2023-08-30
+VOID
+iConsole_EscOn()
+{
+	$StdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+	DWORD consoleMode = 0;
+	GetConsoleMode($StdoutHandle, &consoleMode);
+	consoleMode = (consoleMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+	SetConsoleMode($StdoutHandle, consoleMode);
+}
+//-----------------
+// STDIN から読込
+//-----------------
+/* 例
+	P2("何か入力してください。\n[Ctrl]+[D]＋[Enter] で終了");
+	WS *wp1 = iCLI_GetStdin(TRUE);
+		P2W(wp1);
+		P("\n> %lld 文字（'\\n'含む）\n", wcslen(wp1));
+	ifree(wp1);
+*/
+// v2024-05-24
+WS
+*iCLI_GetStdin(
+	BOOL bInputKey // TRUE=手入力モードへ移行
+)
+{
+	INT iStdin = fseeko64(stdin, 0, SEEK_END);
+
+	if(iStdin != 0 && ! bInputKey)
+	{
+		return icalloc_WS(1);
+	}
+
+	WS *rtn = 0;
+
+	// STDIN から読込
+	if(iStdin == 0)
+	{
+		UINT mp1Size = 4096;
+		UINT mp1End = 0;
+		MS *mp1 = icalloc_MS(mp1Size);
+			INT c = 0;
+			while((c = getchar()) != EOF)
+			{
+				mp1[mp1End] = (MS)c;
+				++mp1End;
+				if(mp1End >= mp1Size)
+				{
+					mp1Size <<= 1;
+					mp1 = irealloc_MS(mp1, mp1Size);
+				}
+			}
+			rtn = icnv_M2W(mp1, imn_Codepage(mp1));
+		ifree(mp1);
+	}
+	// 手入力
+	// getchar() では日本語が欠落するので ReadConsole() を使用
+	else
+	{
+		$struct_iVBW *iVBW = iVBW_alloc();
+			CONST DWORD BufLen = 1;
+			WS *Buf = icalloc_WS(BufLen);
+			DWORD RCW_len;
+				while(TRUE)
+				{
+					ReadConsoleW(
+						GetStdHandle(STD_INPUT_HANDLE),
+						Buf,
+						BufLen,
+						&RCW_len,
+						NULL
+					);
+					// 終了時 [Ctrl]+[D] or [Ctrl]+[Z]
+					if(Buf[0] == 4 || Buf[0] == 26)
+					{
+						break;
+					}
+					iVBW_add(iVBW, Buf);
+				}
+			ifree(Buf);
+			rtn = iws_clone(iVBW_getStr(iVBW));
+		iVBW_free(iVBW);
+	}
+	// "\r\n" を "\n" に変換
+	WS *wp1 = rtn;
+		rtn = iws_replace(wp1, L"\r\n", L"\n", FALSE);
+	ifree(wp1);
+
+	// 重要
+	SetConsoleOutputCP(65001);
+	iConsole_EscOn();
+
+	return rtn;
+}
+//////////////////////////////////////////////////////////////////////////////////////////
+/*----------------------------------------------------------------------------------------
+	Clipboard
+----------------------------------------------------------------------------------------*/
+//////////////////////////////////////////////////////////////////////////////////////////
+/* (例)
+	iClipboard_setText(L"あいうえお");
+*/
+// v2024-05-07
+VOID
+iClipboard_setText(
+	CONST WS *str
+)
+{
+	UINT uLen = iwn_len(str);
+	if(! uLen)
+	{
+		return;
+	}
+	HGLOBAL hg = GlobalAlloc(GMEM_DDESHARE | GMEM_MOVEABLE, ((uLen + 1) * sizeof(WS)));
+	if(hg)
+	{
+		wcscpy((WS*)GlobalLock(hg), str);
+		GlobalUnlock(hg);
+		if(OpenClipboard(NULL))
+		{
+			EmptyClipboard();
+			SetClipboardData(CF_UNICODETEXT, hg);
+			CloseClipboard();
+		}
+	}
+}
+/* (例)
+	PL2W(iClipboard_getText());
+*/
+// v2024-05-07
+WS
+*iClipboard_getText()
+{
+	if(! OpenClipboard(NULL))
+	{
+		return icalloc_WS(0);
+	}
+	HANDLE hg = GetClipboardData(CF_UNICODETEXT);
+	if(! hg)
+	{
+		return icalloc_WS(0);
+	}
+	WS *rtn = iws_clone((WS*)GlobalLock(hg));
+		GlobalUnlock(hg);
+		CloseClipboard();
+	return rtn;
+}
+//////////////////////////////////////////////////////////////////////////////////////////
+/*----------------------------------------------------------------------------------------
 	UTF-16／UTF-8変換
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1723,9 +1907,9 @@ MS
 	ifree(format);
 	return rtn;
 }
-//------------------------------------------------------------
-// 文字列前後の空白 ' ' L'　' '\t' '\r' '\n' '\0' を消去する
-//------------------------------------------------------------
+//--------------------------------------------------------
+// 文字列前後の空白 ' ' L'　' '\t' '\r' '\n' '\0' を消去
+//--------------------------------------------------------
 // v2024-01-16
 WS
 *iws_strip(
@@ -1759,9 +1943,9 @@ WS
 	}
 	return iws_pclone((str + uLeft), (str + uRight + 1));
 }
-//---------------------------
-// Dir末尾の "\" を消去する
-//---------------------------
+//-----------------------
+// Dir末尾の "\" を消去
+//-----------------------
 // v2024-03-08
 WS
 *iws_cutYenR(
@@ -1780,6 +1964,37 @@ WS
 	}
 	++pEnd;
 	*pEnd = 0;
+	return rtn;
+}
+//----------------
+// ESC文字を消去
+//----------------
+/* 例
+	WS *wp1 = L"\033[97;104mあいうえお\033[0m\n\033[93mかきくけこ\033[0m\n";
+		PL2W(wp1);
+		WS *wp2 = iws_withoutESC(wp1);
+			PL2W(wp2);
+		ifree(wp2);
+	ifree(wp1);
+*/
+// v2024-05-24
+WS
+*iws_withoutESC(
+	WS *str
+)
+{
+	WS *rtn = icalloc_WS(iwn_len(str));
+	WS *rtnEnd = rtn;
+	while(*str)
+	{
+		if(*str == '\033' && *(str + 1) == '[')
+		{
+			str += 2;
+			for(; (*str >= '0' && *str <= '9') || *str == ';'; str++);
+			++str;
+		}
+		*rtnEnd++ = *str++;
+	}
 	return rtn;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2841,184 +3056,6 @@ WS
 			}
 		ifree(awp2);
 	ifree(awp1);
-	return rtn;
-}
-//////////////////////////////////////////////////////////////////////////////////////////
-/*----------------------------------------------------------------------------------------
-	Console
-----------------------------------------------------------------------------------------*/
-//////////////////////////////////////////////////////////////////////////////////////////
-//------------------
-// RGB色を使用する
-//------------------
-/* (例)
-	// ESC有効化
-	iConsole_EscOn();
-
-	// リセット
-	//   すべて   \033[0m
-	//   文字のみ \033[39m
-	//   背景のみ \033[49m
-
-	// SGRによる指定例
-	//  文字色 9n
-	//  背景色 10n
-	//    0=黒    1=赤    2=黄緑  3=黄
-	//    4=青    5=紅紫  6=水    7=白
-	P2("\033[91m 文字[赤] \033[0m");
-	P2("\033[101m 背景[赤] \033[0m");
-	P2("\033[91;107m 文字[赤]／背景[白] \033[0m");
-
-	// RGBによる指定例
-	//  文字色   \033[38;2;R;G;Bm
-	//  背景色   \033[48;2;R;G;Bm
-	P2("\033[38;2;255;255;255m\033[48;2;0;0;255m 文字[白]／背景[青] \033[0m");
-*/
-// v2023-08-30
-VOID
-iConsole_EscOn()
-{
-	$StdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-	ULONG consoleMode = 0;
-	GetConsoleMode($StdoutHandle, &consoleMode);
-	consoleMode = (consoleMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-	SetConsoleMode($StdoutHandle, consoleMode);
-}
-//-----------------
-// STDIN から読込
-//-----------------
-/* 例
-	P2("何か入力してください。\n[Ctrl]+[D]＋[Enter] で終了");
-	WS *wp1 = iCLI_GetStdin();
-		P2W(wp1);
-		P("\n> %lld 文字（'\\n'含む）\n", wcslen(wp1));
-	ifree(wp1);
-*/
-// v2024-05-21
-WS
-*iCLI_GetStdin()
-{
-	// 再設定／外部アプリから設定変更されることがあるため
-	iConsole_EscOn();
-	SetConsoleOutputCP(65001);
-
-	WS *rtn = 0;
-
-	INPUT_RECORD PCI_record;
-	DWORD PCI_events;
-	BOOL PCI_flg = PeekConsoleInput(
-		GetStdHandle(STD_INPUT_HANDLE),
-		&PCI_record,
-		1,
-		&PCI_events
-	);
-
-	// 手入力
-	if(PCI_flg)
-	{
-		$struct_iVBW *iVBW = iVBW_alloc();
-			CONST DWORD BufLen = 1;
-			WS *Buf = icalloc_WS(BufLen);
-				DWORD RCW_len;
-				while(TRUE)
-				{
-					ReadConsoleW(
-						GetStdHandle(STD_INPUT_HANDLE),
-						Buf,
-						BufLen,
-						&RCW_len,
-						NULL
-					);
-					// 終了時 [Ctrl]+[D] or [Ctrl]+[Z]
-					if(Buf[0] == 4 || Buf[0] == 26)
-					{
-						break;
-					}
-					iVBW_add(iVBW, Buf);
-				}
-			ifree(Buf);
-			rtn = iws_clone(iVBW_getStr(iVBW));
-		iVBW_free(iVBW);
-	}
-	// STDIN から読込
-	else
-	{
-		UINT mp1Size = 4096;
-		UINT mp1End = 0;
-		MS *mp1 = icalloc_MS(mp1Size);
-			INT c = 0;
-			while((c = getchar()) != EOF)
-			{
-				mp1[mp1End] = (MS)c;
-				++mp1End;
-				if(mp1End >= mp1Size)
-				{
-					mp1Size <<= 1;
-					mp1 = irealloc_MS(mp1, mp1Size);
-				}
-			}
-			rtn = icnv_M2W(mp1, imn_Codepage(mp1));
-		ifree(mp1);
-	}
-
-	// "\r\n" を "\n" に変換
-	WS *wp1 = rtn;
-		rtn = iws_replace(wp1, L"\r\n", L"\n", FALSE);
-	ifree(wp1);
-
-	return rtn;
-}
-//////////////////////////////////////////////////////////////////////////////////////////
-/*----------------------------------------------------------------------------------------
-	Clipboard
-----------------------------------------------------------------------------------------*/
-//////////////////////////////////////////////////////////////////////////////////////////
-/* (例)
-	iClipboard_setText(L"あいうえお");
-*/
-// v2024-05-07
-VOID
-iClipboard_setText(
-	CONST WS *str
-)
-{
-	UINT uLen = iwn_len(str);
-	if(! uLen)
-	{
-		return;
-	}
-	HGLOBAL hg = GlobalAlloc(GMEM_DDESHARE | GMEM_MOVEABLE, ((uLen + 1) * sizeof(WS)));
-	if(hg)
-	{
-		wcscpy((WS*)GlobalLock(hg), str);
-		GlobalUnlock(hg);
-		if(OpenClipboard(NULL))
-		{
-			EmptyClipboard();
-			SetClipboardData(CF_UNICODETEXT, hg);
-			CloseClipboard();
-		}
-	}
-}
-/* (例)
-	PL2W(iClipboard_getText());
-*/
-// v2024-05-07
-WS
-*iClipboard_getText()
-{
-	if(! OpenClipboard(NULL))
-	{
-		return icalloc_WS(0);
-	}
-	HANDLE hg = GetClipboardData(CF_UNICODETEXT);
-	if(! hg)
-	{
-		return icalloc_WS(0);
-	}
-	WS *rtn = iws_clone((WS*)GlobalLock(hg));
-		GlobalUnlock(hg);
-		CloseClipboard();
 	return rtn;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
