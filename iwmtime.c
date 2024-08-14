@@ -1,6 +1,7 @@
 //------------------------------------------------------------------------------
 #define   IWM_COPYRIGHT       "(C)2021-2024 iwm-iwama"
-#define   IWM_VERSION         "iwmtime_20240311"
+#define   IWM_FILENAME        "iwmtime"
+#define   IWM_UPDATE          "20240814"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil2.h"
 #include <psapi.h>
@@ -59,9 +60,9 @@ main()
 				P1("\033[92m");
 				LN(80);
 				P(
-					"\033[92m"	"  Program"	"\033[96m"	"  %s\n"
-					"\033[92m"	"  Execute"	"\033[96m"	"  %.3f sec\n"
-					"\033[92m"	"  Memory "	"\033[96m"	"  %.3f MB\n"
+					"\033[92m" "  Program" "\033[96m" "  %s\n"
+					"\033[92m" "  Execute" "\033[96m" "  %.3f sec\n"
+					"\033[92m" "  Memory " "\033[96m" "  %.3f MB\n"
 					,
 					mpCmd,
 					((iFinfo_ftimeToINT64(exitTime) - iFinfo_ftimeToINT64(creationTime)) / NANO100),
@@ -92,13 +93,9 @@ print_version()
 {
 	P1(IESC_STR2);
 	LN(80);
-	P(
-		" %s\n"
-		"    %s+%s\n"
-		,
-		IWM_COPYRIGHT,
-		IWM_VERSION,
-		LIB_IWMUTIL_VERSION
+	P1(
+		" " IWM_COPYRIGHT "\n"
+		"    " IWM_FILENAME "_" IWM_UPDATE " + " LIB_IWMUTIL_FILENAME "\n"
 	);
 	LN(80);
 	P1(IESC_RESET);
@@ -107,23 +104,17 @@ print_version()
 VOID
 print_help()
 {
-	MS *_cmd = "iwmtime.exe";
-
 	print_version();
-	P(
-		IESC_TITLE1	" コマンドの実行時間を計測 "	IESC_RESET	"\n\n"
-		IESC_STR1	"    %s"
+	P1(
+		IESC_TITLE1	" コマンドの実行時間を計測 " IESC_RESET "\n\n"
+		IESC_STR1	"    " IWM_FILENAME
 		IESC_OPT1	" [Command]\n\n\n"
 		IESC_LBL1	" (例１)\n"
-		IESC_STR1	"    %s"
+		IESC_STR1	"    " IWM_FILENAME
 		IESC_OPT1	" cmd.exe /c dir\n\n"
 		IESC_LBL1	" (例２)\n"
-		IESC_STR1	"    %s"
+		IESC_STR1	"    " IWM_FILENAME
 		IESC_OPT1	" notepad.exe\n\n"
-		,
-		_cmd,
-		_cmd,
-		_cmd
 	);
 	P1(IESC_STR2);
 	LN(80);
