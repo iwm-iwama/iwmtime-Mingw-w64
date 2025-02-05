@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////////////////
-#define   LIB_IWMUTIL_COPYLIGHT         "(C)2008-2024 iwm-iwama"
-#define   LIB_IWMUTIL_FILENAME          "lib_iwmutil2_20240915"
+#define   LIB_IWMUTIL_COPYLIGHT         "(C)2008-2025 iwm-iwama"
+#define   LIB_IWMUTIL_FILENAME          "lib_iwmutil2_20250203"
 //////////////////////////////////////////////////////////////////////////////////////////
 #include <math.h>
 #include <shlwapi.h>

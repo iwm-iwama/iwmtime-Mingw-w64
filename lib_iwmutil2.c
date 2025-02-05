@@ -253,17 +253,19 @@ iCLI_getOptMatch(
 	}
 	return FALSE;
 }
-// v2024-03-10
+// v2025-01-31
 VOID
 iCLI_VarList()
 {
-	P1("\033[97m");
-	P1("\033[44m $CMD \033[49m\n" "    ");
+	P2("\033[1G"	"\033[44;97m $CMD \033[0m");
+	P1("\033[5G");
 	P2W($CMD);
-	P1("\033[44m $ARG \033[49m\n" "    ");
+	P2("\033[1G"	"\033[44;97m $ARG \033[0m");
+	P1("\033[5G");
 	P2W($ARG);
-	P("\033[44m $ARGC \033[49m\n" "    [%d]\n", $ARGC);
-	P2("\033[44m $ARGV \033[49m");
+	P2("\033[1G"	"\033[44;97m $ARGC \033[0m");
+	P("\033[5G"	"\033[92m[%d]\n", $ARGC);
+	P2("\033[1G"	"\033[44;97m $ARGV \033[0m");
 	iwav_print($ARGV);
 	P2("\033[0m");
 }
@@ -309,7 +311,7 @@ typedef struct
 	UINT uAry;     // 配列個数（配列以外=0）
 	UINT64 uAlloc; // アロケート長
 	UINT uSizeOf;  // sizeof
-	UINT id;       // 順番
+	UINT uId;      // 順番
 }
 $struct_icallocMap;
 
@@ -383,7 +385,7 @@ VOID
 	map1->uAlloc = uAlloc;
 	map1->uSizeOf = sizeOf;
 	// 順番
-	map1->id = $icallocMapId;
+	map1->uId = $icallocMapId;
 	++$icallocMapId;
 	++$icallocMapEOD;
 	return rtn;
@@ -612,7 +614,7 @@ idebug_printMap()
 		P(
 			"  %-7u %-7u %p %5u %8u %20u ",
 			u2,
-			(map->id),
+			(map->uId),
 			(map->ptr),
 			(map->uAry),
 			(map->uSizeOf),
@@ -959,24 +961,38 @@ MS
 	//  背景色   \033[48;2;R;G;Bm
 	P2("\033[38;2;255;255;255m\033[48;2;0;0;255m 文字[白]／背景[青] \033[0m");
 */
-// v2023-08-30
+// v2025-01-30
 VOID
 iConsole_EscOn()
 {
 	$StdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 	DWORD consoleMode = 0;
 	GetConsoleMode($StdoutHandle, &consoleMode);
-	consoleMode = (consoleMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-	SetConsoleMode($StdoutHandle, consoleMode);
+	SetConsoleMode($StdoutHandle, (consoleMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING));
 }
 //-----------------
 // STDIN から読込
 //-----------------
 /* 例
-	P2("何か入力してください。\n[Ctrl]+[D]＋[Enter] で終了");
-	WS *wp1 = iCLI_GetStdin(TRUE);
-		P2W(wp1);
-		P("\n> %lld 文字（'\\n'含む）\n", wcslen(wp1));
+	// STDIN に
+	//   データがあれば読み取る（パイプからの標準入力を想定）
+	//   空ならば手入力に移行する
+	WS *wp1 = iCLI_GetStdin(FALSE);
+		if(*wp1)
+		{
+			LN(60);
+			P1W(wp1);
+		}
+		else
+		{
+			P1("文字を入力してください。\n[Ctrl]+[D]＋[Enter] で終了\n\n");
+			ifree(wp1);
+			wp1 = iCLI_GetStdin(TRUE);
+				LN(60);
+				P1W(wp1);
+		}
+		LN(60);
+		P("%lld 文字（'\\n'含む）\n\n", iwn_len(wp1));
 	ifree(wp1);
 */
 // v2024-05-24
@@ -1021,7 +1037,7 @@ WS
 		$struct_iVBW *iVBW = iVBW_alloc();
 			CONST DWORD BufLen = 1;
 			WS *Buf = icalloc_WS(BufLen);
-			DWORD RCW_len;
+				DWORD RCW_len;
 				while(TRUE)
 				{
 					ReadConsoleW(
@@ -1505,7 +1521,7 @@ WS
 		PL2(p1); //=> "ABC-12300456"
 	ifree(p1);
 */
-// v2024-02-26
+// v2025-01-30
 MS
 *ims_sprintf(
 	CONST MS *format,
@@ -1515,8 +1531,9 @@ MS
 	FILE *oFp = fopen("NUL", "wb");
 		va_list va;
 		va_start(va, format);
-			MS *rtn = icalloc_MS(vfprintf(oFp, format, va));
-			vsprintf(rtn, format, va);
+			INT len = vfprintf(oFp, format, va) + 1; // '\0' 追加
+			MS *rtn = icalloc_MS(len);
+			vsnprintf(rtn, len, format, va);
 		va_end(va);
 	fclose(oFp);
 	return rtn;
@@ -2376,7 +2393,7 @@ WS
 /* (例)
 	iwav_print($ARGV);
 */
-// v2024-03-10
+// v2025-01-31
 VOID
 imav_print(
 	MS **ary
@@ -2389,11 +2406,11 @@ imav_print(
 	UINT u1 = 0;
 	while(ary[u1])
 	{
-		P("    [%u] '%s'\n", u1, ary[u1]);
+		P("\033[5G\033[92m[%u]\033[0m '%s'\n", u1, ary[u1]);
 		++u1;
 	}
 }
-// v2024-03-10
+// v2025-01-31
 VOID
 iwav_print(
 	WS **ary
@@ -2406,7 +2423,7 @@ iwav_print(
 	UINT u1 = 0;
 	while(ary[u1])
 	{
-		P("    [%u] '", u1);
+		P("\033[5G\033[92m[%u]\033[0m '", u1);
 		P1W(ary[u1]);
 		P2("'");
 		++u1;
