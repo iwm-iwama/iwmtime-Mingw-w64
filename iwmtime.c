@@ -1,7 +1,7 @@
 //------------------------------------------------------------------------------
 #define   IWM_COPYRIGHT       "(C)2021-2025 iwm-iwama"
 #define   IWM_FILENAME        "iwmtime"
-#define   IWM_UPDATE          "20250129"
+#define   IWM_UPDATE          "20250319"
 //------------------------------------------------------------------------------
 #include "lib_iwmutil2.h"
 #include <psapi.h>
@@ -24,6 +24,7 @@ main()
 	// -h | --help
 	if(! $ARGC || iCLI_getOptMatch(0, L"-h", L"--help"))
 	{
+		print_version();
 		print_help();
 		imain_end();
 	}
@@ -65,10 +66,9 @@ main()
 					"\033[3G"	CLR1	"Program"	CLR2	"\033[12G"	"%s"	"\n"
 					"\033[3G"	CLR1	"Execute"	CLR2	"\033[12G"	"%.3f sec"	"\n"
 					"\033[3G"	CLR1	"Memory"	CLR2	"\033[12G"	"%.3f MB"	"\n"
-					,
-					mpCmd,
-					((iFinfo_ftimeToINT64(exitTime) - iFinfo_ftimeToINT64(creationTime)) / NANO100),
-					(pmc.PeakPagefileUsage / MB)
+					, mpCmd
+					, ((iFinfo_ftimeToINT64(exitTime) - iFinfo_ftimeToINT64(creationTime)) / NANO100)
+					, (pmc.PeakPagefileUsage / MB)
 				);
 				P1(CLR1);
 				LN(80);
@@ -78,13 +78,20 @@ main()
 	}
 	else
 	{
-		P2(IESC_FALSE1 "[Err] コマンドを確認してください!" IESC_RESET);
+		P2(
+			IESC_FALSE1
+			"[Err] コマンドを確認してください!"
+			IESC_RESET
+		);
 	}
 
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 
-	///idebug_map(); ifree_all(); idebug_map();
+	// Debug
+	///idebug_map();
+	///ifree_all();
+	///idebug_map();
 
 	// 最終処理
 	imain_end();
@@ -106,7 +113,6 @@ print_version()
 VOID
 print_help()
 {
-	print_version();
 	P1(
 		"\033[1G"	IESC_TITLE1	" コマンドの実行時間を計測 "	IESC_RESET	"\n"
 		"\n"

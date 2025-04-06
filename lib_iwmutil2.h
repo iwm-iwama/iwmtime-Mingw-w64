@@ -1,10 +1,12 @@
 //////////////////////////////////////////////////////////////////////////////////////////
 #define   LIB_IWMUTIL_COPYLIGHT         "(C)2008-2025 iwm-iwama"
-#define   LIB_IWMUTIL_FILENAME          "lib_iwmutil2_20250203"
+#define   LIB_IWMUTIL_FILENAME          "lib_iwmutil2_20250405"
 //////////////////////////////////////////////////////////////////////////////////////////
+#include <float.h>
 #include <math.h>
 #include <shlwapi.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -16,28 +18,42 @@
 	共通定数
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-typedef   CHAR      MS; // imx_xxx() = Muliti Byte String／iux_xxx() = UTF-8N
-typedef   WCHAR     WS; // iwx_xxx()／UTF-16／Wide Char String
+// 数値型
+/*
+	P("BOOL"   "\n\tTRUE:  %d\n\tFALSE: %d\n\n", TRUE,       FALSE);
+	P("INT"    "\n\tMAX: %d\n\tMIN: %d\n\n",     INT_MAX,    INT_MIN);
+	P("UINT"   "\n\tMAX: %u\n\tMIN: %u\n\n",     UINT_MAX,   0);
+	P("INT64"  "\n\tMAX: %lld\n\tMIN: %lld\n\n", INT64_MAX,  INT64_MIN);
+	P("UINT64" "\n\tMAX: %llu\n\tMIN: %llu\n\n", UINT64_MAX, 0);
+	P("DOUBLE" "\n\tMAX: %.8f\n\tMIN: %.8f\n\n", DBL_MAX,    -DBL_MAX);
+*/
+// 文字型
+typedef   CHAR      MS; // imx_xxx() = Mulitibyte String／iux_xxx() = UTF-8
+typedef   WCHAR     WS; // iwx_xxx()／UTF-16／Widechar String
 
-#define   IMAX_PATH           ((MAX_PATH * 4) + 1) // UTF-8 = (Max)4byte
+#define   STDIN     stdin
+#define   STDOUT    stdout
+#define   STDERR    stderr
 
-#define   DATETIME_FORMAT     (WS*)L"%.4d-%02d-%02d %02d:%02d:%02d"
+#define   IMAX_PATHW          (MAX_PATH + 2) //=> UTF-16で262文字
 #define   IDATE_FORMAT_STD    (WS*)L"%G%y-%m-%d %h:%n:%s"
+
+#define   imain_begin()       iExecSec_init();iConsole_EscOn();iCLI_begin()
+#define   imain_end()         ifree_all();iCLI_end(EXIT_SUCCESS)
+#define   imain_err()         fputs(IESC_RESET, STDOUT);ifree_all();iCLI_end(EXIT_FAILURE)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
 	大域変数
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-#define   imain_begin()       iExecSec(0);iCLI_begin();iConsole_EscOn()
-#define   imain_end()         ifree_all();iCLI_end(EXIT_SUCCESS)
-#define   imain_err()         P1(IESC_RESET);ifree_all();iCLI_end(EXIT_FAILURE)
-
 extern    WS        *$CMD;         // コマンド名を格納
 extern    WS        *$ARG;         // 引数からコマンド名を消去したもの
 extern    UINT      $ARGC;         // 引数配列数
 extern    WS        **$ARGV;       // 引数配列／ダブルクォーテーションを消去したもの
-extern    HANDLE    $StdoutHandle; // 画面制御用ハンドル
+extern    HANDLE    $StdinHandle;  // STDIN ハンドル
+extern    HANDLE    $StdoutHandle; // STDOUT ハンドル
+extern    HANDLE    $StderrHandle; // STDERR ハンドル
 extern    UINT64    $ExecSecBgn;   // 実行開始時間
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -55,49 +71,54 @@ VOID      iCLI_VarList();
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
-	実行開始時間
+	実行時間
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-UINT64    iExecSec(CONST UINT64 microSec);
-#define   iExecSec_init()     (UINT64)iExecSec(0)
-#define   iExecSec_next()     (DOUBLE)(iExecSec($ExecSecBgn)) / 1000
+DOUBLE    iExecSec(UINT64 microSec);
+#define   iExecSec_init()     (DOUBLE)iExecSec(0)
+#define   iExecSec_next()     (DOUBLE)iExecSec($ExecSecBgn)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
 	メモリ確保
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-VOID      *icalloc(UINT64 n, UINT64 sizeOf, BOOL aryOn);
-VOID      *irealloc(VOID *ptr, UINT64 n, UINT64 sizeOf);
+VOID      icalloc_initMap();
+VOID      *icalloc(UINT n, UINT sizeOf, BOOL aryOn);
+VOID      *irealloc(VOID *ptr, UINT n, UINT sizeOf);
 
 // MS 文字列
-#define   icalloc_MS(n)                 (MS*)icalloc(n, sizeof(MS), FALSE)
-#define   irealloc_MS(str, n)           (MS*)irealloc(str, n, sizeof(MS))
+#define   icalloc_MS(n)                 (MS*)icalloc((UINT)n, sizeof(MS), FALSE)
+#define   irealloc_MS(ptr, n)           (MS*)irealloc(ptr, (UINT)n, sizeof(MS))
 
 // MS 配列
-#define   icalloc_MS_ary(n)             (MS**)icalloc(n, sizeof(MS*), TRUE)
-#define   irealloc_MS_ary(str, n)       (MS**)irealloc(str, n, sizeof(MS*))
+#define   icalloc_MS_ary(n)             (MS**)icalloc((UINT)n, sizeof(MS*), TRUE)
+#define   irealloc_MS_ary(ptr, n)       (MS**)irealloc(ptr, (UINT)n, sizeof(MS*))
 
 // WS 文字列
-#define   icalloc_WS(n)                 (WS*)icalloc(n, sizeof(WS), FALSE)
-#define   irealloc_WS(str, n)           (WS*)irealloc(str, n, sizeof(WS))
+#define   icalloc_WS(n)                 (WS*)icalloc((UINT)n, sizeof(WS), FALSE)
+#define   irealloc_WS(ptr, n)           (WS*)irealloc(ptr, (UINT)n, sizeof(WS))
 
 // WS 配列
-#define   icalloc_WS_ary(n)             (WS**)icalloc(n, sizeof(WS*), TRUE)
-#define   irealloc_WS_ary(str, n)       (WS**)irealloc(str, n, sizeof(WS*))
+#define   icalloc_WS_ary(n)             (WS**)icalloc((UINT)n, sizeof(WS*), TRUE)
+#define   irealloc_WS_ary(ptr, n)       (WS**)irealloc(ptr, (UINT)n, sizeof(WS*))
 
-// INT 配列
-#define   icalloc_INT(n)                (INT*)icalloc(n, sizeof(INT), FALSE)
-#define   irealloc_INT(ptr, n)          (INT*)irealloc(ptr, n, sizeof(INT))
+// Num 配列
+#define   icalloc_INT(n)                (INT*)icalloc((UINT)n, sizeof(INT), FALSE)
+#define   irealloc_INT(ptr, n)          (INT*)irealloc(ptr, (UINT)n, sizeof(INT))
+#define   icalloc_UINT64(n)             (UINT64*)icalloc((UINT)n, sizeof(UINT64), FALSE)
+#define   irealloc_UINT64(ptr, n)       (UINT64*)irealloc(ptr, (UINT)n, sizeof(UINT64))
 
 VOID      icalloc_err(VOID *ptr);
 
 VOID      icalloc_free(VOID *ptr);
 VOID      icalloc_freeAll();
-VOID      icalloc_mapSweep();
+VOID      icalloc_sweepMap();
 
 #define   ifree(ptr)          icalloc_free(ptr)
 #define   ifree_all()         icalloc_freeAll()
+
+INT64     icalloc_getAllocSize(VOID *ptr);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -107,43 +128,40 @@ VOID      icalloc_mapSweep();
 VOID      idebug_printMap();
 #define   idebug_map()        PL();NL();idebug_printMap()
 
-VOID      idebug_printPointer0(CONST VOID *ptr, UINT sizeOf);
-#define   idebug_pointer(ptr)           PL();idebug_printPointer0(ptr, sizeof(ptr[0]));NL()
+VOID      idebug_printPointer(CONST VOID *ptr, UINT sizeOf);
+#define   idebug_pointer(ptr)           PL();idebug_printPointer(ptr, sizeof(ptr[0]));NL()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
 	Print関係
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-VOID      P(CONST MS *format, ...);
+#define   P(format, ...)      printf(format, __VA_ARGS__)
 
-VOID      QP(CONST MS *str, UINT size);
+VOID      P1W(CONST WS *str);
+#define   P2W(str)            P1W(str);putchar('\n')
+
+VOID      QP(CONST MS *str, UINT strLen);
 #define   QP1(str)            QP(str, strlen(str))
-#define   QP2(str)            QP1(str);NL()
+#define   QP2(str)            QP1(str);putchar('\n')
 
-#define   PL()                P("[L%u] ", __LINE__)
+VOID      QP1W(CONST WS *str);
+#define   QP2W(str)           QP1W(str);putchar('\n')
+
+VOID      PR(CONST MS *str, UINT strRepeat);
+#define   LN(strRepeat)       PR("-", strRepeat);NL()
+
 #define   NL()                putchar('\n')
-
-#define   P1(str)             fputs(str, stdout)
+#define   P1(str)             fputs(str, STDOUT)
 #define   P2(str)             puts(str)
 #define   P3(num)             P("%lld\n", (INT64)num)
 #define   P4(num)             P("%.8lf\n", (DOUBLE)num)
 
-#define   PL2(str)            PL();P2(str)
-#define   PL3(num)            PL();P3(num)
-#define   PL4(num)            PL();P4(num)
-
-VOID      P1W(CONST WS *str);
-#define   P2W(str)            P1W(str);putchar('\n')
-#define   PL2W(str)           PL();P2W(str)
-
-VOID      PR1(CONST MS *str, UINT uRepeat);
-#define   LN(uRepeat)         PR1("-", uRepeat);NL()
+// Debug
+#define   PL()                P("[L%u]", __LINE__)
+#define   PX(format, ...)     P("[L%u] " format "\n", __LINE__, __VA_ARGS__)
 
 WS        *iws_cnv_escape(WS *str);
-
-VOID      imv_systemW(WS *cmd);
-MS        *ims_popenW(WS *cmd);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -161,12 +179,16 @@ VOID      iConsole_EscOn();
 #define   IESC_OPT22          "\033[38;2;250;100;250m"          // 紅紫
 #define   IESC_LBL1           "\033[38;2;250;250;100m"          // 黄
 #define   IESC_LBL2           "\033[38;2;100;100;250m"          // 青
+#define   IESC_LBL3           "\033[38;2;100;250;100m"          // 緑
 #define   IESC_STR1           "\033[38;2;225;225;225m"          // 白
 #define   IESC_STR2           "\033[38;2;200;200;200m"          // 銀
 #define   IESC_TRUE1          "\033[38;2;0;250;250m"            // 水
 #define   IESC_FALSE1         "\033[38;2;250;50;50m"            // 紅
 
-WS        *iCLI_GetStdin(BOOL bInputKey);
+WS        *iCLI_GetKeyInput(BOOL bKeyInputMultiLine);
+WS        *iCLI_GetStdin(BOOL bKeyInput);
+
+VOID      iCLI_systemW(WS *cmd);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -192,9 +214,9 @@ WS        *icnv_M2W(CONST MS *str, UINT uCP);
 	文字列処理
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-UINT64    imn_len(CONST MS *str);
-UINT64    iwn_len(CONST WS *str);
-UINT64    iun_len(CONST MS *str);
+UINT      imn_len(CONST MS *str);
+UINT      iwn_len(CONST WS *str);
+UINT      iun_len(CONST MS *str);
 
 UINT      imn_Codepage(MS *str);
 
@@ -204,16 +226,13 @@ VOID      iwv_cpy(WS *to, CONST WS *from);
 UINT      imn_cpy(MS *to, CONST MS *from);
 UINT      iwn_cpy(WS *to, CONST WS *from);
 
-UINT      ivn_pcpy(VOID *to, CONST VOID *from1, CONST VOID *from2, UINT sizeOf);
-#define   imn_pcpy(to, from1, from2)    (UINT64)ivn_pcpy(to, from1, from2, sizeof(MS))
-#define   iwn_pcpy(to, from1, from2)    (UINT64)ivn_pcpy(to, from1, from2, sizeof(WS))
+UINT      imn_ncpy(MS *to, CONST MS *from, UINT fromLen);
+UINT      iwn_ncpy(WS *to, CONST WS *from, UINT fromLen);
 
-MS        *ims_clone(CONST MS *from);
-WS        *iws_clone(CONST WS *from);
-
-VOID      *ivs_pclone(CONST VOID *from1, CONST VOID *from2, INT sizeOf);
-#define   ims_pclone(from1, from2)      (MS*)ivs_pclone(from1, from2, sizeof(MS))
-#define   iws_pclone(from1, from2)      (WS*)ivs_pclone(from1, from2, sizeof(WS))
+MS        *ims_nclone(CONST MS *from, UINT fromLen);
+WS        *iws_nclone(CONST WS *from, UINT fromLen);
+#define   ims_clone(from)     (MS*)ims_nclone(from, strlen(from))
+#define   iws_clone(from)     (WS*)iws_nclone(from, wcslen(from))
 
 MS        *ims_cats(UINT size, ...);
 WS        *iws_cats(UINT size, ...);
@@ -221,30 +240,25 @@ WS        *iws_cats(UINT size, ...);
 MS        *ims_sprintf(CONST MS *format, ...);
 WS        *iws_sprintf(CONST WS *format, ...);
 
-MS        *ims_repeat(CONST MS *str, UINT uRepeat);
+MS        *ims_repeat(CONST MS *str, UINT strRepeat);
 
-BOOL      iwb_cmp(CONST WS *str, CONST WS *search, BOOL perfect, BOOL icase);
-#define   iwb_cmpf(str, search)         (BOOL)iwb_cmp(str, search, FALSE, FALSE)
-#define   iwb_cmpfi(str, search)        (BOOL)iwb_cmp(str, search, FALSE, TRUE)
-#define   iwb_cmpp(str, search)         (BOOL)iwb_cmp(str, search, TRUE, FALSE)
-#define   iwb_cmppi(str, search)        (BOOL)iwb_cmp(str, search, TRUE, TRUE)
-#define   iwb_cmp_leqf(str, search)     (BOOL)iwb_cmp(search, str, FALSE, FALSE)
-#define   iwb_cmp_leqfi(str, search)    (BOOL)iwb_cmp(search, str, FALSE, TRUE)
+INT64     iwn_searchPos(WS *str, WS *search, UINT searchLen);
+UINT      iwn_searchCnt(WS *str, WS *search);
 
-WS        *iwp_searchPos(WS *str, CONST WS *search, BOOL icase);
-UINT      iwn_searchCnt(CONST WS *str, CONST WS *search, BOOL icase);
+UINT64    *iwaa_searchPos(WS *str, WS *search, BOOL icase);
 
-WS        **iwaa_split(WS *str, CONST WS *tokens, BOOL bRmEmpty);
+WS        **iwaa_nsplit(WS *str, UINT strLen, BOOL ignoreNull, UINT size, ...);
+#define   iwaa_split(str, ignoreNull, size, ...)            (WS**)iwaa_nsplit(str, wcslen(str), ignoreNull, size, __VA_ARGS__)
 
-WS        *iws_replace(WS *from, CONST WS *before, CONST WS *after, BOOL icase);
+WS        *iws_replace(WS *from, WS *before, WS *after, BOOL icase);
 
 MS        *ims_IntToMs(INT64 num);
-MS        *ims_DblToMs(DOUBLE num, INT iDigit);
+MS        *ims_DblToMs(DOUBLE num, UINT uDigit);
 
-WS        *iws_strip(WS *str, BOOL bStripLeft, BOOL bStripRight);
-#define   iws_trim(str)       (WS*)iws_strip(str, TRUE, TRUE)
-#define   iws_trimL(str)      (WS*)iws_strip(str, TRUE, FALSE)
-#define   iws_trimR(str)      (WS*)iws_strip(str, FALSE, TRUE)
+MS        *ims_strip(MS *str, BOOL bStripLeft, BOOL bStripRight);
+#define   ims_trim(str)       (MS*)ims_strip(str, TRUE, TRUE)
+#define   ims_trimL(str)      (MS*)ims_strip(str, TRUE, FALSE)
+#define   ims_trimR(str)      (MS*)ims_strip(str, FALSE, TRUE)
 
 WS        *iws_cutYenR(WS *path);
 
@@ -256,7 +270,7 @@ WS        *iws_withoutESC(WS *str);
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
 UINT      iwan_size(WS **ary);
-UINT64    iwan_strlen(WS **ary);
+UINT      iwan_strlen(WS **ary);
 
 INT       iwan_sort_Asc(CONST VOID *arg1, CONST VOID *arg2);
 INT       iwan_sort_iAsc(CONST VOID *arg1, CONST VOID *arg2);
@@ -286,46 +300,55 @@ VOID      iwav_print2(WS **ary, CONST WS *sLeft, CONST WS *sRight);
 //////////////////////////////////////////////////////////////////////////////////////////
 typedef struct
 {
-	UINT sizeOf;   // sizeof(str[0])
 	VOID *str;     // String Pointer
+	UINT sizeOf;   // sizeof(str[0])
 	UINT length;   // String Length
-	UINT freesize; // Free Buffers Size
+	UINT freeSize; // Free Buffers Size
 }
 $struct_iVariableBuffer,
 $struct_iVB,
 $struct_iVBM,
 $struct_iVBW;
 
-$struct_iVB         *iVB_alloc0(UINT sizeOf, UINT strLen);
-VOID                iVB_add0($struct_iVB *iVB, CONST VOID *str, UINT strLen);
-VOID                iVBM_add_sprintf($struct_iVBM *iVBM, CONST MS *format, ...);
-VOID                iVBW_add_sprintf($struct_iVBW *iVBW, CONST WS *format, ...);
+$struct_iVB         *iVB_alloc(UINT sizeOf);
+#define             iVBM_alloc()                  ($struct_iVBM*)iVB_alloc(sizeof(MS))
+#define             iVBW_alloc()                  ($struct_iVBW*)iVB_alloc(sizeof(WS))
 
-// MS
-#define   iVBM_alloc()                  ($struct_iVBM*)iVB_alloc0(sizeof(MS), 256)
-#define   iVBM_alloc2(strLen)           ($struct_iVBM*)iVB_alloc0(sizeof(MS), strLen)
-#define   iVBM_add(iVBM, str)           iVB_add0(iVBM, str, imn_len(str))
-#define   iVBM_add2(iVBM, str, strLen)  iVB_add0(iVBM, str, strLen)
-#define   iVBM_clear(iVBM)              memset(iVBM->str, 0, (iVBM->length * iVBM->sizeOf));iVBM->freesize += iVBM->length;iVBM->length = 0
-#define   iVBM_getSizeof(iVBW)          (UINT)(iVBM->sizeOf)
+VOID                iVBM_push($struct_iVBM *iVBM, CONST MS *str, UINT strLen);
+#define             iVBM_push2(iVBM, str)         iVBM_push(iVBM, str, strlen(str))
+
+VOID                iVBW_push($struct_iVBW *iVBW, CONST WS *str, UINT strLen);
+#define             iVBW_push2(iVBW, str)         iVBW_push(iVBW, str, wcslen(str))
+
+VOID                iVBM_push_sprintf($struct_iVBM *iVBM, CONST MS *format, ...);
+VOID                iVBW_push_sprintf($struct_iVBW *iVBW, CONST WS *format, ...);
+
+VOID                iVBM_pop($struct_iVBM *iVBM, UINT strLen);
+VOID                iVBW_pop($struct_iVBW *iVBW, UINT strLen);
+
+VOID                *iVB_free($struct_iVB *iVB, BOOL bReturnStr);
+#define             iVBM_free(iVBM)               (MS*)iVB_free(iVBM, TRUE)
+#define             iVBW_free(iVBW)               (WS*)iVB_free(iVBW, TRUE)
+#define             iVBM_freeAll(iVBM)            iVB_free(iVBM, FALSE)
+#define             iVBW_freeAll(iVBW)            iVB_free(iVBW, FALSE)
+
+#define   iVBM_clear(iVBM)              memset(iVBM->str, 0, iVBM->length);iVBM->freeSize += iVBM->length;iVBM->length = 0
+#define   iVBW_clear(iVBW)              wmemset(iVBW->str, 0, iVBW->length);iVBW->freeSize += iVBW->length;iVBW->length = 0
+
 #define   iVBM_getStr(iVBM)             (MS*)(iVBM->str)
-#define   iVBM_getLength(iVBM)          (UINT)(iVBM->length)
-#define   iVBM_getFreesize(iVBM)        (UINT)(iVBM->freesize)
-#define   iVBM_getSize(iVBM)            (UINT)(iVBM->length + iVBM->freesize)
-#define   iVBM_free(iVBM)               ifree(iVBM->str);ifree(iVBM)
-
-// WS
-#define   iVBW_alloc()                  ($struct_iVBW*)iVB_alloc0(sizeof(WS), 256)
-#define   iVBW_alloc2(strLen)           ($struct_iVBW*)iVB_alloc0(sizeof(WS), strLen)
-#define   iVBW_add(iVBW, str)           iVB_add0(iVBW, str, iwn_len(str))
-#define   iVBW_add2(iVBW, str, strLen)  iVB_add0(iVBW, str, strLen)
-#define   iVBW_clear(iVBW)              memset(iVBW->str, 0, (iVBW->length * iVBW->sizeOf));iVBW->freesize += iVBW->length;iVBW->length = 0
-#define   iVBW_getSizeof(iVBW)          (UINT)(iVBW->sizeOf)
 #define   iVBW_getStr(iVBW)             (WS*)(iVBW->str)
+
+#define   iVBM_getSizeof(iVBW)          (UINT)(iVBM->sizeOf)
+#define   iVBW_getSizeof(iVBW)          (UINT)(iVBW->sizeOf)
+
 #define   iVBW_getLength(iVBW)          (UINT)(iVBW->length)
-#define   iVBW_getFreesize(iVBW)        (UINT)(iVBW->freesize)
-#define   iVBW_getSize(iVBW)            (UINT)(iVBW->length + iVBW->freesize)
-#define   iVBW_free(iVBW)               ifree(iVBW->str);ifree(iVBW)
+#define   iVBM_getLength(iVBM)          (UINT)(iVBM->length)
+
+#define   iVBM_getFreesize(iVBM)        (UINT)(iVBM->freeSize)
+#define   iVBW_getFreesize(iVBW)        (UINT)(iVBW->freeSize)
+
+#define   iVBM_getSize(iVBM)            (UINT)(iVBM->length + iVBM->freeSize)
+#define   iVBW_getSize(iVBW)            (UINT)(iVBW->length + iVBW->freeSize)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -334,14 +357,14 @@ VOID                iVBW_add_sprintf($struct_iVBW *iVBW, CONST WS *format, ...);
 //////////////////////////////////////////////////////////////////////////////////////////
 typedef struct
 {
-	WS     sPath[IMAX_PATH]; // フルパス
-	UINT   uFnPos;           // ファイル名開始位置
-	UINT   uAttr;            // 属性
-	BOOL   bType;            // TRUE=Dir／FALSE=File
-	DOUBLE ctime_cjd;        // 作成時間
-	DOUBLE mtime_cjd;        // 更新時間
-	DOUBLE atime_cjd;        // アクセス時間
-	UINT64 uFsize;           // ファイルサイズ
+	WS     sPath[IMAX_PATHW]; // フルパス
+	UINT   uFnPos;            // ファイル名開始位置
+	UINT   uAttr;             // 属性
+	BOOL   bType;             // TRUE=Dir／FALSE=File
+	DOUBLE ctime_cjd;         // 作成時間
+	DOUBLE mtime_cjd;         // 更新時間
+	DOUBLE atime_cjd;         // アクセス時間
+	UINT64 uFsize;            // ファイルサイズ
 }
 $struct_iFinfo;
 
@@ -425,7 +448,7 @@ WS        **iF_trash(WS *path);
 		CJD:2361222／YMD:1752-09-14
 */
 
-// 本来UINT/UINT64でよいが、保険のためINT/INT64を使用
+// 本来 UINT／UINT64 でよいが、保険のため INT／INT64 を使用
 typedef struct
 {
 	BOOL sign; //TRUE='+'／FALSE='-'
@@ -437,10 +460,10 @@ typedef struct
 	INT s;
 	DOUBLE days;
 }
-$struct_idate_value, 
+$struct_idate_value,
 $struct_iDV;
 
-#define   iDV_alloc()         ($struct_iDV*)icalloc(1, sizeof($struct_iDV), FALSE);IDV->sign = TRUE
+#define   iDV_alloc()         ($struct_iDV*)icalloc(1, sizeof($struct_iDV), FALSE)
 #define   iDV_set(IDV, i_y, i_m, i_d, i_h, i_n, i_s)        idate_cjdToYmdhns(IDV, idate_ymdhnsToCjd(i_y, i_m, i_d, i_h, i_n, i_s))
 #define   iDV_set2(IDV, cjd)  idate_cjdToYmdhns(IDV, cjd)
 #define   iDV_getCJD(IDV)     (INT64)idate_ymdhnsToCjd(IDV->y, IDV->m, IDV->d, IDV->h, IDV->n, IDV->s)
@@ -467,7 +490,7 @@ INT       *idate_WsToiAryYmdhns(WS *str);
 INT       idate_ymdToINT(INT i_y, INT i_m, INT i_d);
 DOUBLE    idate_ymdhnsToCjd(INT i_y, INT i_m, INT i_d, INT i_h, INT i_n, INT i_s);
 
-VOID      idate_cjdToYmdhns($struct_iDV *IDV, CONST DOUBLE cjd);
+VOID      idate_cjdToYmdhns($struct_iDV *IDV, DOUBLE cjd);
 
 INT       idate_cjd_iWday(DOUBLE cjd);
 WS        *idate_cjd_Wday(DOUBLE cjd);
@@ -523,7 +546,7 @@ VOID      idate_diff($struct_iDV *IDV, INT i_y1, INT i_m1, INT i_d1, INT i_h1, I
 	\n
 	\t
 */
-WS        *idate_format(WS *format, BOOL b_sign, INT i_y, INT i_m, INT i_d, INT i_h, INT i_n, INT i_s, DOUBLE d_days);
+WS        *idate_format(CONST WS *format, BOOL b_sign, INT i_y, INT i_m, INT i_d, INT i_h, INT i_n, INT i_s, DOUBLE d_days);
 #define   idate_format_ymdhns(format, i_y, i_m, i_d, i_h, i_n, i_s)   (WS*)idate_format(format, TRUE, i_y, i_m, i_d, i_h, i_n, i_s, 0.0)
 
 WS        *idate_format_cjdToWS(WS *format, DOUBLE cjd);
