@@ -1,5 +1,5 @@
 /*
-[2025-03-26]
+[2025-03-26] + [2025-04-13]
 	--------------------------
 	| このライブラリについて
 	--------------------------
@@ -26,10 +26,10 @@
 		・エスケープシーケンス文字の表示（iwmesc.exe）
 	2022年、lib_iwmutil（Shiftt_JIS／CP932）から、lib_iwmutil2（UTF-8／CP65001）に移行。
 		2018年頃？からMicrosoft社はUTF-8による開発を推奨しているが、DOSプロンプトにおける日本語処理は難解。
-			UTF-8 はBOMあり？、BOMなし？
-			標準入力の"実際のコード"は、UTF-8？、Shift_JIS？
-			標準出力コードは、外部プログラムから容易に変更される。
-		imn_Codepage(), SetConsoleOutputCP(65001) 前後の実装は試行解。
+		当面、試行的に以下の実装とする。
+			標準出力は、UTF-8／BOMなし／改行コード=LF'\n'。
+			ただし、標準入力の改行コード（例：CRLF'\r\n'）を優先する。
+		imn_CodePage(), SetConsoleOutputCP(65001) 前後の実装は試行解。
 
 [2016-08-19] + [2024-09-09]
 	-------------------------------
@@ -63,21 +63,21 @@
 		Mingw-w64においては最適化するとどちらも同じになる。
 		基本、可読性を考慮した配列 p[n] でコーディングする。
 
-[2024-01-19] + [2025-03-17]
+[2024-01-19] + [2025-04-09]
 	主に使うデータ型
-		BOOL   = TRUE / FALSE
-		INT    = 32bit integer
+		BOOL   = TRUE, FALSE
+		INT    = 32bit integer（INT8, INT16, UINT8, UINT16の代替）
 		INT64  = 64bit integer（日計算）
 		UINT   = 32bit unsigned integer（NTFSファイル個数）
-		UINT64 = 64bit unsigned integer（size_t, 秒計算, ファイルサイズ）
+		UINT64 = 64bit unsigned integer（size_t／秒計算／ファイルサイズ）
 		DOUBLE = double（日計算）
 		MS     = char
 		WS     = wchar
 		VOID   = void
-		DWORD  = Win32API仕様
+		DWORD  = typedef unsigned long DWORD（Win32API）
 	ペンディング
 		size_t
-			64bit環境では、size_t（SIZE_MAX）とUINT64（UINT64_MAX）は同値だが、実行上の制約を考慮し、UINT（UINT_MAX）として実装した箇所がある。
+			64bit環境では size_t（SIZE_MAX）とUINT64（UINT64_MAX）は同値だが、実行上の制約を考慮し、UINT（UINT_MAX）として実装した箇所がある。
 */
 
 #include "lib_iwmutil2.h"
@@ -99,14 +99,14 @@
 	// 最終処理
 	imain_end();
 */
-WS     *$CMD         = (WS*)L""; // コマンド名を格納
-WS     *$ARG         = NULL;     // 引数からコマンド名を消去したもの
-UINT   $ARGC         = 0;        // 引数配列数
-WS     **$ARGV       = { };      // 引数配列／ダブルクォーテーションを消去したもの
-HANDLE $StdinHandle  = 0;        // STDIN ハンドル
-HANDLE $StdoutHandle = 0;        // STDOUT ハンドル
-HANDLE $StderrHandle = 0;        // STDERR ハンドル
-UINT64 $ExecSecBgn   = 0;        // 実行開始時間
+WS     *$CMD         = NULL; // コマンド名を格納
+WS     *$ARG         = NULL; // 引数からコマンド名を消去したもの
+UINT   $ARGC         = 0;    // 引数配列数
+WS     **$ARGV       = { };  // 引数配列／ダブルクォーテーションを消去したもの
+HANDLE $StdinHandle  = 0;    // STDIN ハンドル
+HANDLE $StdoutHandle = 0;    // STDOUT ハンドル
+HANDLE $StderrHandle = 0;    // STDERR ハンドル
+UINT64 $ExecSecBgn   = 0;    // 実行開始時間
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
 	Command Line
@@ -330,7 +330,7 @@ UINT $icallocMapSweepWait = 0;
 // $icallocMap の基本サイズ
 #define   IcallocDiv          16
 
-// ダブルヌル追加
+// ダブルヌル追加／アラインメント調整はコンパイラ依存
 #define   MemX(n, sizeOf)     (UINT)((n + 2) * sizeOf)
 
 //-----------------------
@@ -377,11 +377,11 @@ VOID
 	{
 		$icallocMapSize += IcallocDiv;
 		$struct_icallocMap *pOld = $icallocMap;
-		$icallocMap = ($struct_icallocMap*)calloc($icallocMapSize, sizeof($struct_icallocMap));
-		icalloc_err($icallocMap);
-		UINT uOld = $icallocMapEOD * sizeof($struct_icallocMap);
-		memcpy($icallocMap, pOld, uOld);
-		memset(pOld, 0, uOld);
+			$icallocMap = ($struct_icallocMap*)calloc($icallocMapSize, sizeof($struct_icallocMap));
+			icalloc_err($icallocMap);
+			UINT uOld = $icallocMapEOD * sizeof($struct_icallocMap);
+				memcpy($icallocMap, pOld, uOld);
+				memset(pOld, 0, uOld);
 		free(pOld);
 		pOld = 0;
 	}
@@ -432,8 +432,8 @@ VOID
 			{
 				rtn = (VOID*)calloc(uAlloc, 1);
 				icalloc_err(rtn);
-				memcpy(rtn, ptr, map1->uAlloc);
-				memset(ptr, 0, map1->uAlloc);
+					memcpy(rtn, ptr, map1->uAlloc);
+					memset(ptr, 0, map1->uAlloc);
 				free(ptr);
 				ptr = 0;
 				map1->ptr = rtn;
@@ -605,60 +605,72 @@ icalloc_sweepMap()
 		--i1;
 	}
 }
-//--------------------------------------
-// icallocされた有効アロケート長を取得
-//--------------------------------------
+//---------------------
+// icalloc 情報を取得
+//---------------------
 /* (例)
-	P("L%d: (%d byte) $CMD = ", __LINE__, icalloc_getAllocSize($CMD));
-	P2W($CMD);
+	UINT uId     = 0; // 順番
+	UINT uAry    = 0; // 配列個数（配列以外=0）
+	UINT uSizeOf = 0; // sizeof
+	UINT uAlloc  = 0; // アロケート長
 
-	P("L%d: (%d elements) $ARGV (%d byte) $ARGV[0] = ", __LINE__, icalloc_getAllocSize($ARGV), icalloc_getAllocSize($ARGV[0]));
-	P2W($ARGV[0]);
+	INT *ai1 = icalloc_INT(0);
+		BOOL b1 = icalloc_getInfo(ai1, &uId, &uAry, &uSizeOf, &uAlloc);
+		P1("icalloc:  ");
+		P("[%d] uId=%3u  uAry=%3u  uSizeOf=%3u  uAlloc=%3u\n", b1, uId, uAry, uSizeOf, uAlloc);
 
-	MS *mp1 = ims_clone("utf-8 で確保");
-		P("L%d: (%d byte) mp1 = ", __LINE__, icalloc_getAllocSize(mp1));
-		P2(mp1);
-	ifree(mp1);
+	ai1 = irealloc_INT(ai1, 10);
+		b1 = icalloc_getInfo(ai1, &uId, &uAry, &uSizeOf, &uAlloc);
+		P1("irealloc: ");
+		P("[%d] uId=%3u  uAry=%3u  uSizeOf=%3u  uAlloc=%3u\n", b1, uId, uAry, uSizeOf, uAlloc);
 
-	WS *wp1 = iws_clone(L"utf-16 で確保");
-		P("L%d: (%d byte) wp1 = ", __LINE__, icalloc_getAllocSize(wp1));
-		P2W(wp1);
-	ifree(wp1);
-
-	WS *wp2 = L"失敗したとき -1 を返す";
-		P("L%d: (%d) wp2 = ", __LINE__, icalloc_getAllocSize(wp2));
-		P2W(wp2);
+	ifree(ai1);
+		b1 = icalloc_getInfo(ai1, &uId, &uAry, &uSizeOf, &uAlloc);
+		P1("ifree:    ");
+		P("[%d] uId=%3u  uAry=%3u  uSizeOf=%3u  uAlloc=%3u\n", b1, uId, uAry, uSizeOf, uAlloc);
 */
-// v2025-02-26
-INT64
-icalloc_getAllocSize(
-	VOID *ptr
+// v2025-04-09
+BOOL
+icalloc_getInfo(
+	CONST VOID *ptr, // ポインタ位置
+	UINT *uId,       // 順番
+	UINT *uAry,      // 配列個数（配列以外=0）
+	UINT *uSizeOf,   // sizeof
+	UINT *uAlloc     // アロケート長
 )
 {
-	// 失敗したとき -1 を返す
-	if(! ptr)
-	{
-		return -1;
-	}
 	INT i1 = $icallocMapEOD - 1;
 	while(i1 >= 0)
 	{
 		$struct_icallocMap *map1 = ($icallocMap + i1);
 		if(ptr == map1->ptr)
 		{
-			if(map1->uAry)
+			if(uId)
 			{
-				return map1->uAry;
+				*uId = map1->uId;
 			}
-			else
+			if(uAry)
 			{
-				// '\0\0'分を除外
-				return (UINT)(map1->uAlloc / map1->uSizeOf) - 2;
+				*uAry = map1->uAry;
 			}
+			if(uSizeOf)
+			{
+				*uSizeOf = map1->uSizeOf;
+			}
+			if(uAlloc)
+			{
+				*uAlloc = map1->uAlloc;
+			}
+			return TRUE;
 		}
 		--i1;
 	}
-	return -1;
+	UINT u0 = 0;
+	*uId     = *&u0;
+	*uAry    = *&u0;
+	*uSizeOf = *&u0;
+	*uAlloc  = *&u0;
+	return FALSE;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -730,69 +742,6 @@ idebug_printMap()
 		, uAllocUsed
 	);
 }
-//-----------------------------------
-// ポインタのアドレス／文字列を出力
-//-----------------------------------
-/* (例)
-	MS **ma1 = icalloc_MS_ary(4);
-		// ma1[2]を故意に放置し断片化させる
-		ma1[0] = ims_clone("AAA");
-		ma1[3] = ims_clone("DDD");
-		ma1[1] = ims_clone("BBB");
-
-		idebug_map();
-		idebug_pointer(ma1);
-		idebug_pointer(*(ma1 + 0));
-		idebug_pointer(*(ma1 + 1));
-		idebug_pointer(*(ma1 + 2));
-		idebug_pointer(*(ma1 + 3));
-		NL();
-	ifree(ma1);
-
-	// 再利用されているポインタは'(null)'になっていないことに留意
-	idebug_map();
-	idebug_pointer(ma1);
-	idebug_pointer(*(ma1 + 0));
-	idebug_pointer(*(ma1 + 1));
-	idebug_pointer(*(ma1 + 2));
-	idebug_pointer(*(ma1 + 3));
-	NL();
-*/
-// v2024-05-07
-VOID
-idebug_printPointer(
-	CONST VOID *ptr,
-	UINT sizeOf      // sizeof(MS), sizeof(WS)
-)
-{
-	// 64bit有効アドレス空間 = 1<<44(16TB)未満??
-	// 当環境では'43'以上を無効範囲としている
-	if(((UINT64)ptr >> 43))
-	{
-		P("%p    * Invalid pointer", ptr);
-		return;
-	}
-	if(! ptr)
-	{
-		P("%p    * (null)", ptr);
-		return;
-	}
-	MS *pEnd = (MS*)ptr;
-	for(; *pEnd; (pEnd += sizeOf));
-	UINT64 uLen = pEnd - (MS*)ptr;
-	// WS
-	if(sizeOf == 2)
-	{
-		P("%p %4llu '", ptr, (uLen << 1));
-		P1W((WS*)ptr);
-		P1("'");
-	}
-	// MS
-	else
-	{
-		P("%p %4llu '%s'", ptr, uLen, (MS*)ptr);
-	}
-}
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
 	Print関係
@@ -818,27 +767,31 @@ P1W(
 	MS *ms1 = "Quick Print!";
 	QP(ms1, strlen(ms1));
 */
-// v2025-04-03
+// v2025-04-10
 VOID
 QP(
 	CONST MS *str,
 	UINT strLen
 )
 {
-	fflush(STDOUT);
 	if(! str)
 	{
 		return;
 	}
+	fflush(STDOUT);
 	WriteFile($StdoutHandle, str, strLen, NULL, NULL);
 	FlushFileBuffers($StdoutHandle);
 }
-// v2025-03-17
+// v2025-04-10
 VOID
 QP1W(
 	CONST WS *str
 )
 {
+	if(! str)
+	{
+		return;
+	}
 	MS *mp1 = W2M(str);
 		QP(mp1, strlen(mp1));
 	ifree(mp1);
@@ -981,18 +934,18 @@ iConsole_EscOn()
 //-----------------
 /* 例
 	P1("一行入力 > ");
-	WS *wp1 = iCLI_GetKeyInput(FALSE);
+	WS *wp1 = iCLI_getKeyInput(FALSE);
 		P2W(wp1);
 	ifree(wp1);
 
 	P2("複数行入力 > ");
-	wp1 = iCLI_GetKeyInput(TRUE);
+	wp1 = iCLI_getKeyInput(TRUE);
 		P2W(wp1);
 	ifree(wp1);
 */
 // v2025-02-24
 WS
-*iCLI_GetKeyInput(
+*iCLI_getKeyInput(
 	BOOL bKeyInputMultiLine
 )
 {
@@ -1053,7 +1006,7 @@ WS
 	// STDIN に
 	//   データがあれば読み取る（パイプからの標準入力を想定）
 	//   空ならば手入力に移行する
-	WS *wp1 = iCLI_GetStdin(FALSE);
+	WS *wp1 = iCLI_getStdin(FALSE);
 		if(*wp1)
 		{
 			LN(60);
@@ -1063,17 +1016,17 @@ WS
 		{
 			P1("文字を入力してください。\n[Ctrl]+[D]＋[Enter] で終了\n\n");
 			ifree(wp1);
-			wp1 = iCLI_GetStdin(TRUE);
+			wp1 = iCLI_getStdin(TRUE);
 				LN(60);
 				P1W(wp1);
 		}
 		LN(60);
-		P("%lld 文字（改行文字含む）\n\n", wcslen(wp1));
+		P("%llu 文字（改行文字含む）\n\n", wcslen(wp1));
 	ifree(wp1);
 */
-// v2025-03-20
+// v2025-04-13
 WS
-*iCLI_GetStdin(
+*iCLI_getStdin(
 	BOOL bKeyInput // STDINが空のとき TRUE=手入力モード／FALSE=空文字を返す
 )
 {
@@ -1081,36 +1034,16 @@ WS
 	INT iStdin = fseeko64(STDIN, 0, SEEK_END);
 	if(iStdin)
 	{
-		if(bKeyInput)
-		{
-			rtn = iCLI_GetKeyInput(TRUE);
-		}
-		else
-		{
-			return icalloc_WS(0);
-		}
+		rtn = (
+			bKeyInput ?
+			iCLI_getKeyInput(TRUE) :
+			icalloc_WS(0)
+		);
 	}
 	// STDIN から読込
 	else
 	{
-		CONST UINT BUF_LEN = 1024;
-		UINT bufSize = BUF_LEN;
-		MS *buf = icalloc_MS(bufSize);
-			UINT uEnd = 0;
-			UINT uCnt = 0;
-			// Win32API ReadFile() は日本語表示されないので使用しない
-			while((uCnt = fread((buf + uEnd), sizeof(MS), BUF_LEN, STDIN)))
-			{
-				uEnd += uCnt;
-				if(uEnd >= bufSize)
-				{
-					bufSize <<= 1;
-					buf = irealloc_MS(buf, bufSize);
-				}
-			}
-			// STDINの文字コードは直前のSTDOUTに依存（CP65001 or CP932）するため都度解析
-			rtn = icnv_M2W(buf, imn_Codepage(buf));
-		ifree(buf);
+		rtn = iF_read(STDIN);
 		// 別プログラムがコードページ／ESC制御を変更することがあるので再設定
 		SetConsoleOutputCP(65001);
 		iConsole_EscOn();
@@ -1200,17 +1133,13 @@ WS
 	UTF-16／UTF-8変換
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-// v2025-04-02
+// v2025-04-10
 MS
 *icnv_W2M(
 	CONST WS *str,
 	UINT uCP
 )
 {
-	if(! str)
-	{
-		return icalloc_MS(0);
-	}
 	INT i1 = WideCharToMultiByte(uCP, 0, str, -1, NULL, 0, NULL, NULL);
 	if(i1 > 0)
 	{
@@ -1223,17 +1152,13 @@ MS
 		return icalloc_MS(0);
 	}
 }
-// v2025-04-02
+// v2025-04-10
 WS
 *icnv_M2W(
 	CONST MS *str,
 	UINT uCP
 )
 {
-	if(! str)
-	{
-		return icalloc_WS(0);
-	}
 	INT i1 = MultiByteToWideChar(uCP, 0, str, -1, NULL, 0);
 	if(i1 > 0)
 	{
@@ -1283,7 +1208,19 @@ iwn_len(
 	}
 	return wcslen(str);
 }
-// v2023-12-14
+// v2025-04-12
+UINT
+iun_bomLen(
+	CONST MS *str
+)
+{
+	if(imn_len(str) >= 3 && str[0] == (MS)0xEF && str[1] == (MS)0xBB && str[2] == (MS)0xBF)
+	{
+		return 3;
+	}
+	return 0;
+}
+// v2025-04-12
 UINT
 iun_len(
 	CONST MS *str
@@ -1294,10 +1231,7 @@ iun_len(
 		return 0;
 	}
 	// BOM
-	if(strlen(str) >= 3 && str[0] == (MS)0xEF && str[1] == (MS)0xBB && str[2] == (MS)0xBF)
-	{
-		str += 3;
-	}
+	str += iun_bomLen(str);
 	UINT rtn = 0;
 	while(*str)
 	{
@@ -1335,15 +1269,16 @@ iun_len(
 //-----------
 // Codepage
 //-----------
-// v2023-12-14
+// v2025-04-13
 UINT
-imn_Codepage(
+imn_CodePage(
 	MS *str
 )
 {
+	// UTF-8 ?
 	if(! str || ! *str)
 	{
-		return 0;
+		return 65001;
 	}
 	// UTF-8 BOM
 	if(strlen(str) >= 3 && str[0] == (MS)0xEF && str[1] == (MS)0xBB && str[2] == (MS)0xBF)
@@ -1369,8 +1304,8 @@ imn_Codepage(
 		}
 		++str;
 	}
-	// ASCII
-	return 20127;
+	// UTF-8 ?
+	return 65001;
 }
 //---------------
 // 文字列コピー
@@ -1687,13 +1622,13 @@ MS
 		INT64 iPos = iwn_searchPos((wp1 + uEnd), wp2, wp2Len);
 		if(iPos >= 0)
 		{
-			P("    +%-4d", iPos);
+			P("    +%-4lld", iPos);
 			P2W((wp1 + uEnd));
 			uEnd += iPos + wp2Len;
 		}
 		else
 		{
-			P("    +%-4d", (wp1Len - uEnd));
+			P("    +%-4u", (wp1Len - uEnd));
 			P2W((wp1 + uEnd));
 			break;
 		}
@@ -1706,7 +1641,7 @@ MS
 		INT64 iPos = iwn_searchPos((wp1 + uEnd), wp2, wp2Len);
 		if(iPos > 0)
 		{
-			P("    +%-4d", iPos);
+			P("    +%-4lld", iPos);
 			P2W((wp1 + uEnd));
 			uEnd += iPos + wp2Len;
 		}
@@ -1716,7 +1651,7 @@ MS
 		}
 		else
 		{
-			P("    +%-4d", (wp1Len - uEnd));
+			P("    +%-4u", (wp1Len - uEnd));
 			P2W((wp1 + uEnd));
 			break;
 		}
@@ -1794,7 +1729,7 @@ iwn_searchCnt(
 			P("[%u] 検索位置 %llu\n", _u1, au1[_u1]);
 		}
 		// [n+1]
-		P("[%u] 文字列長 %llu\n", (au1[0] + 1), au1[(au1[0] + 1)]);
+		P("[%llu] 文字列長 %llu\n", (au1[0] + 1), au1[(au1[0] + 1)]);
 	ifree(au1);
 */
 // v2025-03-25
@@ -1864,59 +1799,22 @@ UINT64
 /* (例)
 	WS **aw1, **aw2;
 	WS *str = L" 2025////3/26  11:19:50   ";
+
+	LN(60);
+
 	// 重複排除
 	aw1 = iwaa_split(str, TRUE, 3, L"/", L":", L" ");
 		iwav_print(aw1);
 	ifree(aw1);
+
 	LN(60);
+
 	// 通常分割
 	aw2 = iwaa_split(str, FALSE, 3, L"/", L":", L" ");
 		iwav_print(aw2);
 	ifree(aw2);
+
 	LN(60);
-	// dirコマンドの結果を取得
-	MS *mp1 = ims_popenW(L"dir");
-		WS *wp1 = M2W(mp1);
-	ifree(mp1);
-	// \r を除去
-	///P3(iwn_searchCnt(wp1, L"\r"));
-	WS *wp2 = iws_replace(wp1, L"\r", L"", FALSE);
-	ifree(wp1);
-	// 行毎に分割
-	aw1 = iwaa_split(wp2, FALSE, 1, L"\n");
-	ifree(wp2);
-		UINT uIndex1 = 0;
-		while(uIndex1 < iwan_size(aw1))
-		{
-			// 行を表示
-			P(IESC_OPT21 "[%d] '", uIndex1);
-			P1W(aw1[uIndex1]);
-			P2("'" IESC_RESET);
-			// 列を表示
-			if(! *aw1[uIndex1])
-			{
-				P2(
-					IESC_OPT22
-					"\033[5GEmpty"
-					IESC_RESET
-				);
-			}
-			else
-			{
-				aw2 = iwaa_split(aw1[uIndex1], TRUE, 1, L" ");
-					UINT uaw2 = 0;
-					while(aw2[uaw2])
-					{
-						P("\033[5G[%d] '", uaw2);
-						P1W(aw2[uaw2]);
-						P2("'");
-						++uaw2;
-					}
-				ifree(aw2);
-			}
-			++uIndex1;
-		}
-	ifree(aw1);
 */
 // v2025-03-29
 WS
@@ -2506,15 +2404,15 @@ WS
 		{
 			if(iType == 0 || iType == 1)
 			{
-				if(iFchk_DirName(wa1[u1]) && PathFileExistsW(wa1[u1]))
+				if(iF_chkDirName(wa1[u1]) && PathFileExistsW(wa1[u1]))
 				{
-					rtn[u2] = iFget_APath(wa1[u1]);
+					rtn[u2] = iF_getAPath(wa1[u1]);
 					++u2;
 				}
 			}
 			if(iType == 0 || iType == 2)
 			{
-				if(! iFchk_DirName(wa1[u1]) && PathFileExistsW(wa1[u1]))
+				if(! iF_chkDirName(wa1[u1]) && PathFileExistsW(wa1[u1]))
 				{
 					WS *_wp1 = icalloc_WS(IMAX_PATHW);
 					_wfullpath(_wp1, wa1[u1], IMAX_PATHW);
@@ -2556,7 +2454,6 @@ WS
 			// 前方一致／大小文字区別しない
 			if(! _wcsnicmp(rtn[u2], rtn[u1], wcslen(rtn[u1])))
 			{
-				///P("L%d: [%p] Len=%u\n", __LINE__, rtn[u2], wcslen(rtn[u2]));
 				ifree(rtn[u2]);
 				rtn[u2] = (WS*)L"";
 				++u2;
@@ -2676,7 +2573,7 @@ iwav_print2(
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
 /* (例)
-	#define _printUsed() P("[L%d] %3d / %3d\n", __LINE__, iVBW_getLength(iVBW), iVBW_getSize(iVBW))
+	#define _printUsed() PL();P("%3d / %3d\n", iVBW_getLength(iVBW), iVBW_getSize(iVBW))
 	$struct_iVBW *iVBW = iVBW_alloc();
 		iVBW_push2(iVBW, L"1234567890");
 			P2W(iVBW_getStr(iVBW)); //=> "1234567890"
@@ -2911,7 +2808,7 @@ ifind1(
 	//
 	// main()
 	//
-	WS *dir = iFget_RPath(L".");
+	WS *dir = iF_getRPath(L".");
 		if(dir)
 		{
 			$struct_iFinfo *FI = iFinfo_alloc();
@@ -3140,7 +3037,7 @@ iFinfo_ftimeToCjd(
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
 /*
-[2014-01-13]
+[2024-01-13]
 	フォルダ名／ファイル名を引数とする処理は WS(=WideChar)版 を使用する。
 	理由は以下のとおり。
 	・[MS]漢字等を含むとき fopen() がエラーを返す／[WS]_wfopen() はOK
@@ -3155,9 +3052,9 @@ iFinfo_ftimeToCjd(
 	P3(iFchk_BfileW(L"aaa.txt")); //=> FALSE
 	P3(iFchk_BfileW(L"???"));     //=> FALSE (存在しないとき)
 */
-// v2024-01-13
+// v2025-04-12
 BOOL
-iFchk_Binfile(
+iF_chkBinfile(
 	WS *Fn
 )
 {
@@ -3174,8 +3071,8 @@ iFchk_Binfile(
 				break;
 			}
 		}
+		fclose(Fp);
 	}
-	fclose(Fp);
 	return rtn;
 }
 //---------------------
@@ -3183,13 +3080,13 @@ iFchk_Binfile(
 //---------------------
 /* (例)
 	WS *p1 = L"c:\\windows\\win.ini";
-	P2W(iFget_extPathname(p1, 0)); //=> "c:\windows\win.ini"
-	P2W(iFget_extPathname(p1, 1)); //=> "win.ini"
-	P2W(iFget_extPathname(p1, 2)); //=> "win"
+	P2W(iF_getExtPathname(p1, 0)); //=> "c:\windows\win.ini"
+	P2W(iF_getExtPathname(p1, 1)); //=> "win.ini"
+	P2W(iF_getExtPathname(p1, 2)); //=> "win"
 */
 // v2025-03-08
 WS
-*iFget_extPathname(
+*iF_getExtPathname(
 	WS *path,
 	INT option // 1=拡張子付きファイル名／2=拡張子なしファイル名
 )
@@ -3201,7 +3098,7 @@ WS
 	}
 	WS *rtn = icalloc_WS(uPath);
 	// Dir or File ?
-	if(iFchk_DirName(path))
+	if(iF_chkDirName(path))
 	{
 		if(option == 0)
 		{
@@ -3235,11 +3132,11 @@ WS
 //--------------------------
 /* (例)
 	// "." = "d:\foo" のとき
-	P2W(iFget_APath(L".")); //=> "d:\foo\"
+	P2W(iF_getAPath(L".")); //=> "d:\foo\"
 */
 // v2024-03-08
 WS
-*iFget_APath(
+*iF_getAPath(
 	WS *path
 )
 {
@@ -3250,14 +3147,14 @@ WS
 	}
 	WS *rtn = NULL;
 	// "c:" のような表記は特別処理
-	if(p1[1] == ':' && wcslen(p1) == 2 && iFchk_DirName(p1))
+	if(p1[1] == ':' && wcslen(p1) == 2 && iF_chkDirName(p1))
 	{
 		rtn = wcscat(p1, L"\\");
 	}
 	else
 	{
 		rtn = icalloc_WS(IMAX_PATHW);
-		if(iFchk_DirName(p1) && _wfullpath(rtn, p1, IMAX_PATHW))
+		if(iF_chkDirName(p1) && _wfullpath(rtn, p1, IMAX_PATHW))
 		{
 			wcscat(rtn, L"\\");
 		}
@@ -3269,11 +3166,11 @@ WS
 // 相対Path に '\\' 付与
 //------------------------
 /* (例)
-	P2W(iFget_RPath(L".")); //=> ".\"
+	P2W(iF_getRPath(L".")); //=> ".\"
 */
 // v2024-03-08
 WS
-*iFget_RPath(
+*iF_getRPath(
 	WS *path
 )
 {
@@ -3282,7 +3179,7 @@ WS
 	{
 		return rtn;
 	}
-	if(iFchk_DirName(path))
+	if(iF_chkDirName(path))
 	{
 		wcscat(rtn, L"\\");
 	}
@@ -3354,7 +3251,7 @@ WS
 				{
 					// Dir/File Exist?
 					// フォルダごと移動されたファイルは、ここでは存在しない。
-					if(iFchk_existPath(awp2[_u1]))
+					if(iF_chkExistPath(awp2[_u1]))
 					{
 						sfos.pFrom = awp2[_u1];
 						if(! SHFileOperationW(&sfos))
@@ -3366,6 +3263,47 @@ WS
 			}
 		ifree(awp2);
 	ifree(awp1);
+	return rtn;
+}
+//---------------------
+// FILEポインタを開く
+//---------------------
+/* (例)
+	// $ARGV[0] に指定したファイルを表示
+	FILE *iFp = _wfopen($ARGV[0], L"rb");
+	if(iFp)
+	{
+		WS *wp1 = iF_read(iFp);
+			fclose(iFp);
+			P2W(wp1);
+		ifree(wp1);
+	}
+*/
+// v2025-04-13
+WS
+*iF_read(
+	FILE *iFp
+)
+{
+	CONST UINT BufLen = 1024;
+	UINT BufSize = BufLen;
+	MS *Buf = icalloc_MS(BufSize);
+		UINT uEnd = 0;
+		UINT uCnt = 0;
+		// Win32API ReadFile() は日本語表示しないので使用しない
+		while((uCnt = fread((Buf + uEnd), sizeof(MS), BufLen, iFp)))
+		{
+			uEnd += uCnt;
+			if(uEnd >= BufSize)
+			{
+				BufSize <<= 1;
+				Buf = irealloc_MS(Buf, BufSize);
+			}
+		}
+		// 文字コードは直前のSTDOUT（CP65001／CP932）に依存するため都度解析
+		// UTF-8 BOM はスルー
+		WS *rtn = icnv_M2W((Buf + iun_bomLen(Buf)), imn_CodePage(Buf));
+	ifree(Buf);
 	return rtn;
 }
 //////////////////////////////////////////////////////////////////////////////////////////

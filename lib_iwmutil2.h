@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////////////////
 #define   LIB_IWMUTIL_COPYLIGHT         "(C)2008-2025 iwm-iwama"
-#define   LIB_IWMUTIL_FILENAME          "lib_iwmutil2_20250405"
+#define   LIB_IWMUTIL_FILENAME          "lib_iwmutil2_20250414"
 //////////////////////////////////////////////////////////////////////////////////////////
 #include <float.h>
 #include <math.h>
@@ -104,9 +104,9 @@ VOID      *irealloc(VOID *ptr, UINT n, UINT sizeOf);
 #define   irealloc_WS_ary(ptr, n)       (WS**)irealloc(ptr, (UINT)n, sizeof(WS*))
 
 // Num 配列
-#define   icalloc_INT(n)                (INT*)icalloc((UINT)n, sizeof(INT), FALSE)
+#define   icalloc_INT(n)                (INT*)icalloc((UINT)n, sizeof(INT), TRUE)
 #define   irealloc_INT(ptr, n)          (INT*)irealloc(ptr, (UINT)n, sizeof(INT))
-#define   icalloc_UINT64(n)             (UINT64*)icalloc((UINT)n, sizeof(UINT64), FALSE)
+#define   icalloc_UINT64(n)             (UINT64*)icalloc((UINT)n, sizeof(UINT64), TRUE)
 #define   irealloc_UINT64(ptr, n)       (UINT64*)irealloc(ptr, (UINT)n, sizeof(UINT64))
 
 VOID      icalloc_err(VOID *ptr);
@@ -118,7 +118,7 @@ VOID      icalloc_sweepMap();
 #define   ifree(ptr)          icalloc_free(ptr)
 #define   ifree_all()         icalloc_freeAll()
 
-INT64     icalloc_getAllocSize(VOID *ptr);
+BOOL      icalloc_getInfo(CONST VOID *ptr, UINT *uId, UINT *uAry, UINT *uSizeOf, UINT *uAlloc);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -127,9 +127,6 @@ INT64     icalloc_getAllocSize(VOID *ptr);
 //////////////////////////////////////////////////////////////////////////////////////////
 VOID      idebug_printMap();
 #define   idebug_map()        PL();NL();idebug_printMap()
-
-VOID      idebug_printPointer(CONST VOID *ptr, UINT sizeOf);
-#define   idebug_pointer(ptr)           PL();idebug_printPointer(ptr, sizeof(ptr[0]));NL()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -158,8 +155,8 @@ VOID      PR(CONST MS *str, UINT strRepeat);
 #define   P4(num)             P("%.8lf\n", (DOUBLE)num)
 
 // Debug
-#define   PL()                P("[L%u]", __LINE__)
-#define   PX(format, ...)     P("[L%u] " format "\n", __LINE__, __VA_ARGS__)
+#define   PL()                P("L%u: ", __LINE__)
+#define   PX(format, ...)     P("L%u: " format "\n", __LINE__, __VA_ARGS__)
 
 WS        *iws_cnv_escape(WS *str);
 
@@ -185,8 +182,8 @@ VOID      iConsole_EscOn();
 #define   IESC_TRUE1          "\033[38;2;0;250;250m"            // 水
 #define   IESC_FALSE1         "\033[38;2;250;50;50m"            // 紅
 
-WS        *iCLI_GetKeyInput(BOOL bKeyInputMultiLine);
-WS        *iCLI_GetStdin(BOOL bKeyInput);
+WS        *iCLI_getKeyInput(BOOL bKeyInputMultiLine);
+WS        *iCLI_getStdin(BOOL bKeyInput);
 
 VOID      iCLI_systemW(WS *cmd);
 
@@ -216,9 +213,11 @@ WS        *icnv_M2W(CONST MS *str, UINT uCP);
 //////////////////////////////////////////////////////////////////////////////////////////
 UINT      imn_len(CONST MS *str);
 UINT      iwn_len(CONST WS *str);
+
+UINT      iun_bomLen(CONST MS *str);
 UINT      iun_len(CONST MS *str);
 
-UINT      imn_Codepage(MS *str);
+UINT      imn_CodePage(MS *str);
 
 VOID      imv_cpy(MS *to, CONST MS *from);
 VOID      iwv_cpy(WS *to, CONST WS *from);
@@ -383,20 +382,22 @@ DOUBLE    iFinfo_ftimeToCjd(FILETIME ftime);
 	File/Dir処理
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-#define   iFchk_existPath(path)         (BOOL)PathFileExistsW(path)
-#define   iFchk_DirName(path)           (BOOL)(GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY ? TRUE : FALSE)
+#define   iF_chkExistPath(path)         (BOOL)PathFileExistsW(path)
+#define   iF_chkDirName(path)           (BOOL)(GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY ? TRUE : FALSE)
 
-#define   iFchk_attrDirFile(attr)       (INT)(((INT)attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 2)
+#define   iF_chkAttrDirFile(attr)       (INT)(((INT)attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 2)
 
-BOOL      iFchk_Binfile(WS *fn);
+BOOL      iF_chkBinfile(WS *fn);
 
-WS        *iFget_extPathname(WS *path, INT option);
+WS        *iF_getExtPathname(WS *path, INT option);
 
-WS        *iFget_APath(WS *path);
-WS        *iFget_RPath(WS *path);
+WS        *iF_getAPath(WS *path);
+WS        *iF_getRPath(WS *path);
 
 UINT      iF_mkdir(WS *path);
 WS        **iF_trash(WS *path);
+
+WS        *iF_read(FILE *iFp);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
