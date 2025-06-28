@@ -244,10 +244,10 @@ MS        *ims_repeat(CONST MS *str, UINT strRepeat);
 INT64     iwn_searchPos(WS *str, WS *search, UINT searchLen);
 UINT      iwn_searchCnt(WS *str, WS *search);
 
-UINT64    *iwaa_searchPos(WS *str, WS *search, BOOL icase);
+UINT64    *iwsa_searchPos(WS *str, WS *search, BOOL icase);
 
-WS        **iwaa_nsplit(WS *str, UINT strLen, BOOL ignoreNull, UINT size, ...);
-#define   iwaa_split(str, ignoreNull, size, ...)            (WS**)iwaa_nsplit(str, wcslen(str), ignoreNull, size, __VA_ARGS__)
+WS        **iwsa_nsplit(WS *str, UINT strLen, BOOL ignoreNull, UINT size, ...);
+#define   iwsa_split(str, ignoreNull, size, ...)            (WS**)iwsa_nsplit(str, wcslen(str), ignoreNull, size, __VA_ARGS__)
 
 WS        *iws_replace(WS *from, WS *before, WS *after, BOOL icase);
 

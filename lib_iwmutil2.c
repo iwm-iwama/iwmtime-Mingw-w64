@@ -1720,7 +1720,7 @@ iwn_searchCnt(
 	//
 	WS *wp1 = L"ABC文字aBc文字abc";
 	WS *wp2 = L"aBc";
-	UINT64 *au1 = iwaa_searchPos(wp1, wp2, TRUE);
+	UINT64 *au1 = iwsa_searchPos(wp1, wp2, TRUE);
 		// [0]
 		P("[0] 検索数   %llu\n", au1[0]);
 		for(UINT _u1 = 1; _u1 <= au1[0]; _u1++)
@@ -1734,7 +1734,7 @@ iwn_searchCnt(
 */
 // v2025-03-25
 UINT64
-*iwaa_searchPos(
+*iwsa_searchPos(
 	WS *str,    // 文字列
 	WS *search, // 検索文字列
 	BOOL icase  // TRUE=大文字小文字区別しない
@@ -1803,14 +1803,14 @@ UINT64
 	LN(60);
 
 	// 重複排除
-	aw1 = iwaa_split(str, TRUE, 3, L"/", L":", L" ");
+	aw1 = iwsa_split(str, TRUE, 3, L"/", L":", L" ");
 		iwav_print(aw1);
 	ifree(aw1);
 
 	LN(60);
 
 	// 通常分割
-	aw2 = iwaa_split(str, FALSE, 3, L"/", L":", L" ");
+	aw2 = iwsa_split(str, FALSE, 3, L"/", L":", L" ");
 		iwav_print(aw2);
 	ifree(aw2);
 
@@ -1818,7 +1818,7 @@ UINT64
 */
 // v2025-03-29
 WS
-**iwaa_nsplit(
+**iwsa_nsplit(
 	WS *str,         // 文字列
 	UINT strLen,     // 文字列サイズ／部分抽出可能
 	BOOL ignoreNull, // TRUE=重複排除
@@ -1902,7 +1902,7 @@ WS
 	{
 		uAfter = 1;
 	}
-	UINT64 *au1 = iwaa_searchPos(from, before, icase);
+	UINT64 *au1 = iwsa_searchPos(from, before, icase);
 		WS *rtn = icalloc_WS(wcslen(from) + ((uAfter - uBefore) * au1[0]));
 		UINT fromEnd = 0;
 		UINT rtnEnd = 0;
@@ -3059,11 +3059,11 @@ iF_chkBinfile(
 )
 {
 	BOOL rtn = FALSE;
-	FILE *Fp = _wfopen(Fn, L"rb");
-	if(Fp)
+	FILE *iFp = _wfopen(Fn, L"rb");
+	if(iFp)
 	{
 		INT c = 0;
-		while((c = getc(Fp)) != EOF)
+		while((c = getc(iFp)) != EOF)
 		{
 			if(! c)
 			{
@@ -3071,7 +3071,7 @@ iF_chkBinfile(
 				break;
 			}
 		}
-		fclose(Fp);
+		fclose(iFp);
 	}
 	return rtn;
 }
@@ -3235,7 +3235,7 @@ WS
 		return rtn;
 	}
 	// '\t' '\r' '\n' で分割
-	WS **awp1 = iwaa_split(path, TRUE, 3, L"\t", L"\r", L"\n");
+	WS **awp1 = iwsa_split(path, TRUE, 3, L"\t", L"\r", L"\n");
 		// Uniq
 		WS **awp2 = iwaa_uniq(awp1, TRUE);
 			CONST UINT uAwp2Size = iwan_size(awp2);
@@ -3274,9 +3274,9 @@ WS
 	if(iFp)
 	{
 		WS *wp1 = iF_read(iFp);
-			fclose(iFp);
 			P2W(wp1);
 		ifree(wp1);
+		fclose(iFp);
 	}
 */
 // v2025-04-13
@@ -3497,7 +3497,7 @@ INT
 		i1 = -1;
 		++str;
 	}
-	WS **as1 = iwaa_split(str, TRUE, 5, L"/", L".", L"-", L":", L" ");
+	WS **as1 = iwsa_split(str, TRUE, 5, L"/", L".", L"-", L":", L" ");
 		UINT u1 = 0;
 		while(u1 < uArySize && as1[u1])
 		{
