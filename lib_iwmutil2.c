@@ -1,48 +1,53 @@
 /*
-[2025-03-26] + [2025-04-13]
-	--------------------------
-	| このライブラリについて
-	--------------------------
-	2009年、コマンドラインプログラム開発簡素化のため書き始める。
-	オブジェクト指向やガベージコレクションを参考にしつつ、古典的手続き型プログラミングの拡張によるメモリ安全かつ高速な実装が目標。
-	当初の目的は次のとおり。
-		関数戻り値の基本設計
-			元データ（のポインタ）でなく、新たに生成されたデータ（のポインタ）を戻り値とする。
-		動的メモリ管理（icalloc(), irealloc(), ifree() 系実装）
-			・インデックスによる管理
-			・管理されているポインタは終了時に自動解放
-			・基本は手動解放
-			・セキュリティを考慮し 割り当て／解放時 ゼロクリア（memset(p,0,n)）
-			・デバッグ用のメモリアドレス表示（idebug_map()）
-		日付計算（iwmdateadd.exe, iwmdatediff.exe）
-			・ユリウス暦 -4712/01/01..1582/10/04 とグレゴリオ暦 1582/10/15..9999/12/31 を使用
-			・空白暦 1582/10/05..1582/10/14 を考慮
-			・数ヶ月前後の計算
-				05/31 の１ヶ月後は 06/30
-				06/30 の１ヶ月前は 05/30
-	Ruby, UNIXライク環境などから得たアイデアは次のとおり。
-		・引数の切り分け（$CMD, $ARG, $ARGC, $ARGV[]）
-		・パイプ経由標準入力の改装（iwmesc.exe, iwmclipboard.exe）
-		・エスケープシーケンス文字の表示（iwmesc.exe）
-	2022年、lib_iwmutil（Shiftt_JIS／CP932）から、lib_iwmutil2（UTF-8／CP65001）に移行。
-		2018年頃？からMicrosoft社はUTF-8による開発を推奨しているが、DOSプロンプトにおける日本語処理は難解。
-		当面、試行的に以下の実装とする。
-			標準出力は、UTF-8／BOMなし／改行コード=LF'\n'。
-			ただし、標準入力の改行コード（例：CRLF'\r\n'）を優先する。
-		imn_CodePage(), SetConsoleOutputCP(65001) 前後の実装は試行解。
+--------------------------
+2025-03-26 + 2026-05-28
+  このライブラリについて
+--------------------------
+2009年、コマンドラインプログラム開発簡素化のため書き始める。
+オブジェクト指向やガベージコレクションを参考にしつつ、古典的手続き型プログラミングの拡張によるメモリ安全かつ高速な実装が目標。
+当初の目的は次のとおり。
+	関数戻り値の基本設計
+		元データ（のポインタ）でなく、新たに生成されたデータ（のポインタ）を戻り値とする。
+	動的メモリ管理（icalloc(), irealloc(), ifree() 系実装）
+		・インデックスによる管理
+		・管理されているポインタは終了時に自動解放
+		・基本は手動解放
+		・セキュリティを考慮し 割り当て／解放時 ゼロクリア
+			コンパイラの最適化オプションにより ゼロクリア がスルーされる問題に対応
+			【修正前】
+				memset(ptr, 0, len);
+				free(ptr);
+			【修正後】
+				SecureZeroMemory(ptr, len);
+				free(ptr);
+		・デバッグ用のメモリアドレス表示（idebug_map()）
+	日付計算（iwmdateadd.exe, iwmdatediff.exe）
+		・ユリウス暦 -4712/01/01..1582/10/04 とグレゴリオ暦 1582/10/15..9999/12/31 を使用
+		・空白暦 1582/10/05..1582/10/14 を考慮
+		・数ヶ月前後の計算
+			05/31 の１ヶ月後は 06/30
+			06/30 の１ヶ月前は 05/30
+Ruby, UNIXライク環境などから得たアイデアは次のとおり。
+	・引数の切り分け（$CMD, $ARG, $ARGC, $ARGV[]）
+	・パイプ経由標準入力の改装（iwmesc.exe, iwmclipboard.exe）
+	・エスケープシーケンス文字の表示（iwmesc.exe）
+2022年、lib_iwmutil（Shiftt_JIS／CP932）から、lib_iwmutil2（UTF-8／CP65001）に移行。
+	2018年頃？からMicrosoft社はUTF-8による開発を推奨しているが、DOSプロンプトにおける日本語処理は難解。
+	当面、試行的に以下の実装とする。
+		標準出力は、UTF-8／BOMなし／改行コード=LF'\n'。
+		ただし、標準入力の改行コード（例：CRLF'\r\n'）を優先する。
+	imn_CodePage(), SetConsoleOutputCP(65001) 前後の実装は試行解。
 
-[2016-08-19] + [2024-09-09]
-	-------------------------------
-	| lib_iwmutil2 で規定する表記
-	-------------------------------
-	・大域変数の "１文字目は $"
-		$ARGV, $icallocMap など
-	・#define定数（関数は含まない）は "すべて大文字"
-		IMAX_PATHW, WS など
+-------------------------------
+2016-08-19 + 2024-09-09
+  lib_iwmutil2 で規定する表記
+-------------------------------
+・大域変数の "１文字目は $"
+	$ARGV, $icallocMap など
+・#define定数（関数は含まない）は "すべて大文字"
+	IMAX_PATHW, WS など
 
-	--------------------------
-	| ソース別に期待する表記
-	--------------------------
+・ソース別に期待する表記
 	・大域変数, #define定数（関数は含まない）の "１文字目は大文字"
 		Buf, BufSIze など
 	・オプション変数の "１文字目は _" かつ "２文字目は大文字"
@@ -50,34 +55,71 @@
 	・局所変数の "１文字目は _" かつ "２文字目は小文字"
 		_i1, _u1, _mp1, _wp1 など
 
-[2016-01-27] + [2024-09-09]
-	基本関数名ルール
-		i = iwm-iwama によって書かれた
-		m = MS(1byte) | u = MS(UTF-8) | w = WS(UTF-16) | v = VOID
-		a = string[]  | b = bool      | n = length
-		p = pointer   | s = string
-			"p" は "引数自身の"、"s" は "引数とは別の" ポインタを返す。
+-------------------------
+2016-01-27 + 2025-06-28
+  基本関数名ルール
+-------------------------
+i = iwmutil
+m = MS(1byte) | u = MS(UTF-8) | w = WS(UTF-16) | v = VOID
+a = string[]  | b = bool      | n = length
+p = pointer   | s = string
 
-[2021-11-18] + [2025-03-27]
-	ポインタ *(p + n) と、配列 p[n] どちらが速い？
-		Mingw-w64においては最適化するとどちらも同じになる。
-		基本、可読性を考慮した配列 p[n] でコーディングする。
+--------------------------------------------------
+2021-11-18 + 2025-06-28
+  ポインタ *(p + n) と、配列 a[n] どちらが速い？
+--------------------------------------------------
+Mingw-w64においては最適化するとどちらも同じになる。
+可読性を考慮した配列 a[n] でコーディングする。
 
-[2024-01-19] + [2025-04-09]
-	主に使うデータ型
-		BOOL   = TRUE, FALSE
-		INT    = 32bit integer（INT8, INT16, UINT8, UINT16の代替）
-		INT64  = 64bit integer（日計算）
-		UINT   = 32bit unsigned integer（NTFSファイル個数）
-		UINT64 = 64bit unsigned integer（size_t／秒計算／ファイルサイズ）
-		DOUBLE = double（日計算）
-		MS     = char
-		WS     = wchar
-		VOID   = void
-		DWORD  = typedef unsigned long DWORD（Win32API）
-	ペンディング
-		size_t
-			64bit環境では size_t（SIZE_MAX）とUINT64（UINT64_MAX）は同値だが、実行上の制約を考慮し、UINT（UINT_MAX）として実装した箇所がある。
+-------------------------
+2024-01-19 + 2025-04-09
+  主要なデータ型
+-------------------------
+BOOL   = TRUE, FALSE
+INT    = 32bit integer（INT8, INT16, UINT8, UINT16の代替）
+INT64  = 64bit integer（日計算）
+UINT   = 32bit unsigned integer（NTFSファイル個数）
+UINT64 = 64bit unsigned integer（size_t／秒計算／ファイルサイズ）
+DOUBLE = double（日計算）
+MS     = char
+WS     = wchar
+VOID   = void
+DWORD  = typedef unsigned long DWORD（Win32API）
+
+ペンディング
+size_t
+	64bit環境では size_t（SIZE_MAX）とUINT64（UINT64_MAX）は同値だが、実行上の制約を考慮し、UINT（UINT_MAX）として実装した箇所がある。
+
+------------
+2025-07-01
+  基本構文
+------------
+// 以下のファイルも参照のこと
+//   コンパイル情報：lib_iwmutil2.c_make.bat
+//   サンプルコード：iwmhello.c
+
+#include "lib_iwmutil2.h"
+
+INT
+main()
+{
+	// 初期化
+	imain_begin();
+
+	// 大域変数リスト／デバッグ用
+	iCLI_VarList();
+
+	// 主処理をここに書く
+
+	// 処理時間／デバッグ用
+	P("-- %.3fsec\n\n", iExecSec_next());
+
+	// 動的メモリ情報／デバッグ用
+	idebug_map();
+
+	// 終了処理
+	imain_end();
+}
 */
 
 #include "lib_iwmutil2.h"
@@ -87,18 +129,6 @@
 	大域変数
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-/* (例)
-	// lib_iwmutil2 初期化
-	imain_begin();
-	// Debug
-	iCLI_VarList();
-	// 処理時間
-	P("-- %.3fsec\n\n", iExecSec_next());
-	// Debug
-	idebug_map(); ifree_all(); idebug_map();
-	// 最終処理
-	imain_end();
-*/
 WS     *$CMD         = NULL; // コマンド名を格納
 WS     *$ARG         = NULL; // 引数からコマンド名を消去したもの
 UINT   $ARGC         = 0;    // 引数配列数
@@ -381,7 +411,7 @@ VOID
 			icalloc_err($icallocMap);
 			UINT uOld = $icallocMapEOD * sizeof($struct_icallocMap);
 				memcpy($icallocMap, pOld, uOld);
-				memset(pOld, 0, uOld);
+				SecureZeroMemory(pOld, uOld); 
 		free(pOld);
 		pOld = 0;
 	}
@@ -433,7 +463,7 @@ VOID
 				rtn = (VOID*)calloc(uAlloc, 1);
 				icalloc_err(rtn);
 					memcpy(rtn, ptr, map1->uAlloc);
-					memset(ptr, 0, map1->uAlloc);
+					SecureZeroMemory(ptr, map1->uAlloc); 
 				free(ptr);
 				ptr = 0;
 				map1->ptr = rtn;
@@ -509,18 +539,18 @@ icalloc_free(
 						$struct_icallocMap *map2 = ($icallocMap + _u2);
 						if(va1[_u1] && va1[_u1] == map2->ptr)
 						{
-							memset(map2->ptr, 0, map2->uAlloc);
+							SecureZeroMemory(map2->ptr, map2->uAlloc); 
 							free(map2->ptr);
-							memset(map2, 0, sizeof($struct_icallocMap));
+							SecureZeroMemory(map2, sizeof($struct_icallocMap)); 
 							break;
 						}
 					}
 				}
 			}
 			// ポインタのリンク先を解放
-			memset(map1->ptr, 0, map1->uAlloc);
+			SecureZeroMemory(map1->ptr, map1->uAlloc); 
 			free(map1->ptr);
-			memset(map1, 0, sizeof($struct_icallocMap));
+			SecureZeroMemory(map1, sizeof($struct_icallocMap)); 
 			return;
 		}
 		--i1;
@@ -542,11 +572,11 @@ icalloc_freeAll()
 		$struct_icallocMap *map1 = ($icallocMap + _u1);
 		if(map1->ptr)
 		{
-			memset(map1->ptr, 0, map1->uAlloc);
+			SecureZeroMemory(map1->ptr, map1->uAlloc); 
 			free(map1->ptr);
 		}
 	}
-	memset($icallocMap, 0, ($icallocMapSize * sizeof($struct_icallocMap)));
+	SecureZeroMemory($icallocMap, ($icallocMapSize * sizeof($struct_icallocMap))); 
 	free($icallocMap);
 	$icallocMap = 0;
 	$icallocMapSize = 0;
@@ -561,7 +591,7 @@ VOID
 icalloc_sweepMap()
 {
 	// ゼロクリア
-	memset(($icallocMap + $icallocMapEOD), 0, (sizeof($struct_icallocMap) * ($icallocMapSize - $icallocMapEOD)));
+	SecureZeroMemory(($icallocMap + $icallocMapEOD), (sizeof($struct_icallocMap) * ($icallocMapSize - $icallocMapEOD))); 
 	// 隙間を詰める
 	UINT uTo = 0;
 	UINT uFrom = 0;
@@ -680,7 +710,7 @@ icalloc_getInfo(
 //--------------------------
 // $icallocMapをリスト出力
 //--------------------------
-// v2025-04-04
+// v2025-06-28
 VOID
 idebug_printMap()
 {
@@ -697,7 +727,7 @@ idebug_printMap()
 		uAllocUsed += map->uAlloc;
 		if(map->uAry)
 		{
-			P1("\033[37;44m");
+			P1("\033[97;44m");
 		}
 		else if(map->ptr)
 		{
@@ -2706,7 +2736,7 @@ iVBM_pop(
 	}
 	iVBM->length -= strLen;
 	iVBM->freeSize += strLen;
-	memset(((MS*)iVBM->str + iVBM->length), 0, strLen);
+	SecureZeroMemory(((MS*)iVBM->str + iVBM->length), strLen); 
 }
 // v2025-03-04
 VOID
@@ -2725,7 +2755,7 @@ iVBW_pop(
 	}
 	iVBW->length -= strLen;
 	iVBW->freeSize += strLen;
-	wmemset(((WS*)iVBW->str + iVBW->length), 0, strLen);
+	SecureZeroMemory(((WS*)iVBW->str + iVBW->length), strLen * sizeof(WS)); 
 }
 // v2025-03-03
 VOID
@@ -3959,7 +3989,7 @@ iDV_checker(
 					-(IDV3->y), -(IDV3->m), -(IDV3->d), 0, 0, 0
 				);
 			}
-			memset(Buf, 0, (BufLen * sizeof(MS)));
+			SecureZeroMemory(Buf, (BufLen * sizeof(MS))); 
 			INT i1 = sprintf(
 				Buf,
 				"\033[37m"	"%7u"

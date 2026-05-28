@@ -9,7 +9,7 @@ for /f "delims=. tokens=1,2" %%i in ("%src%") do (
 	set fn=%%i%
 )
 set fn_exe=%fn%.exe
-set cc=gcc.exe -std=c2x
+set cc=gcc.exe -std=c23
 set lib=lib_iwmutil2.a
 set op_link=-Os -Wall -Wextra -Wformat=2 -lgdi32 -luser32 -lshlwapi
 
