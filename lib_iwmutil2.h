@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////////////////
 #define   LIB_IWMUTIL_COPYLIGHT         "(C)2008-2026 iwm-iwama"
-#define   LIB_IWMUTIL_FILENAME          "lib_iwmutil2_20260528"
+#define   LIB_IWMUTIL_FILENAME          "lib_iwmutil2_20260601"
 //////////////////////////////////////////////////////////////////////////////////////////
 #include <float.h>
 #include <math.h>
@@ -331,8 +331,8 @@ VOID                *iVB_free($struct_iVB *iVB, BOOL bReturnStr);
 #define             iVBM_freeAll(iVBM)            iVB_free(iVBM, FALSE)
 #define             iVBW_freeAll(iVBW)            iVB_free(iVBW, FALSE)
 
-#define   iVBM_clear(iVBM)              memset(iVBM->str, 0, iVBM->length);iVBM->freeSize += iVBM->length;iVBM->length = 0
-#define   iVBW_clear(iVBW)              wmemset(iVBW->str, 0, iVBW->length);iVBW->freeSize += iVBW->length;iVBW->length = 0
+#define   iVBM_clear(iVBM)              SecureZeroMemory(iVBM->str, (iVBM->length * iVBM->sizeOf));iVBM->freeSize += iVBM->length;iVBM->length = 0
+#define   iVBW_clear(iVBW)              SecureZeroMemory(iVBW->str, (iVBW->length * iVBW->sizeOf));iVBW->freeSize += iVBW->length;iVBW->length = 0
 
 #define   iVBM_getStr(iVBM)             (MS*)(iVBM->str)
 #define   iVBW_getStr(iVBW)             (WS*)(iVBW->str)

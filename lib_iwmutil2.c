@@ -31,7 +31,7 @@ Ruby, UNIXライク環境などから得たアイデアは次のとおり。
 	・引数の切り分け（$CMD, $ARG, $ARGC, $ARGV[]）
 	・パイプ経由標準入力の改装（iwmesc.exe, iwmclipboard.exe）
 	・エスケープシーケンス文字の表示（iwmesc.exe）
-2022年、lib_iwmutil（Shiftt_JIS／CP932）から、lib_iwmutil2（UTF-8／CP65001）に移行。
+2022年、lib_iwmutil（Shift_JIS／CP932）から、lib_iwmutil2（UTF-8／CP65001）に移行。
 	2018年頃？からMicrosoft社はUTF-8による開発を推奨しているが、DOSプロンプトにおける日本語処理は難解。
 	当面、試行的に以下の実装とする。
 		標準出力は、UTF-8／BOMなし／改行コード=LF'\n'。
@@ -358,7 +358,7 @@ UINT $icallocMapId = 1;              // $icallocMap の順番 [1..(n+1)]
 UINT $icallocMapSweepWait = 0;
 
 // $icallocMap の基本サイズ
-#define   IcallocDiv          16
+#define   IcallocDiv          32
 
 // ダブルヌル追加／アラインメント調整はコンパイラ依存
 #define   MemX(n, sizeOf)     (UINT)((n + 2) * sizeOf)
@@ -394,7 +394,7 @@ icalloc_initMap()
 		P2W(wp1); //=> "12345ABCDEあいうえお"
 	ifree(wp1);
 */
-// v2025-03-23
+// v2026-05-28
 VOID
 *icalloc(
 	UINT n,      // 個数
@@ -407,11 +407,11 @@ VOID
 	{
 		$icallocMapSize += IcallocDiv;
 		$struct_icallocMap *pOld = $icallocMap;
-			$icallocMap = ($struct_icallocMap*)calloc($icallocMapSize, sizeof($struct_icallocMap));
-			icalloc_err($icallocMap);
-			UINT uOld = $icallocMapEOD * sizeof($struct_icallocMap);
-				memcpy($icallocMap, pOld, uOld);
-				SecureZeroMemory(pOld, uOld); 
+		$icallocMap = ($struct_icallocMap*)calloc($icallocMapSize, sizeof($struct_icallocMap));
+		icalloc_err($icallocMap);
+		UINT uOld = $icallocMapEOD * sizeof($struct_icallocMap);
+		memcpy($icallocMap, pOld, uOld);
+		SecureZeroMemory(pOld, uOld); 
 		free(pOld);
 		pOld = 0;
 	}
@@ -436,7 +436,7 @@ VOID
 //----------
 // realloc
 //----------
-// v2025-03-19
+// v2026-05-28
 VOID
 *irealloc(
 	VOID *ptr,  // icalloc()ポインタ
@@ -462,8 +462,8 @@ VOID
 			{
 				rtn = (VOID*)calloc(uAlloc, 1);
 				icalloc_err(rtn);
-					memcpy(rtn, ptr, map1->uAlloc);
-					SecureZeroMemory(ptr, map1->uAlloc); 
+				memcpy(rtn, ptr, map1->uAlloc);
+				SecureZeroMemory(ptr, map1->uAlloc); 
 				free(ptr);
 				ptr = 0;
 				map1->ptr = rtn;
@@ -505,7 +505,7 @@ icalloc_err(
 //-----------------------
 // $icallocMap[n]をfree
 //-----------------------
-// v2025-03-16
+// v2026-05-28
 VOID
 icalloc_free(
 	VOID *ptr
@@ -519,7 +519,7 @@ icalloc_free(
 		icalloc_sweepMap();
 	}
 	// 削除される可能性のあるデータ＝最近作成されたデータは後方に集中するため末尾から走査
-	// NULLが排除されているのでチェックなしで走査可能
+	// デフラグ済なので $icallocMapEOD - 1 から走査可能
 	INT i1 = $icallocMapEOD - 1;
 	while(i1 >= 0)
 	{
@@ -559,7 +559,7 @@ icalloc_free(
 //--------------------
 // $icallocMapをfree
 //--------------------
-// v2025-03-16
+// v2026-05-28
 VOID
 icalloc_freeAll()
 {
@@ -586,7 +586,7 @@ icalloc_freeAll()
 //--------------------
 // $icallocMapを掃除
 //--------------------
-// v2025-03-15
+// v2026-06-01
 VOID
 icalloc_sweepMap()
 {
@@ -610,7 +610,7 @@ icalloc_sweepMap()
 				if(map2->ptr)
 				{
 					memcpy(map1, map2, sizeof($struct_icallocMap));
-					map2->ptr = 0;
+					SecureZeroMemory(map2, sizeof($struct_icallocMap)); 
 					break;
 				}
 				++uFrom;
@@ -2719,7 +2719,7 @@ iVBW_push_sprintf(
 		va_end(va);
 	fclose(oFp);
 }
-// v2025-03-04
+// v2026-06-01
 VOID
 iVBM_pop(
 	$struct_iVBM *iVBM,
@@ -2736,9 +2736,9 @@ iVBM_pop(
 	}
 	iVBM->length -= strLen;
 	iVBM->freeSize += strLen;
-	SecureZeroMemory(((MS*)iVBM->str + iVBM->length), strLen); 
+	SecureZeroMemory(((MS*)iVBM->str + iVBM->length), (strLen * iVBM->sizeOf)); 
 }
-// v2025-03-04
+// v2026-06-01
 VOID
 iVBW_pop(
 	$struct_iVBW *iVBW,
@@ -2755,7 +2755,7 @@ iVBW_pop(
 	}
 	iVBW->length -= strLen;
 	iVBW->freeSize += strLen;
-	SecureZeroMemory(((WS*)iVBW->str + iVBW->length), strLen * sizeof(WS)); 
+	SecureZeroMemory(((WS*)iVBW->str + iVBW->length), (strLen * iVBW->sizeOf)); 
 }
 // v2025-03-03
 VOID
@@ -3927,7 +3927,7 @@ irand_INT(
 {
 	return (min + (INT)(rand() * (max - min + 1.0) / (1.0 + RAND_MAX)));
 }
-// v2025-03-29
+// v2026-05-31
 VOID
 iDV_checker(
 	INT yearFrom, // 何年から
@@ -3989,7 +3989,6 @@ iDV_checker(
 					-(IDV3->y), -(IDV3->m), -(IDV3->d), 0, 0, 0
 				);
 			}
-			SecureZeroMemory(Buf, (BufLen * sizeof(MS))); 
 			INT i1 = sprintf(
 				Buf,
 				"\033[37m"	"%7u"
