@@ -91,8 +91,6 @@ INT main()
 
 	// Debug
 	/// idebug_map(NULL);
-	/// ifree_all();
-	/// idebug_map(NULL);
 
 	// 最終処理
 	imain_end();

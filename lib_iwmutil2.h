@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////////////////
 #define LIB_IWMUTIL_COPYLIGHT "(C)2008-2026 iwm-iwama"
-#define LIB_IWMUTIL_FILENAME "lib_iwmutil2_20260701"
+#define LIB_IWMUTIL_FILENAME "lib_iwmutil2_20260720"
 //////////////////////////////////////////////////////////////////////////////////////////
 #include <float.h>
 #include <math.h>
@@ -87,7 +87,7 @@ DOUBLE iExecSec(UINT64 microSec);
 	ヒープ管理
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-// ポインタ管理・アロケート情報構造体
+// ポインタ管理（Pointer Map）
 typedef struct
 {
 	VOID *ptr;	  // [多重ポインタ用アドレス] 実体ポインタ(VOID*)が格納されている場所のアドレス
@@ -97,7 +97,7 @@ typedef struct
 	UINT uId;	  // [管理用ID] データの登録順や一意の識別番号
 } $struct_HeapMap;
 
-// 管理用構造体
+// ヒープ管理（Heap Map）
 typedef struct
 {
 	$struct_HeapMap *pMap; // 構造体配列へのポインタ
@@ -111,16 +111,19 @@ VOID *iHM_calloc($struct_HeapManager *pMgr, UINT len, UINT sizeOf, BOOL aryOn);
 VOID *iHM_reallocEx($struct_HeapManager *pMgr, VOID *oldPtr, VOID *newPtr, UINT newLen);
 #define iHM_realloc(pMgr, oldPtr, newLen) iHM_reallocEx(pMgr, oldPtr, NULL, newLen)
 #define iHM_replace(pMgr, oldPtr, newPtr, newLen) iHM_reallocEx(pMgr, oldPtr, newPtr, newLen)
-BOOL iHM_free($struct_HeapManager *pMgr, VOID *ptr);
+UINT iHM_free($struct_HeapManager *pMgr, VOID *ptr);
+UINT iHM_free2($struct_HeapManager *pMgr, VOID *ptr);
 UINT iHM_freeAll($struct_HeapManager *pMgr);
 UINT iHM_end($struct_HeapManager *pMgr);
 VOID iHM_err(VOID *ptr, CONST MS *rem, UINT line, CONST MS *fn);
+$struct_HeapMap iHM_info($struct_HeapManager *pMgr, VOID *ptr);
 
 VOID icalloc_begin();
 VOID *icalloc(UINT n, UINT sizeOf, BOOL aryOn);
 VOID *irealloc(VOID *ptr, UINT n);
 VOID *irepalloc(VOID *oldPtr, VOID *newPtr, UINT n);
 VOID icalloc_end();
+$struct_HeapMap icalloc_info(VOID *ptr);
 
 // MS 文字列
 #define icalloc_MS(n) (MS *)icalloc((UINT)n, sizeof(MS), FALSE)
@@ -146,8 +149,11 @@ VOID icalloc_end();
 #define icalloc_UINT64(n) (UINT64 *)icalloc((UINT)n, sizeof(UINT64), TRUE)
 #define irealloc_UINT64(ptr, n) (UINT64 *)irealloc(ptr, (UINT)n)
 
-BOOL icalloc_free(VOID *ptr);
+UINT icalloc_free(VOID *ptr);
 #define ifree(ptr) icalloc_free(ptr)
+
+UINT icalloc_free2(VOID *ptr);
+#define ifree2(ptr) icalloc_free2(ptr)
 
 UINT icalloc_freeAll();
 #define ifree_all() icalloc_freeAll()
@@ -157,8 +163,10 @@ UINT icalloc_freeAll();
 	Debug
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-VOID idebug_printMap($struct_HeapManager *pMgr, UINT line, MS *fn, DOUBLE elapsedSec);
+VOID idebug_printMap($struct_HeapManager *pMgr, UINT line, CONST MS *fn, DOUBLE elapsedSec);
 #define idebug_map(pMgr) idebug_printMap(pMgr, __LINE__, __FILE_NAME__, iExecSec_next())
+
+VOID idebug_dumpMem($struct_HeapManager *pMgr, volatile CONST VOID *ptr, BOOL bBefore);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -202,7 +210,14 @@ VOID PR(CONST MS *str, UINT strRepeat);
 	\ ENL()
 
 #define PL() P("L%u (%s):\n", __LINE__, __FILE_NAME__)
-#define EPL() PE("L%u (%s):\n", __LINE__, __FILE_NAME__)
+#define PL2(str) P("L%u (%s): %s\n", __LINE__, __FILE_NAME__, (MS *)str)
+#define PL3(num) P("L%u (%s): %lld\n", __LINE__, __FILE_NAME__, (INT64)num)
+#define PL4(num) P("L%u (%s): %.8lf\n", __LINE__, __FILE_NAME__, (DOUBLE)num)
+
+#define EPL() EP("L%u (%s):\n", __LINE__, __FILE_NAME__)
+#define EPL2(str) EP("L%u (%s): %s\n", __LINE__, __FILE_NAME__, (MS *)str)
+#define EPL3(num) EP("L%u (%s): %lld\n", __LINE__, __FILE_NAME__, (INT64)num)
+#define EPL4(num) EP("L%u (%s): %.8lf\n", __LINE__, __FILE_NAME__, (DOUBLE)num)
 
 WS *iws_cnv_escape(WS *str);
 
@@ -294,8 +309,8 @@ UINT iwn_searchCnt(WS *str, WS *search);
 
 UINT64 *iwsa_searchPos(WS *str, WS *search, BOOL icase);
 
-WS **iwsa_nsplit(WS *str, UINT strLen, BOOL ignoreNull, UINT size, ...);
-#define iwsa_split(str, ignoreNull, size, ...) (WS **)iwsa_nsplit(str, wcslen(str), ignoreNull, size, __VA_ARGS__)
+WS **iwsa_nsplit(WS *str, UINT strLen, BOOL rmSep, UINT size, ...);
+#define iwsa_split(str, rmSep, size, ...) (WS **)iwsa_nsplit(str, wcslen(str), rmSep, size, __VA_ARGS__)
 
 WS *iws_replace(WS *from, WS *before, WS *after, BOOL icase);
 
@@ -371,20 +386,16 @@ VOID iVBW_push_sprintf($struct_iVBW *iVBW, CONST WS *format, ...);
 VOID iVBM_pop($struct_iVBM *iVBM, UINT strLen);
 VOID iVBW_pop($struct_iVBW *iVBW, UINT strLen);
 
-VOID *iVB_free($struct_iVB *iVB, BOOL bReturnStr);
-#define iVBM_free(iVBM) (MS *)iVB_free(iVBM, TRUE)
-#define iVBW_free(iVBW) (WS *)iVB_free(iVBW, TRUE)
-#define iVBM_freeAll(iVBM) iVB_free(iVBM, FALSE)
-#define iVBW_freeAll(iVBW) iVB_free(iVBW, FALSE)
+VOID iVBM_clear($struct_iVBM *iVBM);
+VOID iVBW_clear($struct_iVBW *iVBW);
 
-#define iVBM_clear(iVBM)                                        \
-	SecureZeroMemory(iVBM->str, (iVBM->length * iVBM->sizeOf)); \
-	iVBM->freeSize += iVBM->length;                             \
-	iVBM->length = 0
-#define iVBW_clear(iVBW)                                        \
-	SecureZeroMemory(iVBW->str, (iVBW->length * iVBW->sizeOf)); \
-	iVBW->freeSize += iVBW->length;                             \
-	iVBW->length = 0
+VOID *iVB_free($struct_iVB *iVB);
+#define iVBM_free(iVBM) (MS *)iVB_free(iVBM)
+#define iVBW_free(iVBW) (WS *)iVB_free(iVBW)
+
+UINT iVB_free2($struct_iVB *iVB);
+#define iVBM_free2(iVBM) iVB_free2(iVBM)
+#define iVBW_free2(iVBW) iVB_free2(iVBW)
 
 #define iVBM_getStr(iVBM) (MS *)(iVBM->str)
 #define iVBW_getStr(iVBW) (WS *)(iVBW->str)

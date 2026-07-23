@@ -102,13 +102,13 @@ iHM_free(ptr)
   │
   ├─ pRealData = *ppTarget
   │
-  ├─ SecureZero(pRealData)
+  ├─ memZero(pRealData)
   ├─ free(pRealData)
   │
-  ├─ SecureZero(ppTarget)
+  ├─ memZero(ppTarget)
   ├─ free(ppTarget)
   │
-  ├─ SecureZero（pMap[i]）
+  ├─ memZero(pMap[i])
   │
   └─ return TRUE
 ```
@@ -325,8 +325,7 @@ MinGW-w64では最適化すると同じ。
 // スコープ
 static VOID iHM_defrag($struct_HeapManager *pMgr);
 static VOID iHM_add($struct_HeapManager *pMgr, VOID *ptr, UINT uAry, UINT uSizeOf, UINT uAlloc);
-static VOID iSecure_memDump(volatile CONST VOID *v, UINT n, BOOL bOrigin);
-static inline VOID iSecure_memZero(volatile VOID *v, UINT n, BOOL dumpOn);
+static inline VOID iSecure_memZero(volatile VOID *v, UINT n);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -404,14 +403,13 @@ VOID iCLI_begin()
 	}
 	LocalFree(lpCmdLine);
 }
-// v2026-06-28
+// v2026-07-17
 VOID iCLI_end(
 	INT exitStatus)
 {
 	// $icallocManager 終了
 	icalloc_end();
-
-	P1(IESC_RESET);
+	// ここで STDOUT は禁止
 	SetConsoleOutputCP(GetACP());
 	exit(exitStatus);
 }
@@ -736,7 +734,7 @@ VOID iHM_defrag(
 				// 空き枠へ構造体を丸ごとコピー
 				pMgr->pMap[uWrite] = pMgr->pMap[uRead];
 				// コピー元（古い位置）に同じ値が残らないよう、その場で安全にゼロクリア
-				iSecure_memZero(&pMgr->pMap[uRead], sizeof($struct_HeapMap), FALSE);
+				iSecure_memZero(&pMgr->pMap[uRead], sizeof($struct_HeapMap));
 			}
 			++uWrite;
 		}
@@ -787,7 +785,7 @@ static VOID iHM_add(
 			memcpy(pNewMap, pMgr->pMap, pMgr->uMax * sizeof($struct_HeapMap));
 
 			// コピー後、古い配列の内容を完全に消去して解放する
-			iSecure_memZero(pMgr->pMap, pMgr->uMax * sizeof($struct_HeapMap), FALSE);
+			iSecure_memZero(pMgr->pMap, pMgr->uMax * sizeof($struct_HeapMap));
 			free(pMgr->pMap);
 
 			// マネージャが指す先を、新しく作った綺麗な配列に切り替える
@@ -898,7 +896,7 @@ VOID *iHM_reallocEx(
 			}
 
 			// 5. 古い実体データを安全に完全消去してfree
-			iSecure_memZero(oldPtr, oldAlloc, FALSE);
+			iSecure_memZero(oldPtr, oldAlloc);
 			free(oldPtr);
 			oldPtr = NULL;
 
@@ -922,17 +920,19 @@ VOID *iHM_reallocEx(
 	iHM_CS_unlock();
 	return oldPtr;
 }
-//--------------
-// free（個別）
-//--------------
-// v2026-06-22
-BOOL iHM_free(
+//------------------------
+// free（個別／速度優先）
+//------------------------
+// v2026-07-15
+UINT iHM_free(
 	$struct_HeapManager *pMgr,
 	VOID *ptr)
 {
+	UINT rtn = 0;
+
 	if (pMgr == NULL || ptr == NULL)
 	{
-		return FALSE;
+		return rtn;
 	}
 
 	// CRITICAL_SECTION ロック
@@ -956,26 +956,72 @@ BOOL iHM_free(
 			if (pRealData != NULL)
 			{
 				UINT totalBytes = pMgr->pMap[i].uAlloc;
-				iSecure_memZero(pRealData, totalBytes, FALSE);
+				iSecure_memZero(pRealData, totalBytes);
 				free(pRealData);
+				rtn = 1;
 			}
 			// B. 次に、iHM_calloc内で確保された「窓口領域（多重ポインタ領域）」自体を消去してfree
-			iSecure_memZero(ppTarget, sizeof(VOID *), FALSE);
+			iSecure_memZero(ppTarget, sizeof(VOID *));
 			free(ppTarget);
 			// C. 管理情報を行ごと完全にゼロクリアして「NULL行」にする
-			iSecure_memZero(&pMgr->pMap[i], sizeof($struct_HeapMap), FALSE);
-			break; // 処理完了。走査ループを抜ける
+			iSecure_memZero(&pMgr->pMap[i], sizeof($struct_HeapMap));
+			break;
 		}
 	}
 
 	// CRITICAL_SECTION アンロック
 	iHM_CS_unlock();
-	return TRUE;
+	return rtn;
+}
+//--------------------------
+// free（個別／確実性優先）
+//--------------------------
+//
+// iHM_free() との大きな違いは『配列に収納されたポインタ実体をfreeするタイミング』
+//   iHM_free() は速度と効率 O(1..n) を追求したため、終了時にまとめてfree。
+//   iHM_free2() は遅い O(n) が、確実にfree。
+// 以上、
+// 配列関連の不要データが問題になる環境ならば、配列freeの際、iHM_free2() の使用を検討してください。
+//
+// v2026-07-14
+UINT iHM_free2(
+	$struct_HeapManager *pMgr,
+	VOID *ptr)
+{
+	if (pMgr == NULL || ptr == NULL)
+	{
+		return FALSE;
+	}
+
+	UINT rtn = 0;
+
+	// CRITICAL_SECTION ロック
+	iHM_CS_lock();
+
+	$struct_HeapMap info = iHM_info(pMgr, ptr);
+
+	VOID **ppTarget = (VOID **)ptr;
+	for (UINT _u2 = 0; _u2 < info.uAry; _u2++)
+	{
+		if (ppTarget[_u2] == NULL)
+		{
+			continue;
+		}
+		// 各要素（ポインタのポインタ）が出す実体アドレスを出力
+		/// P("[%u] ppTarget: %p, *ppTarget(RealData): %p\n", (_u2 + 1), ppTarget[_u2], *(VOID **)ppTarget[_u2]);
+		rtn += iHM_free(pMgr, ppTarget[_u2]);
+	}
+	// 実体（本体）をfree
+	rtn += iHM_free(pMgr, ptr);
+
+	// CRITICAL_SECTION アンロック
+	iHM_CS_unlock();
+	return rtn;
 }
 //--------------
 // free（一括）
 //--------------
-// v2026-06-22
+// v2026-07-14
 UINT iHM_freeAll(
 	$struct_HeapManager *pMgr)
 {
@@ -989,7 +1035,7 @@ UINT iHM_freeAll(
 
 	UINT rtn = 0;
 
-	// 1. 内部の構造体配列が確保されている場合、iHM_freeを再利用して残った実体・窓口をすべて消去
+	// 1. 内部の構造体配列が確保されている場合、iHM_free を再利用して残った実体・窓口をすべて消去
 	if (pMgr->pMap != NULL)
 	{
 		for (UINT i = 0; i < pMgr->uEOD; i++)
@@ -1003,10 +1049,7 @@ UINT iHM_freeAll(
 			VOID **ppTarget = (VOID **)pMgr->pMap[i].ptr;
 			VOID *pRealData = *ppTarget;
 			// 既存の iHM_free を再利用して、該当要素を根こそぎ安全に完全消滅させる（重複の完全排除）
-			if (iHM_free(pMgr, pRealData))
-			{
-				++rtn;
-			}
+			rtn += iHM_free(pMgr, pRealData);
 		}
 		pMgr->uEOD = 0;
 	}
@@ -1028,14 +1071,14 @@ UINT iHM_end(
 	if (pMgr->pMap != NULL)
 	{
 		// 2. 実体を管理していたpMapを消去
-		iSecure_memZero(pMgr->pMap, sizeof($struct_HeapMap) * pMgr->uMax, FALSE);
+		iSecure_memZero(pMgr->pMap, sizeof($struct_HeapMap) * pMgr->uMax);
 		free(pMgr->pMap);
 		pMgr->pMap = NULL;
 	}
 	if (pMgr != NULL)
 	{
 		// 3. ヒープを管理していたpMgr自身を消去
-		iSecure_memZero(pMgr, sizeof($struct_HeapManager), FALSE);
+		iSecure_memZero(pMgr, sizeof($struct_HeapManager));
 		free(pMgr);
 		pMgr = NULL;
 	}
@@ -1069,6 +1112,49 @@ VOID iHM_err(
 	P1(IESC_RESET);
 	SetConsoleOutputCP(GetACP());
 	exit(EXIT_FAILURE);
+}
+//-----------------
+// ヒープ情報取得
+//-----------------
+// v2026-07-14
+$struct_HeapMap iHM_info(
+	$struct_HeapManager *pMgr,
+	VOID *ptr)
+{
+	$struct_HeapMap rtn = {NULL, 0, 0, 0, 0};
+
+	if (ptr == NULL)
+	{
+		return rtn;
+	}
+
+	if (pMgr == NULL)
+	{
+		pMgr = $icallocManager;
+	}
+
+	// CRITICAL_SECTION ロック
+	iHM_CS_lock();
+
+	// 重要：先頭から走査。配列容器が見つかった時点でbreak
+	for (UINT _u1 = 0; _u1 < pMgr->uEOD; _u1++)
+	{
+		if (pMgr->pMap[_u1].ptr == NULL)
+		{
+			continue;
+		}
+		// 管理簿から窓口ポインタ（ppTarget）を取り出す
+		VOID **ppTarget = (VOID **)pMgr->pMap[_u1].ptr;
+		if (*ppTarget == ptr)
+		{
+			memcpy(&rtn, &pMgr->pMap[_u1], sizeof($struct_HeapMap));
+			break;
+		}
+	}
+
+	// CRITICAL_SECTION アンロック
+	iHM_CS_unlock();
+	return rtn;
 }
 //-----------------------
 // $icallocManager 開始
@@ -1132,14 +1218,23 @@ VOID *irepalloc(
 {
 	return iHM_replace($icallocManager, oldPtr, newPtr, len);
 }
-//--------------
-// free（個別）
-//--------------
-// v2026-06-27
-BOOL icalloc_free(
+//------------------------
+// free（個別／速度優先）
+//------------------------
+// v2026-07-14
+UINT icalloc_free(
 	VOID *ptr)
 {
 	return iHM_free($icallocManager, ptr);
+}
+//--------------------------
+// free（個別／確実性優先）
+//--------------------------
+// v2026-07-14
+UINT icalloc_free2(
+	VOID *ptr)
+{
+	return iHM_free2($icallocManager, ptr);
 }
 //--------------
 // free（一括）
@@ -1161,79 +1256,38 @@ VOID icalloc_end()
 	// CRITICAL_SECTION 終了（１度だけ）
 	iHM_CS_end();
 }
+//-----------------------
+// $icallocManager 情報
+//-----------------------
+// v2026-07-14
+$struct_HeapMap icalloc_info(
+	VOID *ptr)
+{
+	return iHM_info($icallocManager, ptr);
+}
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
 	Security
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-//---------------------------------------------------
-// メモリの内容を16進数形式でダンプ出力する内部関数
-//---------------------------------------------------
-// v2026-06-18
-static VOID iSecure_memDump(
-	volatile CONST VOID *v,
-	UINT n,
-	BOOL bOrigin // TRUE=変更前, FALSE=変更後
-)
-{
-	volatile CONST UCHAR *p = (volatile CONST UCHAR *)v;
-	if (bOrigin == TRUE)
-	{
-		P(
-			"\033[97m"
-			"[%p] "
-			"\033[34m"
-			"%u bytes\n",
-			(VOID *)v, n);
-		P1("\033[92m"
-		   "Before:");
-	}
-	else
-	{
-		P1("\033[31m"
-		   "After:");
-	}
-	for (UINT i = 0; i < n; i++)
-	{
-		// 16バイトごとに改行
-		if (i % 16 == 0)
-		{
-			P1("\n ");
-		}
-		P(" %02X", p[i]);
-	}
-	P2("\033[0m");
-}
 //-----------------------------------------------------------------
-// 最適化(-O2など)によって削除されない安全なメモリゼロクリア関数
+// 最適化(-Osなど)によって削除されない安全なメモリゼロクリア関数
 //-----------------------------------------------------------------
-// v2026-06-18
+// v2026-07-17
 static inline VOID iSecure_memZero(
 	volatile VOID *v,
-	UINT n,
-	BOOL dumpOn // Dump出力
-)
+	UINT n)
 {
 	if (!v || n == 0)
 	{
 		return;
 	}
-	// 1. ゼロクリア前の状態をダンプ
-	if (dumpOn == TRUE)
-	{
-		iSecure_memDump(v, n, TRUE);
-	}
-	// 2. ゼロクリア
+	// ゼロクリア
 	volatile MS *p = (volatile MS *)v;
 	UINT counter = n;
 	while (counter--)
 	{
 		*p++ = 0;
-	}
-	// 3. ゼロクリア後の状態をダンプ
-	if (dumpOn == TRUE)
-	{
-		iSecure_memDump(v, n, FALSE);
 	}
 }
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1244,11 +1298,14 @@ static inline VOID iSecure_memZero(
 //--------------------------------
 // $icallocManager等の内容を出力
 //--------------------------------
-// v2026-06-21
+/* (例)
+	idebug_map(NULL);
+*/
+// v2026-07-16
 VOID idebug_printMap(
 	$struct_HeapManager *pMgr,
 	UINT line,		  // 行番号
-	MS *fn,			  // ソースファイル名
+	CONST MS *fn,	  // ソースファイル名
 	DOUBLE elapsedSec // 経過秒
 )
 {
@@ -1268,7 +1325,7 @@ VOID idebug_printMap(
 		"\033[37;44m"
 		" L%u (%s) "
 		"\033[0m"
-		"\033[36m"
+		"\033[37m"
 		" %s\n"
 		"\033[96m"
 		"uMax: "
@@ -1297,7 +1354,7 @@ VOID idebug_printMap(
 	{
 		$struct_HeapMap *map = &pMgr->pMap[i];
 		uAllocUsed += map->uAlloc;
-		if (map->uAry > 1)
+		if (map->uAry > 0)
 		{
 			P1("\033[37;44m");
 		}
@@ -1338,6 +1395,82 @@ VOID idebug_printMap(
 
 	// CRITICAL_SECTION アンロック
 	iHM_CS_unlock();
+}
+//---------------------------------------
+// メモリの内容を16進数形式でダンプ出力
+//---------------------------------------
+/* (例)
+	UINT u1 = 0;
+
+	MS *mp1 = ims_clone("あいうえお12345");
+	u1 = imn_len(mp1);
+	P2(mp1);
+	idebug_dumpMem(NULL, mp1, TRUE);
+	memset(mp1, 0, u1 * sizeof(MS));
+	idebug_dumpMem(NULL, mp1, FALSE);
+	ifree(mp1);
+	idebug_dumpMem(NULL, mp1, FALSE);
+
+	WS *wp1 = iws_clone(L"あいうえお12345");
+	u1 = iwn_len(wp1);
+	P2W(wp1);
+	idebug_dumpMem(NULL, wp1, TRUE);
+	memset(wp1, 0, u1 * sizeof(WS));
+	idebug_dumpMem(NULL, wp1, FALSE);
+	ifree(wp1);
+	idebug_dumpMem(NULL, wp1, FALSE);
+*/
+// v2026-07-17
+VOID idebug_dumpMem(
+	$struct_HeapManager *pMgr,
+	volatile CONST VOID *ptr,
+	BOOL bBefore // TRUE=変更前, FALSE=変更後
+)
+{
+	$struct_HeapMap info = iHM_info(pMgr, (VOID *)ptr);
+	UINT uLen = info.uAlloc;
+
+	volatile CONST UCHAR *p = (volatile CONST UCHAR *)ptr;
+
+	if (bBefore == TRUE)
+	{
+		P(
+			"\033[37m"
+			"[%p] "
+			"\033[94m"
+			"%u bytes\n",
+			(VOID *)ptr, uLen);
+		P1("\033[92m"
+		   "Before:");
+	}
+	else
+	{
+		P1("\033[31m"
+		   "After:");
+	}
+
+	UINT uTrue = 0;
+
+	for (UINT _u1 = 0; _u1 < uLen; _u1++)
+	{
+		if (p[_u1] != 0)
+		{
+			++uTrue;
+		}
+		// 16バイトごとに改行
+		if (_u1 % 16 == 0)
+		{
+			P1("\n ");
+		}
+		P(" %02X", p[_u1]);
+	}
+
+	P(
+		"\n"
+		"( %u / %u )"
+		"\033[0m"
+		"\n",
+		uTrue, uLen);
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -1706,15 +1839,16 @@ WS *iClipboard_getText()
 	UTF-16／UTF-8変換
 ----------------------------------------------------------------------------------------*/
 //////////////////////////////////////////////////////////////////////////////////////////
-// v2025-04-10
+// v2026-07-07
 MS *icnv_W2M(
 	CONST WS *str,
 	UINT uCP)
 {
-	INT i1 = WideCharToMultiByte(uCP, 0, str, -1, NULL, 0, NULL, NULL);
+	// L"" のとき 1 が返るので -1 で調整
+	INT i1 = WideCharToMultiByte(uCP, 0, str, -1, NULL, 0, NULL, NULL) - 1;
 	if (i1 > 0)
 	{
-		MS *rtn = icalloc_MS(i1);
+		MS *rtn = icalloc_MS(i1); // 末尾にダブルヌル自動付与
 		WideCharToMultiByte(uCP, 0, str, -1, rtn, i1, NULL, NULL);
 		return rtn;
 	}
@@ -1723,15 +1857,16 @@ MS *icnv_W2M(
 		return icalloc_MS(0);
 	}
 }
-// v2025-04-10
+// v2026-07-07
 WS *icnv_M2W(
 	CONST MS *str,
 	UINT uCP)
 {
-	INT i1 = MultiByteToWideChar(uCP, 0, str, -1, NULL, 0);
+	// "" のとき 1 が返るので -1 で調整
+	INT i1 = MultiByteToWideChar(uCP, 0, str, -1, NULL, 0) - 1;
 	if (i1 > 0)
 	{
-		WS *rtn = icalloc_WS(i1);
+		WS *rtn = icalloc_WS(i1); // 末尾にダブルヌル自動付与
 		MultiByteToWideChar(uCP, 0, str, -1, rtn, i1);
 		return rtn;
 	}
@@ -1830,7 +1965,18 @@ UINT iun_len(
 //-----------
 // Codepage
 //-----------
-// v2025-04-13
+//
+// UTF-8 BOM   => 65001
+// UTF-8 NoBOM => 65001
+//   1byte: [0]0x00..0x7F
+//   2byte: [0]0xC2..0xDF [1]0x80..0xBF
+//   3byte: [0]0xE0..0xEF [1]0x80..0xBF [2]0x80..0xBF
+//   4byte: [0]0xF0..0xF7 [1]0x80..0xBF [2]0x80..0xBF [3]0x80..0xBF
+// Shift_JIS   => 932
+//   2byte: [0]0x81..0x9F or [0]0xE0..0xEC
+// Default     => 65001
+//
+// v2026-07-12
 UINT imn_CodePage(
 	MS *str)
 {
@@ -1847,12 +1993,14 @@ UINT imn_CodePage(
 	// UTF-8 NoBOM
 	while (*str)
 	{
-		// 1byte
+		// 1byte文字
 		if ((*str & 0x80) == 0x00)
 		{
+			// UTF-8 ? or Shift_JIS ?
 		}
-		// 2..4byte
-		else if ((*str & 0xE0) == 0xC0 || (*str & 0xF0) == 0xE0 || (*str & 0xF8) == 0xF0)
+		// 2..4byte文字
+		// 使用頻度順: 3byte文字 => 2byte文字 => 4byte文字
+		else if ((*str & 0xF0) == 0xE0 || (*str & 0xE0) == 0xC0 || (*str & 0xF8) == 0xF0)
 		{
 			return 65001;
 		}
@@ -1906,7 +2054,6 @@ VOID iwv_cpy(
 // コピーした文字長を返す
 //-------------------------
 /* (例)
-	// 力技による実装／"wcslen() + wmemcpy()" と差がない
 	WS *to = iws_clone(L"ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 		UINT uEnd = iwn_cpy(to, L"c:\\windows");
 			P3(uEnd); //=> 10
@@ -1916,7 +2063,7 @@ VOID iwv_cpy(
 			P2W(to);  //=> "c:\windows\"
 	ifree(to);
 */
-// v2025-03-08
+// v2026-07-18
 UINT imn_cpy(
 	MS *to,
 	CONST MS *from)
@@ -1925,15 +2072,11 @@ UINT imn_cpy(
 	{
 		return 0;
 	}
-	UINT rtn = 0;
-	while ((*to++ = *from++))
-	{
-		++rtn;
-	}
-	*to = '\0';
+	UINT rtn = imn_len(from);
+	memcpy(to, from, (rtn + 1) * sizeof(MS));
 	return rtn;
 }
-// v2025-03-08
+// v2026-07-18
 UINT iwn_cpy(
 	WS *to,
 	CONST WS *from)
@@ -1942,15 +2085,11 @@ UINT iwn_cpy(
 	{
 		return 0;
 	}
-	UINT rtn = 0;
-	while ((*to++ = *from++))
-	{
-		++rtn;
-	}
-	*to = L'\0';
+	UINT rtn = iwn_len(from);
+	memcpy(to, from, (rtn + 1) * sizeof(WS));
 	return rtn;
 }
-// v2025-03-08
+// v2026-07-18
 UINT imn_ncpy(
 	MS *to,
 	CONST MS *from,
@@ -1960,15 +2099,16 @@ UINT imn_ncpy(
 	{
 		return 0;
 	}
-	UINT rtn = 0;
-	while (fromLen-- && (*to++ = *from++))
+	UINT rtn = imn_len(from);
+	if (rtn > fromLen)
 	{
-		++rtn;
+		rtn = fromLen;
 	}
-	*to = '\0';
+	memcpy(to, from, rtn * sizeof(MS));
+	*(to + rtn) = '\0';
 	return rtn;
 }
-// v2025-03-08
+// v2026-07-18
 UINT iwn_ncpy(
 	WS *to,
 	CONST WS *from,
@@ -1978,12 +2118,13 @@ UINT iwn_ncpy(
 	{
 		return 0;
 	}
-	UINT rtn = 0;
-	while (fromLen-- && (*to++ = *from++))
+	UINT rtn = iwn_len(from);
+	if (rtn > fromLen)
 	{
-		++rtn;
+		rtn = fromLen;
 	}
-	*to = L'\0';
+	memcpy(to, from, rtn * sizeof(WS));
+	*(to + rtn) = L'\0';
 	return rtn;
 }
 //-----------------------
@@ -1998,7 +2139,7 @@ UINT iwn_ncpy(
 		P2W(wp1); //=> "あいう"
 	ifree(wp1);
 */
-// v2025-04-03
+// v2026-07-18
 MS *ims_nclone(
 	CONST MS *from,
 	UINT fromLen)
@@ -2006,11 +2147,11 @@ MS *ims_nclone(
 	MS *rtn = icalloc_MS(fromLen);
 	if (from)
 	{
-		memcpy(rtn, from, fromLen);
+		memcpy(rtn, from, fromLen * sizeof(MS));
 	}
 	return rtn;
 }
-// v2025-04-03
+// v2026-07-18
 WS *iws_nclone(
 	CONST WS *from,
 	UINT fromLen)
@@ -2018,7 +2159,7 @@ WS *iws_nclone(
 	WS *rtn = icalloc_WS(fromLen);
 	if (from)
 	{
-		wmemcpy(rtn, from, fromLen);
+		memcpy(rtn, from, fromLen * sizeof(WS));
 	}
 	return rtn;
 }
@@ -2136,7 +2277,7 @@ WS *iws_sprintf(
 		P2(mp1); //=> "あいうえおあいうえおあいうえお"
 	ifree(mp1);
 */
-// v2025-03-08
+// v2026-07-20
 MS *ims_repeat(
 	CONST MS *str,
 	UINT strRepeat)
@@ -2147,7 +2288,7 @@ MS *ims_repeat(
 	UINT u1 = 0;
 	while (u1 < uSize)
 	{
-		memcpy((rtn + u1), str, uStr);
+		memcpy((rtn + u1), str, uStr * sizeof(MS));
 		u1 += uStr;
 	}
 	return rtn;
@@ -2341,84 +2482,115 @@ UINT64 *iwsa_searchPos(
 // 文字列を分割し配列を作成
 //---------------------------
 /* (例)
-	WS **aw1, **aw2;
 	WS *str = L" 2025////3/26  11:19:50   ";
 
-	LN(60);
+	P1("'");
+	P1W(str);
+	P2("'");
+	NL();
 
-	// 重複排除
-	aw1 = iwsa_split(str, TRUE, 3, L"/", L":", L" ");
-		iwav_print(aw1);
-	ifree(aw1);
+	P2("// 分割文字消去");
+	WS **wa1 = iwsa_nsplit(str, wcslen(str), TRUE, 3, L"/", L":", L" ");
+		iwav_print(wa1);
+	ifree2(wa1);
+	NL();
 
-	LN(60);
-
-	// 通常分割
-	aw2 = iwsa_split(str, FALSE, 3, L"/", L":", L" ");
-		iwav_print(aw2);
-	ifree(aw2);
-
-	LN(60);
+	P2("// 空データを残す");
+	WS **wa2 = iwsa_nsplit(str, wcslen(str), FALSE, 3, L"/", L":", L" ");
+		iwav_print(wa2);
+	ifree2(wa2);
+	NL();
 */
-// v2025-03-29
+// v2026-07-15
 WS **iwsa_nsplit(
-	WS *str,		 // 文字列
-	UINT strLen,	 // 文字列サイズ／部分抽出可能
-	BOOL ignoreNull, // TRUE=重複排除
-	UINT size,		 // 要素数(n+1)
-	...				 // ary[0..n]
+	WS *str,	 // 文字列
+	UINT strLen, // 文字列サイズ／部分抽出可能
+	BOOL rmSep,	 // TRUE=分割文字消去
+	UINT size,	 // 要素数(n+1)
+	...			 // ary[0..n]
 )
 {
 	if (!str || !*str)
 	{
 		return icalloc_WS_ary(0);
 	}
-	WS **sepAry = icalloc_WS_ary(size);
-	va_list va;
-	va_start(va, size);
+
+	UINT uAryRtn = 1; // 最低1個
+	WS **arySep = icalloc_WS_ary(size);
+
+	va_list va1;
+	va_start(va1, size);
 	for (UINT _u1 = 0; _u1 < size; _u1++)
 	{
-		sepAry[_u1] = va_arg(va, WS *);
+		arySep[_u1] = va_arg(va1, WS *);
+		uAryRtn += iwn_searchCnt(str, arySep[_u1]);
 	}
-	va_end(va);
-	WS *rtnBase = iws_nclone(str, strLen);
-	UINT _u1 = 0;
-	while (_u1 < size)
+	va_end(va1);
+
+	WS **rtn = icalloc_WS_ary(uAryRtn);
+
+	// 分割したいワイド文字列（wcstokは元の文字列を破壊するため新規作成）
+	WS *src = iws_nclone(str, strLen);
+
+	// 分割文字列 '\a' に置き換え
+	for (UINT _u1 = 0; _u1 < size; _u1++)
 	{
-		WS *wTmp = iws_replace(rtnBase, sepAry[_u1], (WS *)L"\a", FALSE);
-		ifree(rtnBase);
-		rtnBase = wTmp;
-		++_u1;
+		WS *wp1 = iws_replace(src, arySep[_u1], (WS *)L"\a", FALSE);
+		ifree(src);
+		src = wp1;
 	}
-	WS *pBgn = rtnBase;
-	WS **rtn = icalloc_WS_ary(iwn_searchCnt(pBgn, (WS *)L"\a") + 1);
-	UINT uBgn = wcslen(pBgn);
-	UINT uEnd = 0;
-	_u1 = 0;
-	while (uEnd < uBgn)
+	/// P2W(src);
+
+	// 分割文字消去
+	if (rmSep == TRUE)
 	{
-		INT64 iPos = iwn_searchPos((pBgn + uEnd), (WS *)L"\a", 1);
-		if (iPos >= 0)
+		UINT uBgn = 0;
+		UINT uEnd = 0;
+		for (UINT _u1 = 0, _u2 = 0; _u1 < wcslen(src); _u1++)
 		{
-			if (!iPos && ignoreNull)
+			while (src[_u1] != L'\0' && src[_u1] == L'\a')
 			{
-				// 重複排除
+				++_u1;
+			}
+			uBgn = _u1;
+			while (src[_u1] != L'\0' && src[_u1] != L'\a')
+			{
+				++_u1;
+			}
+			uEnd = _u1;
+			if (uBgn < uEnd)
+			{
+				/// P("%u, %u\n", uBgn, uEnd - uBgn);
+				rtn[_u2] = iws_nclone((src + uBgn), (uEnd - uBgn));
+				++_u2;
+			}
+		}
+	}
+	// 分割文字を空データとして残す
+	else
+	{
+		for (UINT _u1 = 0, _u2 = 0; _u1 < wcslen(src) && _u2 < uAryRtn; _u1++, _u2++)
+		{
+			if (src[_u1] == L'\a')
+			{
+				rtn[_u2] = icalloc_WS(0);
 			}
 			else
 			{
-				rtn[_u1] = iws_nclone((pBgn + uEnd), iPos);
-				++_u1;
+				UINT uBgn = _u1;
+				while (src[_u1] != L'\0' && src[_u1] != L'\a')
+				{
+					++_u1;
+				}
+				/// P("%u, %u\n", uBgn, _u1 - uBgn);
+				rtn[_u2] = iws_nclone((src + uBgn), (_u1 - uBgn));
 			}
-			uEnd += iPos + 1;
-		}
-		else
-		{
-			rtn[_u1] = iws_clone((pBgn + uEnd));
-			break;
 		}
 	}
-	ifree(rtnBase);
-	ifree(sepAry);
+
+	ifree(src);
+	ifree2(arySep);
+
 	return rtn;
 }
 //-------------
@@ -2430,7 +2602,7 @@ WS **iwsa_nsplit(
 	P2W(iws_replace(L"100YEN yen", L"YEN", L"", FALSE));   //=> "100 yen"
 	P2W(iws_replace(L"100YEN yen", L"YEN", NULL, FALSE));  //=> "100"
 */
-// v2025-03-29
+// v2026-07-18
 WS *iws_replace(
 	WS *from,	// 文字列
 	WS *before, // 変換前の文字列
@@ -2460,7 +2632,7 @@ WS *iws_replace(
 			}
 			else
 			{
-				wmemcpy((rtn + rtnEnd), after, uAfter);
+				memcpy((rtn + rtnEnd), after, uAfter * sizeof(WS));
 			}
 			rtnEnd += uAfter;
 			fromEnd += uBefore;
@@ -2469,7 +2641,7 @@ WS *iws_replace(
 		else
 		{
 			UINT u2 = au1[u1] - fromEnd;
-			wmemcpy((rtn + rtnEnd), (from + fromEnd), u2);
+			memcpy((rtn + rtnEnd), (from + fromEnd), u2 * sizeof(WS));
 			rtnEnd += u2;
 			fromEnd += u2;
 		}
@@ -2820,7 +2992,7 @@ WS *iwas_njoin(
 			P2W(wa1[i1]); //=> "aaa", "BBB"
 			++i1;
 		}
-	ifree(wa1);
+	ifree2(wa1);
 	//
 	// FALSE=大小文字区別する
 	//
@@ -2831,7 +3003,7 @@ WS *iwas_njoin(
 			P2W(wa1[i1]); //=> "aaa", "AAA", "BBB", "bbb"
 			++i1;
 		}
-	ifree(wa1);
+	ifree2(wa1);
 */
 // v2025-03-22
 WS **iwaa_uniq(
@@ -2905,9 +3077,9 @@ WS **iwaa_uniq(
 	WS *args[] = {L"", L"D:", L"C:\\Windows\\", L"a:", L"c:", L"c:\\foo", NULL};
 	WS **wa1 = iwaa_getDirFile(args, 1);
 		iwav_print(wa1); //=> 'c:\' 'C:\Windows\' 'D:\'
-	ifree(wa1);
+	ifree2(wa1);
 */
-// v2023-09-18
+// v2026-07-15
 WS **iwaa_getDirFile(
 	WS **ary,
 	INT iType // 0=Dir&File／2=Dir／3=File
@@ -2933,15 +3105,15 @@ WS **iwaa_getDirFile(
 		{
 			if (!iF_chkDirName(wa1[u1]) && PathFileExistsW(wa1[u1]))
 			{
-				WS *_wp1 = icalloc_WS(IMAX_PATHW);
-				_wfullpath(_wp1, wa1[u1], IMAX_PATHW);
-				rtn[u2] = _wp1;
+				WS *wp1 = icalloc_WS(IMAX_PATHW);
+				_wfullpath(wp1, wa1[u1], IMAX_PATHW);
+				rtn[u2] = wp1;
 				++u2;
 			}
 		}
 		++u1;
 	}
-	ifree(wa1);
+	ifree2(wa1);
 	// 順ソート／大小文字区別しない
 	iwav_sort_iAsc(rtn);
 	return rtn;
@@ -2953,7 +3125,7 @@ WS **iwaa_getDirFile(
 	WS *args[] = {L"", L"D:", L"C:\\Windows\\", L"a:", L"c:", L"d:\\TMP", NULL};
 	WS **wa1 = iwaa_higherDir(args);
 		iwav_print(wa1); //=> 'c:\' 'D:\'
-	ifree(wa1);
+	ifree2(wa1);
 */
 // v2025-03-22
 WS **iwaa_higherDir(
@@ -3088,8 +3260,8 @@ VOID iwav_print2(
 		P2(iVBM_getStr(iVBM)); //=> ""
 	iVBM_push2(iVBM, "1234567890");
 		P2(iVBM_getStr(iVBM)); //=> "1234567890"
-	iVBM_clear(iVBM);	       //=> ""
-		P2(iVBM_getStr(iVBM)); //=> "1234567890"
+	iVBM_clear(iVBM);
+		P2(iVBM_getStr(iVBM)); //=> ""
 	iVBM_push2(iVBM, "あいうえお");
 		P2(iVBM_getStr(iVBM)); //=> "あいうえお"
 	iVBM_push_sprintf(iVBM, "%.2f", 123456.7890);
@@ -3102,12 +3274,12 @@ VOID iwav_print2(
 		P2(rtn);               //=> "あいうえお123456.79"
 	ifree(rtn);
 */
-// v2025-03-17
+// v2026-07-20
 $struct_iVB *iVB_alloc(
 	UINT sizeOf // sizeof(MS), sizeof(WS)
 )
 {
-	CONST UINT strLen = 64;
+	CONST UINT strLen = 512;
 	$struct_iVB *iVB = ($struct_iVB *)icalloc(1, sizeof($struct_iVB), FALSE);
 	iVB->sizeOf = sizeOf;
 	iVB->length = 0;
@@ -3115,39 +3287,59 @@ $struct_iVB *iVB_alloc(
 	iVB->str = icalloc(iVB->freeSize, iVB->sizeOf, FALSE);
 	return iVB;
 }
-// v2025-03-10
+// v2026-07-19
 VOID iVBM_push(
 	$struct_iVBM *iVBM, // 格納場所
 	CONST MS *str,		// 追記する文字列
 	UINT strLen			// 追記する文字列長／strlen(str), wcslen(str)
 )
 {
+	// CRITICAL_SECTION ロック
+	iHM_CS_lock();
+
 	if (strLen >= iVBM->freeSize)
 	{
-		iVBM->freeSize = iVBM->length + strLen;
-		iVBM->str = irealloc_MS(iVBM->str, (iVBM->length + iVBM->freeSize));
+		UINT u1 = (iVBM->length + iVBM->freeSize + strLen) * 2;
+		iVBM->str = irealloc_MS(iVBM->str, u1);
+		iVBM->freeSize = u1 - iVBM->length - strLen;
 	}
-	memcpy(((MS *)iVBM->str + iVBM->length), str, (strLen + 1));
+	else
+	{
+		iVBM->freeSize -= strLen;
+	}
+	memcpy(((MS *)iVBM->str + iVBM->length), str, (strLen + 1) * iVBM->sizeOf);
 	iVBM->length += strLen;
-	iVBM->freeSize -= strLen;
+
+	// CRITICAL_SECTION アンロック
+	iHM_CS_unlock();
 }
-// v2025-03-10
+// v2026-07-19
 VOID iVBW_push(
 	$struct_iVBW *iVBW, // 格納場所
 	CONST WS *str,		// 追記する文字列
 	UINT strLen			// 追記する文字列長／strlen(str), wcslen(str)
 )
 {
+	// CRITICAL_SECTION ロック
+	iHM_CS_lock();
+
 	if (strLen >= iVBW->freeSize)
 	{
-		iVBW->freeSize = iVBW->length + strLen;
-		iVBW->str = irealloc_WS(iVBW->str, (iVBW->length + iVBW->freeSize));
+		UINT u1 = (iVBW->length + iVBW->freeSize + strLen) * 2;
+		iVBW->str = irealloc_WS(iVBW->str, u1);
+		iVBW->freeSize = u1 - iVBW->length - strLen;
 	}
-	wmemcpy(((WS *)iVBW->str + iVBW->length), str, (strLen + 1));
+	else
+	{
+		iVBW->freeSize -= strLen;
+	}
+	memcpy(((WS *)iVBW->str + iVBW->length), str, (strLen + 1) * iVBW->sizeOf);
 	iVBW->length += strLen;
-	iVBW->freeSize -= strLen;
+
+	// CRITICAL_SECTION アンロック
+	iHM_CS_unlock();
 }
-// v2026-06-29
+// v2026-07-18
 VOID iVBM_push_sprintf(
 	$struct_iVBM *iVBM,
 	CONST MS *format,
@@ -3163,17 +3355,13 @@ VOID iVBM_push_sprintf(
 		va_end(va2);
 		return;
 	}
-	if (len > 0 && (UINT)len >= iVBM->freeSize)
-	{
-		iVBM->freeSize += len;
-		iVBM->str = irealloc(iVBM->str, (iVBM->length + iVBM->freeSize));
-	}
-	vsnprintf(((MS *)iVBM->str + iVBM->length), (len + 1), format, va2);
+	MS *mp1 = icalloc_MS(len);
+	vsnprintf(mp1, len + 1, format, va2);
+	iVBM_push(iVBM, mp1, len);
+	ifree(mp1);
 	va_end(va2);
-	iVBM->length += len;
-	iVBM->freeSize -= len;
 }
-// v2026-06-29
+// v2026-07-18
 VOID iVBW_push_sprintf(
 	$struct_iVBW *iVBW,
 	CONST WS *format,
@@ -3189,21 +3377,20 @@ VOID iVBW_push_sprintf(
 		va_end(va2);
 		return;
 	}
-	if (len > 0 && (UINT)len >= iVBW->freeSize)
-	{
-		iVBW->freeSize += len;
-		iVBW->str = irealloc(iVBW->str, (iVBW->length + iVBW->freeSize));
-	}
-	vsnwprintf(((WS *)iVBW->str + iVBW->length), (len + 1), format, va2);
+	WS *wp1 = icalloc_WS(len);
+	vsnwprintf(wp1, len + 1, format, va2);
+	iVBW_push(iVBW, wp1, len);
+	ifree(wp1);
 	va_end(va2);
-	iVBW->length += len;
-	iVBW->freeSize -= len;
 }
-// v2026-06-01
+// v2026-07-19
 VOID iVBM_pop(
 	$struct_iVBM *iVBM,
 	UINT strLen)
 {
+	// CRITICAL_SECTION ロック
+	iHM_CS_lock();
+
 	if (!strLen)
 	{
 		return;
@@ -3214,13 +3401,19 @@ VOID iVBM_pop(
 	}
 	iVBM->length -= strLen;
 	iVBM->freeSize += strLen;
-	SecureZeroMemory(((MS *)iVBM->str + iVBM->length), (strLen * iVBM->sizeOf));
+	iSecure_memZero(((MS *)iVBM->str + iVBM->length), (strLen * iVBM->sizeOf));
+
+	// CRITICAL_SECTION アンロック
+	iHM_CS_unlock();
 }
-// v2026-06-01
+// v2026-07-19
 VOID iVBW_pop(
 	$struct_iVBW *iVBW,
 	UINT strLen)
 {
+	// CRITICAL_SECTION ロック
+	iHM_CS_lock();
+
 	if (!strLen)
 	{
 		return;
@@ -3231,24 +3424,53 @@ VOID iVBW_pop(
 	}
 	iVBW->length -= strLen;
 	iVBW->freeSize += strLen;
-	SecureZeroMemory(((WS *)iVBW->str + iVBW->length), (strLen * iVBW->sizeOf));
+	iSecure_memZero(((WS *)iVBW->str + iVBW->length), (strLen * iVBW->sizeOf));
+
+	// CRITICAL_SECTION アンロック
+	iHM_CS_unlock();
 }
-// v2025-03-03
-VOID *iVB_free(
-	$struct_iVB *iVB,
-	BOOL bReturnStr)
+// v2026-07-19
+VOID iVBM_clear(
+	$struct_iVBM *iVBM)
 {
-	VOID *rtn = 0;
-	if (bReturnStr)
-	{
-		rtn = iVB->str;
-	}
-	else
-	{
-		ifree(iVB->str);
-	}
+	// CRITICAL_SECTION ロック
+	iHM_CS_lock();
+
+	iSecure_memZero((MS *)iVBM->str, (iVBM->length * iVBM->sizeOf));
+	iVBM->freeSize += iVBM->length;
+	iVBM->length = 0;
+
+	// CRITICAL_SECTION アンロック
+	iHM_CS_unlock();
+}
+// v2026-07-19
+VOID iVBW_clear(
+	$struct_iVBW *iVBW)
+{
+	// CRITICAL_SECTION ロック
+	iHM_CS_lock();
+
+	iSecure_memZero((WS *)iVBW->str, (iVBW->length * iVBW->sizeOf));
+	iVBW->freeSize += iVBW->length;
+	iVBW->length = 0;
+
+	// CRITICAL_SECTION アンロック
+	iHM_CS_unlock();
+}
+// v2026-07-17
+VOID *iVB_free(
+	$struct_iVB *iVB)
+{
+	VOID *rtn = iVB->str;
 	ifree(iVB);
 	return rtn;
+}
+// v2026-07-17
+UINT iVB_free2(
+	$struct_iVB *iVB)
+{
+	ifree(iVB->str);
+	return ifree(iVB);
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 /*----------------------------------------------------------------------------------------
@@ -3563,7 +3785,7 @@ BOOL iF_chkBinfile(
 	P2W(iF_getExtPathname(p1, 1)); //=> "win.ini"
 	P2W(iF_getExtPathname(p1, 2)); //=> "win"
 */
-// v2025-03-08
+// v2026-07-18
 WS *iF_getExtPathname(
 	WS *path,
 	INT option // 1=拡張子付きファイル名／2=拡張子なしファイル名
@@ -3580,7 +3802,7 @@ WS *iF_getExtPathname(
 	{
 		if (option == 0)
 		{
-			wmemcpy(rtn, path, uPath);
+			memcpy(rtn, path, uPath * sizeof(WS));
 		}
 	}
 	else
@@ -3589,7 +3811,7 @@ WS *iF_getExtPathname(
 		{
 		// path
 		case (0):
-			wmemcpy(rtn, path, uPath);
+			memcpy(rtn, path, uPath * sizeof(WS));
 			break;
 		// name + ext
 		case (1):
@@ -3695,7 +3917,7 @@ UINT iF_mkdir(
 	// '\t' '\r' '\n' 区切り文字列に対応
 	iwav_print(iF_trash(L"新しいテキスト ドキュメント.txt\n新しいフォルダー\n"));
 */
-// v2025-04-05
+// v2026-07-15
 WS **iF_trash(
 	WS *path)
 {
@@ -3705,10 +3927,10 @@ WS **iF_trash(
 		return rtn;
 	}
 	// '\t' '\r' '\n' で分割
-	WS **awp1 = iwsa_split(path, TRUE, 3, L"\t", L"\r", L"\n");
+	WS **wa1 = iwsa_split(path, TRUE, 3, L"\t", L"\r", L"\n");
 	// Uniq
-	WS **awp2 = iwaa_uniq(awp1, TRUE);
-	CONST UINT uAwp2Size = iwan_size(awp2);
+	WS **wa2 = iwaa_uniq(wa1, TRUE);
+	CONST UINT uAwp2Size = iwan_size(wa2);
 	if (uAwp2Size)
 	{
 		SHFILEOPSTRUCTW sfos;
@@ -3721,18 +3943,18 @@ WS **iF_trash(
 		{
 			// Dir/File Exist?
 			// フォルダごと移動されたファイルは、ここでは存在しない。
-			if (iF_chkExistPath(awp2[_u1]))
+			if (iF_chkExistPath(wa2[_u1]))
 			{
-				sfos.pFrom = awp2[_u1];
+				sfos.pFrom = wa2[_u1];
 				if (!SHFileOperationW(&sfos))
 				{
-					rtn[_u2++] = iws_clone(awp2[_u1]);
+					rtn[_u2++] = iws_clone(wa2[_u1]);
 				}
 			}
 		}
 	}
-	ifree(awp2);
-	ifree(awp1);
+	ifree2(wa2);
+	ifree2(wa1);
 	return rtn;
 }
 //---------------------
@@ -3941,7 +4163,7 @@ BOOL idate_chk_month_end(
 	}
 	ifree(ai1);
 */
-// v2025-03-28
+// v2026-07-16
 INT *idate_WsToiAryYmdhns(
 	WS *str // (例) "2012-03-12 13:40:00"
 )
@@ -3958,14 +4180,14 @@ INT *idate_WsToiAryYmdhns(
 		i1 = -1;
 		++str;
 	}
-	WS **as1 = iwsa_split(str, TRUE, 5, L"/", L".", L"-", L":", L" ");
+	WS **wa1 = iwsa_split(str, TRUE, 5, L"/", L".", L"-", L":", L" ");
 	UINT u1 = 0;
-	while (u1 < uArySize && as1[u1])
+	while (u1 < uArySize && wa1[u1])
 	{
-		rtn[u1] = _wtoi(as1[u1]);
+		rtn[u1] = _wtoi(wa1[u1]);
 		++u1;
 	}
-	ifree(as1);
+	ifree2(wa1);
 	rtn[0] *= i1;
 	return rtn;
 }
@@ -4179,6 +4401,7 @@ VOID idate_add(
 	{
 		iDV_set(IDV, IDV->y, IDV->m, IDV->d, (IDV->h + add_h), (IDV->n + add_n), (IDV->s + add_s));
 	}
+	// 使用しないものは初期化しておく
 	IDV->sign = TRUE;
 	IDV->days = 0.0;
 }
@@ -4230,6 +4453,7 @@ VOID idate_diff(
 	// 正規化1
 	DOUBLE cjd1 = idate_ymdhnsToCjd(i_y1, i_m1, i_d1, i_h1, i_n1, i_s1);
 	DOUBLE cjd2 = idate_ymdhnsToCjd(i_y2, i_m2, i_d2, i_h2, i_n2, i_s2);
+
 	if (cjd1 > cjd2)
 	{
 		IDV->sign = FALSE;
@@ -4481,7 +4705,7 @@ INT main()
 		ifree(wp1);
 	iDV_free(IDV);
 */
-// v2026-06-26
+// v2026-07-17
 WS *idate_format(
 	CONST WS *format,
 	BOOL bSign,	 // TRUE='+'／FALSE='-'
@@ -4502,11 +4726,7 @@ WS *idate_format(
 	DOUBLE cjd = (dDays ? dDays : idate_ymdhnsToCjd(iY, iM, iD, iH, iN, iS));
 	INT64 iDays = (INT64)cjd;
 	// 符号チェック
-	if (iY >= 0)
-	{
-		bSign = TRUE;
-	}
-	else
+	if (iY < 0)
 	{
 		bSign = FALSE;
 		iY = -(iY);
@@ -4749,7 +4969,7 @@ INT main()
 	imain_end();
 }
 */
-// v2026-06-30
+// v2026-07-15
 WS *idate_replace_format_ymdhns(
 	WS *str,	   // 変換対象文字列
 	WS *quoteBgn,  // 囲文字列 (例) "\{"／当初 "[...]" を想定していたが "[A-Z]" "[0-9]" で不具合なのでRubyの "#{...}" に変更
@@ -4780,21 +5000,21 @@ WS *idate_replace_format_ymdhns(
 	WS *wp12 = iws_replace(wp11, quoteEnd, (WS *)L"\a", FALSE);
 
 	// 2. 配列に変換
-	WS **aw1 = iwsa_split(wp12, FALSE, 1, L"\a");
+	WS **wa1 = iwsa_split(wp12, FALSE, 1, L"\a");
 
 	ifree(wp12);
 	ifree(wp11);
 
 	// 3. 2から空白を消去
-	CONST UINT uAw1 = iwan_size(aw1);
+	CONST UINT uAw1 = iwan_size(wa1);
 	for (UINT _u1 = 0; _u1 < uAw1; _u1++)
 	{
 		// 1のフラグ "\t" がここで役立つ
-		if (aw1[_u1][0] == '\t')
+		if (wa1[_u1][0] == '\t')
 		{
 			// 一見無謀だが、空白消去後は間違いなく短くなるので問題ない
-			WS *wp1 = iws_replace(aw1[_u1], (WS *)L" ", (WS *)L"", FALSE);
-			wcscpy(aw1[_u1], wp1);
+			WS *wp1 = iws_replace(wa1[_u1], (WS *)L" ", (WS *)L"", FALSE);
+			wcscpy(wa1[_u1], wp1);
 			ifree(wp1);
 		}
 	}
@@ -4803,9 +5023,9 @@ WS *idate_replace_format_ymdhns(
 	for (UINT _u1 = 0; _u1 < uAw1; _u1++)
 	{
 		// 1のフラグ "\t" がここで本領発揮
-		if (aw1[_u1][0] == '\t')
+		if (wa1[_u1][0] == '\t')
 		{
-			WS *wp1 = aw1[_u1] + 1;
+			WS *wp1 = wa1[_u1] + 1;
 			INT iDt = _wtoi(wp1);
 
 			INT add_y = 0, add_m = 0, add_d = 0, add_h = 0, add_n = 0, add_s = 0;
@@ -4950,7 +5170,7 @@ WS *idate_replace_format_ymdhns(
 
 			// 区切り文字を付与して、元の文字列を上書き
 			WS *wpDate2 = iws_cats(3, add_quote, wpDate1, add_quote);
-			aw1[_u1] = irepalloc_WS(aw1[_u1], wpDate2, wcslen(wpDate2));
+			wa1[_u1] = irepalloc_WS(wa1[_u1], wpDate2, wcslen(wpDate2));
 
 			ifree(wpDate2);
 			ifree(wpDate1);
@@ -4959,16 +5179,16 @@ WS *idate_replace_format_ymdhns(
 	}
 
 	// 5. 最終整形
-	WS *rtn = icalloc_WS(iwan_strlen(aw1));
+	WS *rtn = icalloc_WS(iwan_strlen(wa1));
 	WS *wp1 = rtn;
 	for (UINT _u1 = 0; _u1 < uAw1; _u1++)
 	{
-		UINT uLen = wcslen(aw1[_u1]);
-		memcpy(wp1, aw1[_u1], uLen * sizeof(WS));
-		ifree(aw1[_u1]); // aw1の要素を解放
+		UINT uLen = wcslen(wa1[_u1]);
+		memcpy(wp1, wa1[_u1], uLen * sizeof(WS));
+		ifree(wa1[_u1]); // wa1の要素を解放
 		wp1 += uLen;
 	}
-	ifree(aw1); // aw1自身を解放
+	ifree2(wa1);
 
 	return rtn;
 }
